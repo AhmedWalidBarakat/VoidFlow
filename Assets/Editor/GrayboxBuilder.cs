@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using Object = UnityEngine.Object;
 
 namespace VoidFlow.EditorTools
@@ -18,7 +19,7 @@ namespace VoidFlow.EditorTools
     // way, air strafing sideways onto the next ramp, which starts as a landing hill shaped
     // to the flight arc, so you touch down smoothly and keep your speed.
     // Run from the menu (VoidFlow > Rebuild Graybox Map) after changing the layout below.
-    public static class GrayboxBuilder
+    public static partial class GrayboxBuilder
     {
         const string Root = "Assets/Graybox";
         const string ScenePath = "Assets/Scenes/Surf_Graybox.unity";
@@ -124,8 +125,6 @@ namespace VoidFlow.EditorTools
             Material slabMat = MakeMaterial("Slab", new Color(0.62f, 0.8f, 0.95f), grid);
             Material wallMat = MakeMaterial("Wall", Color.white, stripes);
             Material floorMat = MakeMaterial("Floor", new Color(0.35f, 0.38f, 0.45f), grid);
-            Material startMat = MakeMaterial("Start", new Color(0.75f, 0.75f, 0.78f), grid);
-            Material edgeMat = MakeMaterial("Edge", new Color(0.93f, 0.42f, 0.12f), grid);
             Material endMat = MakeMaterial("Finish", new Color(0.95f, 0.75f, 0.25f), grid);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -166,11 +165,11 @@ namespace VoidFlow.EditorTools
                 }
             }
 
-            // Start ledge hangs just above the left face of ramp 1, with an orange lip at the
-            // edge. Walk off the front and you drop a few metres onto the face.
-            float ledgeWidth = Mathf.Min(6f, ramps[0].width * 0.66f), ledgeX = -1f - ledgeWidth * 0.5f;
-            Box("StartPlatform", new Vector3(ledgeX, -0.5f, -10.5f), new Vector3(ledgeWidth, 1f, 19f), startMat, map);
-            Box("StartEdge", new Vector3(ledgeX, -0.5f, -0.5f), new Vector3(ledgeWidth, 1f, 1f), edgeMat, map);
+            // The start hall sits on the ledge above ramp 1. Its middle lane lines up over the
+            // left face, so walking straight off the drop edge lands you on it.
+            const float lane = -4f;
+            var (startZone, spawn) = BuildStartHall(map, lane, grid, rampMat);
+            AddGlowVolume(map);
 
             // Finish: a big square landing under the flight off the last ramp, whichever way
             // it points
@@ -183,7 +182,7 @@ namespace VoidFlow.EditorTools
             BotRoute.Add(new Vector2(finishCenter.x, finishCenter.z));
 
             // The hall: striped walls around everything, and a floor far below
-            float xMin = -16f, xMax = 4f, zMin = -20f, zMax = 0f;
+            float xMin = lane - HallHalfWidth - 2f, xMax = lane + HallHalfWidth + 2f, zMin = HallBack - 4f, zMax = 0f;
             foreach (var ramp in ramps)
             foreach (var p in ramp.ridge)
             {
@@ -205,11 +204,7 @@ namespace VoidFlow.EditorTools
             Box("WallEnd", new Vector3(xMid, yMid, zMax + 0.5f), new Vector3(xLen, yLen, 1f), wallMat, map, stripes: true);
             Box("Floor", new Vector3(xMid, yBottom - 0.5f, zMid), new Vector3(xLen, 1f, zLen), floorMat, map);
 
-            BoxCollider startZone = Zone("StartZone", new Vector3(ledgeX, 2f, -10f), new Vector3(ledgeWidth, 4f, 20f));
             BoxCollider endZone = Zone("FinishZone", finishCenter + Vector3.up * 2.5f, new Vector3(finishSize, 4f, finishSize));
-
-            var spawn = new GameObject("Spawn").transform;
-            spawn.SetPositionAndRotation(new Vector3(ledgeX, 0.02f, -16f), Quaternion.identity);
 
             PlayerMovement player = MakePlayer(spawn);
 
@@ -560,6 +555,7 @@ namespace VoidFlow.EditorTools
             camera.farClipPlane = 1000f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = RenderSettings.fogColor;
+            camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
             cam.AddComponent<AudioListener>();
 
             var movement = go.AddComponent<PlayerMovement>();
