@@ -18,7 +18,7 @@ namespace VoidFlow
         [Header("Movement")]
         public float gravity = 800f * SourceUnit;
         public float jumpSpeed = 301.993f * SourceUnit;
-        public float maxSpeed = 250f * SourceUnit;
+        public float maxSpeed = 300f * SourceUnit;
         public float accelerate = 5.5f;
         public float airAccelerate = 150f;
         public float airWishCap = 30f * SourceUnit;
@@ -45,21 +45,42 @@ namespace VoidFlow
         readonly Collider[] overlaps = new Collider[16];
         readonly Vector3[] planes = new Vector3[MaxSlides];
 
+        public struct MoveInput
+        {
+            public Vector2 move; // x = strafe (D positive), y = forward (W positive)
+            public bool jumpHeld;
+            public bool jumpPressed;
+        }
+
         public Vector3 Position => position;
         public Vector3 Velocity => velocity;
         public bool Grounded => grounded;
         public float HorizontalSpeed => new Vector3(velocity.x, 0f, velocity.z).magnitude;
+        public float Yaw { get => yaw; set => yaw = value; }
 
-        void Awake()
+        void Awake() => Init();
+
+        void Init()
         {
+            if (capsule) return;
             capsule = GetComponent<CapsuleCollider>();
             gameObject.layer = 2; // Ignore Raycast, so our own casts never hit the player
             position = prevPosition = transform.position;
             yaw = transform.eulerAngles.y;
         }
 
+        // Advances one tick with the given input. Update() drives this from the keyboard;
+        // editor tools call it directly to test movement without playing.
+        public void Simulate(MoveInput input, float dt)
+        {
+            Init();
+            prevPosition = position;
+            Tick(input, dt);
+        }
+
         public void Teleport(Vector3 pos, float newYaw)
         {
+            Init();
             position = prevPosition = pos;
             velocity = Vector3.zero;
             yaw = newYaw;
@@ -83,12 +104,19 @@ namespace VoidFlow
             var kb = Keyboard.current;
             if (kb != null && kb.spaceKey.wasPressedThisFrame) jumpQueued = true;
 
+            var input = new MoveInput
+            {
+                move = ReadMoveInput(kb),
+                jumpHeld = kb != null && kb.spaceKey.isPressed,
+            };
+
             float dt = 1f / tickRate;
             accumulator += Mathf.Min(Time.deltaTime, 0.1f);
             while (accumulator >= dt)
             {
-                prevPosition = position;
-                Tick(dt);
+                input.jumpPressed = jumpQueued;
+                jumpQueued = false;
+                Simulate(input, dt);
                 accumulator -= dt;
             }
 
@@ -126,18 +154,15 @@ namespace VoidFlow
             pitch = Mathf.Clamp(pitch - delta.y, -89f, 89f);
         }
 
-        void Tick(float dt)
+        void Tick(MoveInput input, float dt)
         {
-            var kb = Keyboard.current;
-            Vector2 input = ReadMoveInput(kb);
-            Vector3 wish = Quaternion.Euler(0f, yaw, 0f) * new Vector3(input.x, 0f, input.y);
+            Vector3 wish = Quaternion.Euler(0f, yaw, 0f) * new Vector3(input.move.x, 0f, input.move.y);
             float wishSpeed = wish.magnitude * maxSpeed;
             Vector3 wishDir = wish.sqrMagnitude > 0f ? wish.normalized : Vector3.zero;
 
             CategorizePosition();
 
-            bool wantJump = jumpQueued || (autoHop && kb != null && kb.spaceKey.isPressed);
-            jumpQueued = false;
+            bool wantJump = input.jumpPressed || (autoHop && input.jumpHeld);
             if (grounded && wantJump)
             {
                 // Jumping before friction is what makes bhop keep its speed
@@ -207,7 +232,7 @@ namespace VoidFlow
             grounded = false;
             if (velocity.y > MaxGroundedRiseSpeed) return;
             if (!Cast(position, Vector3.down, GroundProbe + Skin, out RaycastHit hit)) return;
-            if (hit.normal.y < groundNormalY) return; // too steep: this is a surf ramp
+            if (SurfaceNormal(hit).y < groundNormalY) return; // too steep: this is a surf ramp
 
             grounded = true;
             position.y -= Mathf.Max(hit.distance - Skin, 0f);
@@ -276,6 +301,18 @@ namespace VoidFlow
                     velocity = Clip(velocity, dir);
                 }
             }
+        }
+
+        // A capsule resting on a sharp edge (like the peak of a surf ramp) reports a rounded,
+        // nearly vertical contact normal, which would count as floor. Raycast straight down
+        // at the contact point to get the normal of the face actually underneath instead.
+        Vector3 SurfaceNormal(RaycastHit hit)
+        {
+            const float probe = 0.05f;
+            return Physics.Raycast(hit.point + Vector3.up * probe, Vector3.down, out RaycastHit face,
+                probe * 2f, collisionMask, QueryTriggerInteraction.Ignore)
+                ? face.normal
+                : hit.normal;
         }
 
         static Vector3 Clip(Vector3 v, Vector3 normal)

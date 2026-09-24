@@ -38,15 +38,17 @@ namespace VoidFlow.EditorTools
             var map = new GameObject("Map").transform;
 
             // Start platform hangs over the left face of ramp 1: walk off the front edge to drop in
+            // Ramps run downhill so gravity keeps feeding you speed; each one starts a little
+            // below where the previous one ends, so you fly across the gap and land on it.
             Box("StartPlatform", new Vector3(-5f, -0.5f, -4f), new Vector3(8f, 1f, 14f), startMat, map);
-            Ramp("Ramp1", new Vector3(0f, -3f, -2f), 122f, rampMat, map);
-            Ramp("Ramp2", new Vector3(0f, -16f, 124f), 126f, rampMat, map);
-            Ramp("Ramp3", new Vector3(0f, -29f, 254f), 120f, rampMat, map);
-            Box("FinishPlatform", new Vector3(0f, -45.5f, 404f), new Vector3(30f, 1f, 52f), endMat, map);
-            Box("FinishBackWall", new Vector3(0f, -39f, 431f), new Vector3(30f, 14f, 2f), platformMat, map);
+            Ramp("Ramp1", new Vector3(0f, -3f, -2f), 150f, 26f, rampMat, map);
+            Ramp("Ramp2", new Vector3(0f, -35f, 158f), 150f, 22f, rampMat, map);
+            Ramp("Ramp3", new Vector3(0f, -63f, 318f), 150f, 18f, rampMat, map);
+            Box("FinishPlatform", new Vector3(0f, -100.5f, 540f), new Vector3(30f, 1f, 120f), endMat, map);
+            Box("FinishBackWall", new Vector3(0f, -94f, 601f), new Vector3(30f, 14f, 2f), platformMat, map);
 
             BoxCollider startZone = Zone("StartZone", new Vector3(-5f, 1.5f, -4f), new Vector3(8f, 3f, 14f));
-            BoxCollider endZone = Zone("FinishZone", new Vector3(0f, -43f, 404f), new Vector3(30f, 4f, 52f));
+            BoxCollider endZone = Zone("FinishZone", new Vector3(0f, -98f, 540f), new Vector3(30f, 4f, 120f));
 
             var spawn = new GameObject("Spawn").transform;
             spawn.SetPositionAndRotation(new Vector3(-5f, 0.02f, -9f), Quaternion.identity);
@@ -89,7 +91,7 @@ namespace VoidFlow.EditorTools
 
         static PlayerMovement MakePlayer(Transform spawn)
         {
-            var go = new GameObject("Player");
+            var go = new GameObject("Player") { layer = 2 };
             go.transform.SetPositionAndRotation(spawn.position, spawn.rotation);
 
             // Roughly the Source player hull: 72u tall, 32u wide
@@ -132,14 +134,15 @@ namespace VoidFlow.EditorTools
             Spawn(name, center, mb, mat, parent);
         }
 
-        // Triangular prism with its ridge at `ridge`, running `length` metres along +Z
-        static void Ramp(string name, Vector3 ridge, float length, Material mat, Transform parent)
+        // Triangular prism with its ridge starting at `ridge`, running `length` metres along +Z
+        // and descending `drop` metres over that length
+        static void Ramp(string name, Vector3 ridge, float length, float drop, Material mat, Transform parent)
         {
             float h = RampHeight, w = RampHalfWidth;
             Vector3 l0 = new(-w, -h, 0f), r0 = new(w, -h, 0f), t0 = Vector3.zero;
-            Vector3 l1 = new(-w, -h, length), r1 = new(w, -h, length), t1 = new(0f, 0f, length);
+            Vector3 l1 = new(-w, -h - drop, length), r1 = new(w, -h - drop, length), t1 = new(0f, -drop, length);
 
-            var mb = new MeshBuilder(ridge) { SolidCenter = new Vector3(0f, -h / 3f, length * 0.5f) };
+            var mb = new MeshBuilder(ridge) { SolidCenter = new Vector3(0f, -h / 3f - drop * 0.5f, length * 0.5f) };
             mb.Face(l0, t0, t1, l1);
             mb.Face(t0, r0, r1, t1);
             mb.Face(l0, r0, r1, l1);
