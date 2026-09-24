@@ -11,7 +11,7 @@ namespace VoidFlow
         public BoxCollider startZone;
         public BoxCollider endZone;
         public Transform spawnPoint;
-        public float killHeight = -140f;
+        public float killHeight = -200f;
         [Tooltip("Stops players building speed inside the start zone (Source units per second).")]
         public float startZoneSpeedCap = 350f;
 

@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 using UnityEditor;
@@ -6,12 +7,28 @@ using UnityEngine;
 
 namespace VoidFlow.EditorTools
 {
-    // Headless movement test: walks off the start platform, then faces straight down the
-    // map (yaw 0) holding only W, relying on surf assist to stay on the ramps.
-    // Writes a trace to Logs/surfbot.txt so movement changes can be checked without playing.
+    // Headless movement tests. Each scenario walks off the start platform, faces straight
+    // down the map holding W, and does something at 7s (mid ramp 1, ~1000 u/s): taps a
+    // wrong key, jumps, etc. Writes Logs/surfbot.txt so movement changes can be checked
+    // without playing.
     public static class SurfBot
     {
         const string ScenePath = "Assets/Scenes/Surf_Graybox.unity";
+        const float EventTime = 7f;
+
+        // The bot surfs the left face of each ramp, so the ramp is to its right (+x)
+        static readonly (string name, Action<PlayerMovement> setup, Func<float, PlayerMovement.MoveInput> during, float yaw, float length)[] Scenarios =
+        {
+            ("hold W the whole way", null, t => Hold(0f, 1f), 0f, 0.3f),
+            ("tap S mid ramp", null, t => Hold(0f, -1f), 0f, 0.3f),
+            ("same, pure CS braking", p => p.airBrakeLimit = 0f, t => Hold(0f, -1f), 0f, 0.3f),
+            ("look 30 left + tap A", null, t => Hold(-1f, 0f), -30f, 0.3f),
+            ("same, pure CS braking", p => p.airBrakeLimit = 0f, t => Hold(-1f, 0f), -30f, 0.3f),
+            ("jump on ramp", null, t => new PlayerMovement.MoveInput { move = new Vector2(0f, 1f), jumpPressed = t < 0.01f, jumpHeld = true }, 0f, 0.3f),
+            ("slide to bottom of ramp", null, t => Hold(-1f, 0f), 0f, 1.2f),
+        };
+
+        static PlayerMovement.MoveInput Hold(float x, float y) => new() { move = new Vector2(x, y) };
 
         [MenuItem("VoidFlow/Run Surf Bot Test")]
         public static void Run()
@@ -20,47 +37,60 @@ namespace VoidFlow.EditorTools
             EditorSceneManager.OpenScene(ScenePath);
             Physics.SyncTransforms();
 
-            var player = Object.FindAnyObjectByType<PlayerMovement>();
+            var player = UnityEngine.Object.FindAnyObjectByType<PlayerMovement>();
             var spawn = GameObject.Find("Spawn").transform;
             Bounds finish = GameObject.Find("FinishZone").GetComponent<BoxCollider>().bounds;
+            float defaultBrake = player.airBrakeLimit;
+            float killHeight = UnityEngine.Object.FindAnyObjectByType<RunTimer>().killHeight;
 
-            player.Teleport(spawn.position, 0f);
-            float dt = 1f / player.tickRate;
-            bool dropped = false;
-            float topSpeed = 0f;
-            var log = new StringBuilder("time   x       y        z      speed(u/s)  vy     grounded\n");
-            string result = "timed out";
+            var report = new StringBuilder();
+            var trace = new StringBuilder();
 
-            for (int i = 0; i < player.tickRate * 90; i++)
+            foreach (var s in Scenarios)
             {
-                var input = new PlayerMovement.MoveInput();
-                if (!dropped)
+                player.airBrakeLimit = defaultBrake;
+                s.setup?.Invoke(player);
+                player.Teleport(spawn.position, 0f);
+
+                float dt = 1f / player.tickRate;
+                bool dropped = false;
+                float topSpeed = 0f, before = 0f, lowestAfter = float.MaxValue;
+                string result = "timed out";
+                trace.AppendLine($"== {s.name}");
+
+                for (int i = 0; i < player.tickRate * 60; i++)
                 {
-                    input.move = new Vector2(0f, 1f);
-                    dropped = !player.Grounded && player.Position.y < -0.5f;
+                    float t = i * dt;
+                    var input = Hold(0f, 1f);
+                    player.Yaw = 0f;
+                    if (dropped && t >= EventTime && t < EventTime + s.length)
+                    {
+                        input = s.during(t - EventTime);
+                        player.Yaw = s.yaw;
+                    }
+                    if (!dropped) dropped = !player.Grounded && player.Position.y < -0.5f;
+
+                    player.Simulate(input, dt);
+
+                    Vector3 p = player.Position;
+                    float speed = player.HorizontalSpeed / PlayerMovement.SourceUnit;
+                    topSpeed = Mathf.Max(topSpeed, speed);
+                    if (t < EventTime) before = speed;
+                    else if (t < EventTime + 1f) lowestAfter = Mathf.Min(lowestAfter, speed);
+                    if (i % 64 == 0)
+                        trace.AppendLine($"{t,5:0.0} x{p.x,6:0.0} y{p.y,7:0.0} z{p.z,6:0} {speed,5:0}u/s vy{player.Velocity.y,6:0.0}");
+
+                    if (p.y < killHeight) { result = $"FELL at z={p.z:0}"; break; }
+                    if (finish.Contains(p + Vector3.up * 0.9f)) { result = $"finished {t:0.00}s"; break; }
                 }
-                else
-                {
-                    // After the drop: face forward and just hold W, letting surf assist hold us on
-                    input.move = new Vector2(0f, 1f);
-                }
 
-                player.Simulate(input, dt);
-
-                Vector3 p = player.Position, v = player.Velocity;
-                float speed = player.HorizontalSpeed / PlayerMovement.SourceUnit;
-                topSpeed = Mathf.Max(topSpeed, speed);
-                if (i % 64 == 0)
-                    log.AppendLine($"{i * dt,5:0.00} {p.x,7:0.0} {p.y,8:0.0} {p.z,7:0.0} {speed,9:0} {v.y,8:0.0}   {player.Grounded}");
-
-                if (p.y < -140f) { result = $"FELL at z={p.z:0} y={p.y:0}"; break; }
-                if (finish.Contains(p + Vector3.up * 0.9f)) { result = $"FINISHED in {i * dt:0.00}s"; break; }
+                report.AppendLine($"{s.name,-26} {result,-16} speed at 7s {before,5:0} -> lowest next 1s {lowestAfter,5:0}   top {topSpeed,5:0}");
             }
 
-            log.AppendLine($"RESULT: {result}, top speed {topSpeed:0} u/s");
+            player.airBrakeLimit = defaultBrake;
             Directory.CreateDirectory("Logs");
-            File.WriteAllText("Logs/surfbot.txt", log.ToString());
-            Debug.Log("SurfBot: " + result);
+            File.WriteAllText("Logs/surfbot.txt", report + "\n" + trace);
+            Debug.Log("SurfBot:\n" + report);
         }
     }
 }

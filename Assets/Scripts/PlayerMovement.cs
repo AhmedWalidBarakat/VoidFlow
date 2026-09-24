@@ -30,6 +30,10 @@ namespace VoidFlow
         public bool surfAssist = true;
         [Tooltip("Sideways speed toward the ramp that surf assist holds you at. Higher drifts you up the ramp.")]
         public float surfAssistClimb = 0.3f;
+        [Tooltip("Max speed (u/s per second) that air input can take away. In CS a wrong key can brake ~20000 u/s per second; 0 restores that.")]
+        public float airBrakeLimit = 250f;
+        [Tooltip("Lets Space hop you off a surf ramp while keeping your speed. CS has no ramp jump.")]
+        public bool rampJump = true;
 
         [Header("Collision")]
         [Tooltip("Surfaces whose normal.y is below this are too steep to stand on, so they become surf ramps.")]
@@ -89,6 +93,7 @@ namespace VoidFlow
             Init();
             position = prevPosition = pos;
             velocity = Vector3.zero;
+            ticksSinceSurf = int.MaxValue;
             yaw = newYaw;
             pitch = 0f;
             accumulator = 0f;
@@ -175,6 +180,12 @@ namespace VoidFlow
                 velocity.y = jumpSpeed;
                 grounded = false;
             }
+            else if (rampJump && input.jumpPressed && !grounded && ticksSinceSurf <= 2)
+            {
+                // Hop relative to the ramp, so all forward speed is kept
+                velocity.y += jumpSpeed;
+                ticksSinceSurf = int.MaxValue;
+            }
 
             if (grounded)
             {
@@ -232,7 +243,26 @@ namespace VoidFlow
         {
             float add = Mathf.Min(wishSpeed, airWishCap) - Vector3.Dot(velocity, wishDir);
             if (add <= 0f) return;
-            velocity += wishDir * Mathf.Min(airAccelerate * wishSpeed * dt, add);
+
+            Vector3 push = wishDir * Mathf.Min(airAccelerate * wishSpeed * dt, add);
+            if (airBrakeLimit > 0f) push *= BrakeLimitedFraction(push, dt);
+            velocity += push;
+        }
+
+        // A key pointing against your motion would brake you at ~20000 u/s per second in CS.
+        // Shrink the push so horizontal speed drops by at most airBrakeLimit per second.
+        // Pushes that keep or add speed (proper strafing) come back as 1, untouched.
+        float BrakeLimitedFraction(Vector3 push, float dt)
+        {
+            var h = new Vector3(velocity.x, 0f, velocity.z);
+            var p = new Vector3(push.x, 0f, push.z);
+            float floor = h.magnitude - airBrakeLimit * SourceUnit * dt;
+            if (floor <= 0f || (h + p).magnitude >= floor) return 1f;
+
+            // Smallest f in [0,1] where |h + f*p| reaches the floor
+            float a = Vector3.Dot(p, p), b = 2f * Vector3.Dot(h, p), c = Vector3.Dot(h, h) - floor * floor;
+            float disc = Mathf.Max(b * b - 4f * a * c, 0f);
+            return Mathf.Clamp01((-b - Mathf.Sqrt(disc)) / (2f * a));
         }
 
         // Auto-strafe: does what holding A/D toward the ramp does in CS, so you can look

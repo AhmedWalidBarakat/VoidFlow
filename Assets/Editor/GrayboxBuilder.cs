@@ -15,10 +15,11 @@ namespace VoidFlow.EditorTools
         const string ScenePath = "Assets/Scenes/Surf_Graybox.unity";
         const float UvMeters = 2f; // one grid tile = 2m
 
-        // Ramp cross-section: 12m tall, 8m half-width, about 56 degrees. Anything
-        // steeper than ~45.6 degrees (normal.y < 0.7) is surfable.
-        const float RampHeight = 12f;
-        const float RampHalfWidth = 8f;
+        // Ramp cross-section: 30m tall, 20m half-width, about 56 degrees. Anything
+        // steeper than ~45.6 degrees (normal.y < 0.7) is surfable. Big faces leave room
+        // to recover from a mistake instead of sliding straight off the bottom.
+        const float RampHeight = 30f;
+        const float RampHalfWidth = 20f;
 
         [MenuItem("VoidFlow/Rebuild Graybox Map")]
         public static void Build()
@@ -37,18 +38,19 @@ namespace VoidFlow.EditorTools
 
             var map = new GameObject("Map").transform;
 
-            // Start platform hangs over the left face of ramp 1: walk off the front edge to drop in
-            // Ramps run downhill so gravity keeps feeding you speed; each one starts a little
-            // below where the previous one ends, so you fly across the gap and land on it.
+            // Start platform hangs over the left face of ramp 1: walk off the front edge to drop in.
+            // Ramps run downhill so gravity keeps feeding you speed. Each ramp starts 3m past
+            // the end of the previous one and 5m lower, with parallel faces, so wherever you
+            // leave one ramp you land on the face of the next instead of its blunt front end.
             Box("StartPlatform", new Vector3(-5f, -0.5f, -4f), new Vector3(8f, 1f, 14f), startMat, map);
-            Ramp("Ramp1", new Vector3(0f, -3f, -2f), 150f, 26f, rampMat, map);
-            Ramp("Ramp2", new Vector3(0f, -35f, 158f), 150f, 22f, rampMat, map);
-            Ramp("Ramp3", new Vector3(0f, -63f, 318f), 150f, 18f, rampMat, map);
-            Box("FinishPlatform", new Vector3(0f, -100.5f, 540f), new Vector3(30f, 1f, 120f), endMat, map);
-            Box("FinishBackWall", new Vector3(0f, -94f, 601f), new Vector3(30f, 14f, 2f), platformMat, map);
+            Ramp("Ramp1", new Vector3(0f, -3f, -2f), 160f, 28f, rampMat, map);
+            Ramp("Ramp2", new Vector3(0f, -36f, 161f), 160f, 24f, rampMat, map);
+            Ramp("Ramp3", new Vector3(0f, -65f, 324f), 160f, 20f, rampMat, map);
+            Box("FinishPlatform", new Vector3(-10f, -125.5f, 590f), new Vector3(60f, 1f, 200f), endMat, map);
+            Box("FinishBackWall", new Vector3(-10f, -119f, 691f), new Vector3(60f, 14f, 2f), platformMat, map);
 
             BoxCollider startZone = Zone("StartZone", new Vector3(-5f, 1.5f, -4f), new Vector3(8f, 3f, 14f));
-            BoxCollider endZone = Zone("FinishZone", new Vector3(0f, -98f, 540f), new Vector3(30f, 4f, 120f));
+            BoxCollider endZone = Zone("FinishZone", new Vector3(-10f, -123f, 590f), new Vector3(60f, 4f, 200f));
 
             var spawn = new GameObject("Spawn").transform;
             spawn.SetPositionAndRotation(new Vector3(-5f, 0.02f, -9f), Quaternion.identity);
