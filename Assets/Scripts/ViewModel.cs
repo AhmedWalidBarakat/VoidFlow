@@ -125,6 +125,7 @@ namespace VoidFlow
             RestoreView();
             foreach (var m in materials) Kill(m);
             Kill(panel);
+            Kill(dot);
             Kill(scopeTexture);
         }
 
@@ -171,27 +172,34 @@ namespace VoidFlow
         }
 
         [Header("Crosshair")]
-        public Color crosshairColor = new(0.2f, 1f, 0.2f);
-        public float crosshairLength = 7f, crosshairThickness = 2f, crosshairGap = 4f; // pixels at 1080p
+        public Color crosshairColor = Color.white;
+        public float crosshairSize = 5f; // dot diameter in pixels at 1080p
 
-        // Classic CS crosshair: four lines around a gap, with a thin black outline so it
-        // reads on any background. Hidden while scoped (the scope has its own lines).
+        Texture2D dot;
+
+        // A small round white dot with a faint dark edge so it reads on any background.
+        // Hidden while scoped (the scope has its own lines).
         void DrawCrosshair()
         {
-            float scale = Mathf.Max(1f, Screen.height / 1080f);
-            float len = Mathf.Round(crosshairLength * scale), thick = Mathf.Max(1f, Mathf.Round(crosshairThickness * scale));
-            float gap = Mathf.Round(crosshairGap * scale);
-            float cx = Mathf.Round(Screen.width * 0.5f - thick * 0.5f), cy = Mathf.Round(Screen.height * 0.5f - thick * 0.5f);
-            var bars = new[]
+            if (!dot)
             {
-                new Rect(cx - gap - len, cy, len, thick), new Rect(cx + thick + gap, cy, len, thick),
-                new Rect(cx, cy - gap - len, thick, len), new Rect(cx, cy + thick + gap, thick, len),
-            };
+                const int size = 32;
+                dot = new Texture2D(size, size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear };
+                for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float r = new Vector2(x + 0.5f - size / 2f, y + 0.5f - size / 2f).magnitude / (size / 2f);
+                    dot.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Clamp01((1f - r) * size / 2f)));
+                }
+                dot.Apply();
+            }
+            float d = Mathf.Max(3f, crosshairSize * Screen.height / 1080f);
+            var center = new Vector2(Screen.width, Screen.height) * 0.5f;
             var old = GUI.color;
-            GUI.color = new Color(0f, 0f, 0f, 0.8f);
-            foreach (var r in bars) GUI.DrawTexture(new Rect(r.x - 1f, r.y - 1f, r.width + 2f, r.height + 2f), Texture2D.whiteTexture);
+            GUI.color = new Color(0f, 0f, 0f, 0.6f);
+            GUI.DrawTexture(new Rect(center.x - d * 0.5f - 1f, center.y - d * 0.5f - 1f, d + 2f, d + 2f), dot);
             GUI.color = crosshairColor;
-            foreach (var r in bars) GUI.DrawTexture(r, Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(center.x - d * 0.5f, center.y - d * 0.5f, d, d), dot);
             GUI.color = old;
         }
 
