@@ -22,7 +22,7 @@ namespace VoidFlow.EditorTools
     {
         const string ScenePath = "Assets/Scenes/Surf_Graybox.unity";
         const float TurnDeadZone = 2f;  // degrees
-        const float SwingBand = GrayboxBuilder.FaceWidth * 0.15f; // how far above/below the line each swing reaches
+        const float SwingBand = GrayboxBuilder.Thin * 0.15f; // how far above/below the line each swing reaches
         const int SyncStrafeTicks = 24; // air strafe switches sides this often flying straight
 
         [MenuItem("VoidFlow/Run Surf Bot Test")]
