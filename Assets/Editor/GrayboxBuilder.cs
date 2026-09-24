@@ -9,10 +9,11 @@ using Object = UnityEngine.Object;
 
 namespace VoidFlow.EditorTools
 {
-    // Generates a small utopia-style surf test map: a tall striped hall with curved,
-    // free-standing ridge ramps running down the middle. You drop off a ledge onto a ramp
-    // that dives and then levels out (turning the fall into speed, like utopia's start),
-    // fly onto an S-bend ramp, then a last straight ramp to the finish.
+    // Generates a small utopia-style surf test map: a hall with straight, free-standing
+    // ridge ramps down the middle, so you can look forward the whole run. Each ramp dives,
+    // levels out, then rises gently at the end. Swing up the face toward the peak there and
+    // you launch off the end a long way to the next ramp, which starts as a landing hill
+    // shaped to the flight arc, so you touch down smoothly and keep your speed.
     // Run from the menu (VoidFlow > Rebuild Graybox Map) after changing the layout below.
     public static class GrayboxBuilder
     {
@@ -21,18 +22,34 @@ namespace VoidFlow.EditorTools
         const float UvMeters = 2f;          // one grid tile = 2m
         const float StripeTileMeters = 16f; // wall stripe pattern repeats every 16m of height
 
-        // Ramp cross-section, one side, from the ridge down. The face starts at 50 degrees and
-        // curves steeper to 68 at the bottom, like utopia's ramps. All of it is steeper than
-        // ~45.6 degrees (normal.y < 0.7), so every part is surfable.
+        // Ramp cross-section, one side, from the ridge down. The face starts at 48 degrees and
+        // curves steeper to 62 at the bottom. All of it is steeper than ~45.6 degrees
+        // (normal.y < 0.7), so every part is surfable. Steeper faces turn more of the ramp's
+        // push sideways when the ridge bends, which throws you off at speed.
         const float FaceWidth = 18f;
-        const float TopAngle = 50f, BottomAngle = 68f;
+        const float TopAngle = 48f, BottomAngle = 62f;
         const int ProfileSteps = 8;
         const float PathStep = 2f; // ramp mesh resolution along its length
 
-        // Gap between one ramp's end and the next ramp's start, and how much lower it starts.
-        // Faces line up, so you fly off one ramp straight onto the next.
-        const float RampGap = 6f;
-        const float RampStepDown = 5f;
+        // Flights between ramps. The next ramp starts FlightGap metres past the end of the last
+        // and follows the arc for LandingLength metres: 6m below you at first, rising to meet
+        // you near the end, so you land somewhere along it whether you launched from high or
+        // low on the face, fast or slow.
+        //
+        // Rule for every bend in a ridge: at ~2300 u/s it has to be long and gradual (radius
+        // around 150m+), or the push needed to bend your path mostly goes sideways into the
+        // face and throws you off the ramp faster than strafing can hold you on.
+        const float FlightGap = 35f;
+        const float LandingLength = 40f;
+        const float LandingClearStart = 6f, LandingClearEnd = 0f;
+        const float Gravity = 800f * PlayerMovement.SourceUnit;
+
+        // The line the bot swings around, which is also roughly where you'd ride. Over the
+        // last SwingLength metres of a ramp the line moves up toward the peak for the launch.
+        // Flights are designed for a launch from the middle line, the lowest likely one.
+        const float RideOffset = FaceWidth * 0.45f;
+        const float SwingOffset = FaceWidth * 0.15f;
+        const float SwingLength = 50f;
 
         // Where the bot aims, as (x, z) in order: a line along the left face of every ramp,
         // then the finish. Filled in by Build() from the layout so the bot always matches.
@@ -44,7 +61,7 @@ namespace VoidFlow.EditorTools
             public readonly List<Vector3> right = new();   // horizontal right vector at each point
             public readonly List<float> distance = new();  // metres along the ramp
             public Vector3 End => ridge[^1];
-            public Vector3 EndForward => (ridge[^1] - ridge[^2]).WithY(0f).normalized;
+            public float EndSlope => (ridge[^1].y - ridge[^2].y) / (ridge[^1].z - ridge[^2].z);
         }
 
         [MenuItem("VoidFlow/Rebuild Graybox Map")]
@@ -66,22 +83,24 @@ namespace VoidFlow.EditorTools
             SetupLighting();
             var map = new GameObject("Map").transform;
 
-            // Ramp 1, the big drop: the ridge starts level just below the ledge, dives at up to
-            // ~27 degrees through the middle, then levels out again, over 180m
-            var ramp1 = LayRamp(new Vector3(0f, -1f, 2f), 180f, t => 0f, t => -60f * t * t * (3f - 2f * t));
-            // Ramp 2: a gentle S-bend, slightly downhill
-            var ramp2 = LayRamp(NextStart(ramp1), 200f, t => -15f * Mathf.Sin(2f * Mathf.PI * t), t => -20f * t);
-            // Ramp 3: straight and a bit steeper downhill into the finish
-            var ramp3 = LayRamp(NextStart(ramp2), 140f, t => 0f, t => -15f * t);
+            // Ramp 1, the big drop: starts level just below the ledge, dives at ~24 degrees,
+            // levels out over 90m, then rises gently at the end for the launch
+            var ramp1 = LayRamp(new Vector3(0f, -1f, 2f), (0f, 0f), (40f, -0.45f), (90f, -0.45f), (180f, 0f), (230f, 0.08f));
+            // Ramps 2 and 3: land on the arc, level out over 120m, rise gently again
+            var ramp2 = LandingRamp(ramp1, (120f, 0f), (170f, 0.08f));
+            var ramp3 = LandingRamp(ramp2, (120f, 0f), (160f, 0.06f));
             var ramps = new[] { ramp1, ramp2, ramp3 };
 
             BotRoute.Clear();
             for (int r = 0; r < ramps.Length; r++)
             {
                 RidgeRamp($"Ramp{r + 1}", ramps[r], rampMat, map);
-                for (int i = 0; i < ramps[r].ridge.Count; i += 3)
+                var ridge = ramps[r].ridge;
+                for (int i = 0; i < ridge.Count; i += 3)
                 {
-                    Vector3 p = ramps[r].ridge[i] - ramps[r].right[i] * FaceWidth * 0.45f;
+                    float toEnd = ridge[^1].z - ridge[i].z;
+                    float offset = Mathf.Lerp(SwingOffset, RideOffset, toEnd / SwingLength);
+                    Vector3 p = ridge[i] - ramps[r].right[i] * offset;
                     BotRoute.Add(new Vector2(p.x, p.z));
                 }
             }
@@ -91,11 +110,12 @@ namespace VoidFlow.EditorTools
             Box("StartPlatform", new Vector3(-5f, -0.5f, -10.5f), new Vector3(6f, 1f, 19f), startMat, map);
             Box("StartEdge", new Vector3(-5f, -0.5f, -0.5f), new Vector3(6f, 1f, 1f), edgeMat, map);
 
-            // Finish platform well below the end of ramp 3
+            // Finish platform: a long flat landing under the flight off ramp 3
             Vector3 end = ramp3.End;
-            float finishTop = end.y - 32f;
-            const float finishLength = 100f;
-            var finishCenter = new Vector3(end.x, finishTop - 0.5f, end.z + 4f + finishLength * 0.5f);
+            var (_, flightY) = Flight(ramp3);
+            float finishTop = flightY(70f) - 1f;
+            const float finishLength = 180f;
+            var finishCenter = new Vector3(end.x, finishTop - 0.5f, end.z + 30f + finishLength * 0.5f);
             Box("FinishPlatform", finishCenter, new Vector3(60f, 1f, finishLength), endMat, map);
             BotRoute.Add(new Vector2(finishCenter.x, finishCenter.z));
 
@@ -142,29 +162,86 @@ namespace VoidFlow.EditorTools
 
         static Vector3 WithY(this Vector3 v, float y) => new(v.x, y, v.z);
 
-        static Vector3 NextStart(RampPath previous) =>
-            previous.End + previous.EndForward * RampGap + Vector3.down * RampStepDown;
-
-        // Lays a ramp's ridge along a path. heading(t) is in degrees (0 = +Z, positive turns
-        // right) and height(t) is the ridge height relative to the start, for t from 0 to 1.
-        static RampPath LayRamp(Vector3 start, float length, Func<float, float> heading, Func<float, float> height)
+        // Lays a straight ramp along +Z. The ridge's slope (rise per metre) is given at control
+        // points (distance, slope) and blends linearly between them, so a steady change in
+        // slope makes a smooth curve, and matching a flight arc is exact.
+        static RampPath LayRamp(Vector3 start, params (float s, float slope)[] slopes)
         {
             var path = new RampPath();
+            float length = slopes[^1].s;
             int steps = Mathf.CeilToInt(length / PathStep);
             float ds = length / steps;
-            Vector3 flat = start;
+            float y = start.y;
             for (int i = 0; i <= steps; i++)
             {
-                float t = (float)i / steps;
-                float h = heading(t) * Mathf.Deg2Rad;
-                path.ridge.Add(new Vector3(flat.x, start.y + height(t), flat.z));
-                path.right.Add(new Vector3(Mathf.Cos(h), 0f, -Mathf.Sin(h)));
-                path.distance.Add(i * ds);
-
-                float hMid = heading(t + 0.5f / steps) * Mathf.Deg2Rad;
-                flat += new Vector3(Mathf.Sin(hMid), 0f, Mathf.Cos(hMid)) * ds;
+                float d = i * ds;
+                path.ridge.Add(new Vector3(start.x, y, start.z + d));
+                path.right.Add(Vector3.right);
+                path.distance.Add(d);
+                y += SlopeAt(slopes, d + ds * 0.5f) * ds;
             }
             return path;
+        }
+
+        static float SlopeAt((float s, float slope)[] slopes, float d)
+        {
+            for (int i = 1; i < slopes.Length; i++)
+                if (d <= slopes[i].s)
+                    return Mathf.Lerp(slopes[i - 1].slope, slopes[i].slope, Mathf.InverseLerp(slopes[i - 1].s, slopes[i].s, d));
+            return slopes[^1].slope;
+        }
+
+        // The arc you fly after leaving the end of a ramp: its slope and height as
+        // functions of forward distance past the end. Launch speed is estimated from the
+        // height dropped since the start ledge.
+        static (Func<float, float> slope, Func<float, float> height) Flight(RampPath from)
+        {
+            float launchY = from.End.y - FaceDepth(RideOffset);
+            float speed = Mathf.Sqrt(2f * Gravity * Mathf.Max(-launchY, 1f)) * 0.95f;
+            float k = from.EndSlope;
+            float vz = speed / Mathf.Sqrt(1f + k * k), vy = vz * k;
+            return (d => vy / vz - Gravity * d / (vz * vz),
+                    d => launchY + vy * d / vz - 0.5f * Gravity * (d / vz) * (d / vz));
+        }
+
+        // The next ramp: a landing hill that follows the flight arc off `from`, then the
+        // given (distance, slope) points after it, measured from the end of the landing hill.
+        static RampPath LandingRamp(RampPath from, params (float s, float slope)[] after)
+        {
+            var (arcSlope, arcY) = Flight(from);
+            float rise = (LandingClearStart - LandingClearEnd) / LandingLength;
+            var start = new Vector3(from.End.x, arcY(FlightGap) + FaceDepth(RideOffset) - LandingClearStart, from.End.z + FlightGap);
+
+            var slopes = new List<(float, float)>
+            {
+                (0f, arcSlope(FlightGap) + rise),
+                (LandingLength, arcSlope(FlightGap + LandingLength) + rise),
+            };
+            foreach (var (d, slope) in after) slopes.Add((LandingLength + d, slope));
+            return LayRamp(start, slopes.ToArray());
+        }
+
+        // Cross-section of one face: (distance out from the ridge, depth below it). The face
+        // starts at TopAngle and curves steeper to BottomAngle.
+        static List<Vector2> Profile()
+        {
+            var profile = new List<Vector2> { Vector2.zero };
+            float step = FaceWidth / ProfileSteps;
+            for (int k = 0; k < ProfileSteps; k++)
+            {
+                float angle = Mathf.Lerp(TopAngle, BottomAngle, (k + 0.5f) / ProfileSteps) * Mathf.Deg2Rad;
+                profile.Add(profile[^1] + new Vector2(step, step * Mathf.Tan(angle)));
+            }
+            return profile;
+        }
+
+        static float FaceDepth(float offset)
+        {
+            var profile = Profile();
+            for (int k = 1; k < profile.Count; k++)
+                if (offset <= profile[k].x)
+                    return Mathf.Lerp(profile[k - 1].y, profile[k].y, Mathf.InverseLerp(profile[k - 1].x, profile[k].x, offset));
+            return profile[^1].y;
         }
 
         // Builds a free-standing ridge ramp along a path: two curved faces meeting at a sharp
@@ -172,17 +249,10 @@ namespace VoidFlow.EditorTools
         // curved faces are exactly what you surf on.
         static void RidgeRamp(string name, RampPath path, Material mat, Transform parent)
         {
-            // Cross-section of one face: (distance out from the ridge, depth below it)
-            var profile = new List<Vector2> { Vector2.zero };
+            var profile = Profile();
             var profileArc = new List<float> { 0f };
-            float step = FaceWidth / ProfileSteps;
-            for (int k = 0; k < ProfileSteps; k++)
-            {
-                float angle = Mathf.Lerp(TopAngle, BottomAngle, (k + 0.5f) / ProfileSteps) * Mathf.Deg2Rad;
-                Vector2 next = profile[^1] + new Vector2(step, step * Mathf.Tan(angle));
-                profileArc.Add(profileArc[^1] + Vector2.Distance(profile[^1], next));
-                profile.Add(next);
-            }
+            for (int k = 1; k < profile.Count; k++)
+                profileArc.Add(profileArc[^1] + Vector2.Distance(profile[k - 1], profile[k]));
 
             Vector3 origin = path.ridge[0];
             int n = path.ridge.Count, kCount = profile.Count;
