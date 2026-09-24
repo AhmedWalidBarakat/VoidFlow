@@ -7,10 +7,10 @@ using UnityEngine;
 namespace VoidFlow.EditorTools
 {
     // Headless movement test that surfs the map with plain CS technique, never touching W.
-    // On a ramp: look along it, hold the key toward the ramp while below the target height,
-    // let go to dip (never press away, which brakes you in CS). To transfer, ride off the
-    // bottom. In the air: look along your velocity and strafe toward the target, which
-    // turns without losing speed.
+    // It follows a line along the left face of every ramp. On a ramp: look along your
+    // motion, hold the strafe key on the ramp's side while below the line, let go to dip
+    // (never press away, which brakes you in CS). In the air: look along your velocity and
+    // strafe toward the line, which turns without losing speed.
     // Writes Logs/surfbot.txt so map or movement changes can be checked without playing.
     public static class SurfBot
     {
@@ -50,31 +50,26 @@ namespace VoidFlow.EditorTools
                 }
                 else
                 {
-                    while (waypoint < route.Count - 1 && p.z >= route[waypoint].y) waypoint++;
-                    Vector2 target = route[waypoint];
+                    // Advance past route points we've gone by, then aim a few points ahead
+                    var flat = new Vector2(p.x, p.z);
+                    while (waypoint < route.Count - 1 && Vector2.Dot(flat - route[waypoint], route[waypoint + 1] - route[waypoint]) > 0f)
+                        waypoint++;
+                    Vector2 target = route[Mathf.Min(waypoint + 3, route.Count - 1)];
 
                     float heading = Mathf.Atan2(v.x, v.z) * Mathf.Rad2Deg;
                     float wanted = Mathf.Atan2(target.x - p.x, target.y - p.z) * Mathf.Rad2Deg;
                     float error = Mathf.DeltaAngle(heading, wanted);
 
-                    Vector3 feet = p + Vector3.up * 0.4f;
-                    Collider[] touching = player.Grounded ? new Collider[0]
-                        : Physics.OverlapSphere(feet, 0.5f, player.collisionMask, QueryTriggerInteraction.Ignore);
-
-                    if (touching.Length > 0)
+                    if (!player.Grounded && FindRamp(player, p, out Vector3 toRamp))
                     {
-                        // On a ramp: look along it and manage height on the face. Hold the key
-                        // toward the ramp while below the target line, let go when above it.
-                        // A target on the other wall means ride down and slide off to transfer.
-                        Vector3 toRamp = touching[0].ClosestPoint(feet) - feet;
-                        toRamp.y = 0f;
-                        toRamp.Normalize();
-                        Vector3 along = Vector3.Cross(Vector3.up, toRamp);
-                        if (Vector3.Dot(along, v) < 0f) along = -along;
-                        player.Yaw = Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg;
-
-                        float belowTarget = Vector3.Dot(new Vector3(target.x - p.x, 0f, 0f), toRamp);
-                        float rampSide = Mathf.Sign(Vector3.Dot(toRamp, Quaternion.Euler(0f, player.Yaw, 0f) * Vector3.right));
+                        // On a ramp: look along your motion and manage height on the face.
+                        // Hold the strafe key on the ramp's side while below the target line,
+                        // let go when above it. The key is exactly sideways to your motion, so
+                        // it never brakes you (on a downhill ramp, "straight at the ramp" does).
+                        player.Yaw = heading;
+                        Vector3 right = Quaternion.Euler(0f, heading, 0f) * Vector3.right;
+                        float rampSide = Mathf.Sign(Vector3.Dot(toRamp, right));
+                        float belowTarget = Vector3.Dot(new Vector3(target.x - p.x, 0f, target.y - p.z), right * rampSide);
                         if (belowTarget > 0.5f) input.move = new Vector2(rampSide, 0f);
                     }
                     else
@@ -101,6 +96,24 @@ namespace VoidFlow.EditorTools
             Directory.CreateDirectory("Logs");
             File.WriteAllText("Logs/surfbot.txt", log.ToString());
             Debug.Log("SurfBot: " + result);
+        }
+
+        // Are we touching a surf ramp, and which way (horizontally) is it? Fans short rays
+        // out and down from the body; ClosestPoint can't be used on curved mesh colliders.
+        static bool FindRamp(PlayerMovement player, Vector3 p, out Vector3 toRamp)
+        {
+            toRamp = Vector3.zero;
+            Vector3 center = p + Vector3.up * 0.9f;
+            float best = 1.4f;
+            for (int a = 0; a < 16; a++)
+            {
+                Vector3 dir = Quaternion.Euler(0f, a * 22.5f, 0f) * new Vector3(0f, -1f, 1f).normalized;
+                if (!Physics.Raycast(center, dir, out RaycastHit hit, best, player.collisionMask, QueryTriggerInteraction.Ignore)) continue;
+                if (hit.normal.y > 0.7f) continue; // floor, not a ramp
+                best = hit.distance;
+                toRamp = new Vector3(-hit.normal.x, 0f, -hit.normal.z).normalized;
+            }
+            return toRamp != Vector3.zero;
         }
     }
 }

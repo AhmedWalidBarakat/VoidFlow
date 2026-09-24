@@ -1,41 +1,51 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Object = UnityEngine.Object;
 
 namespace VoidFlow.EditorTools
 {
-    // Generates a small utopia-style surf test map: an enclosed corridor with surf ramps
-    // on alternating walls, a high start platform to drop in from, and a finish platform.
-    // Everything is sized in Source units so the ramps match CS movement.
+    // Generates a small utopia-style surf test map: a tall striped hall with curved,
+    // free-standing ridge ramps running down the middle. You drop off a ledge onto a ramp
+    // that dives and then levels out (turning the fall into speed, like utopia's start),
+    // fly onto an S-bend ramp, then a last straight ramp to the finish.
     // Run from the menu (VoidFlow > Rebuild Graybox Map) after changing the layout below.
     public static class GrayboxBuilder
     {
         const string Root = "Assets/Graybox";
         const string ScenePath = "Assets/Scenes/Surf_Graybox.unity";
-        const float UvMeters = 2f; // one grid tile = 2m
+        const float UvMeters = 2f;          // one grid tile = 2m
+        const float StripeTileMeters = 16f; // wall stripe pattern repeats every 16m of height
 
-        const float U = PlayerMovement.SourceUnit;
+        // Ramp cross-section, one side, from the ridge down. The face starts at 50 degrees and
+        // curves steeper to 68 at the bottom, like utopia's ramps. All of it is steeper than
+        // ~45.6 degrees (normal.y < 0.7), so every part is surfable.
+        const float FaceWidth = 18f;
+        const float TopAngle = 50f, BottomAngle = 68f;
+        const int ProfileSteps = 8;
+        const float PathStep = 2f; // ramp mesh resolution along its length
 
-        // Wall ramp cross-section: 1024u tall, 704u out from the wall, about 55 degrees.
-        // Anything steeper than ~45.6 degrees (normal.y < 0.7) is surfable. Tall faces give
-        // room to soak up the speed from landing on a ramp, like utopia's ramps.
-        const float RampHeight = 1024f * U;
-        const float RampDepth = 704f * U;
-        const float RampLength = 4096f * U;
-        const float RampDecline = 256f * U;   // gentle downhill along each ramp
-        const float CorridorHalfWidth = 640f * U; // ramps reach past the middle; stages are far enough apart that they never touch
-        const float TransferOverlap = 1024f * U; // next ramp starts this far before the previous ends
-        // A transfer at ~900 u/s crosses the corridor sideways at ~15 m/s and falls ~1000u on the
-        // way, so the next ramp starts that far below the end of the previous one
-        const float StageDrop = 1024f * U;
+        // Gap between one ramp's end and the next ramp's start, and how much lower it starts.
+        // Faces line up, so you fly off one ramp straight onto the next.
+        const float RampGap = 6f;
+        const float RampStepDown = 5f;
 
-        // Where the bot aims, as (x, z) in order: the middle of each ramp, a dip low on it for
-        // speed before the transfer, then the finish.
-        // Filled in by Build() from the layout so the bot always matches the map.
+        // Where the bot aims, as (x, z) in order: a line along the left face of every ramp,
+        // then the finish. Filled in by Build() from the layout so the bot always matches.
         public static readonly List<Vector2> BotRoute = new();
+
+        class RampPath
+        {
+            public readonly List<Vector3> ridge = new();   // world position of the ridge line
+            public readonly List<Vector3> right = new();   // horizontal right vector at each point
+            public readonly List<float> distance = new();  // metres along the ramp
+            public Vector3 End => ridge[^1];
+            public Vector3 EndForward => (ridge[^1] - ridge[^2]).WithY(0f).normalized;
+        }
 
         [MenuItem("VoidFlow/Rebuild Graybox Map")]
         public static void Build()
@@ -44,61 +54,76 @@ namespace VoidFlow.EditorTools
 
             Directory.CreateDirectory(Root + "/Meshes");
             Texture2D grid = MakeGridTexture();
-            Material wallMat = MakeMaterial("Wall", new Color(0.82f, 0.82f, 0.85f), grid);
-            Material rampMat = MakeMaterial("Ramp", new Color(0.95f, 0.5f, 0.2f), grid);
-            Material floorMat = MakeMaterial("Floor", new Color(0.2f, 0.21f, 0.25f), grid);
-            Material startMat = MakeMaterial("Start", new Color(0.3f, 0.75f, 0.42f), grid);
+            Texture2D stripes = MakeStripeTexture();
+            Material rampMat = MakeMaterial("Ramp", new Color(0.9f, 0.89f, 0.93f), grid);
+            Material wallMat = MakeMaterial("Wall", Color.white, stripes);
+            Material floorMat = MakeMaterial("Floor", new Color(0.35f, 0.38f, 0.45f), grid);
+            Material startMat = MakeMaterial("Start", new Color(0.75f, 0.75f, 0.78f), grid);
+            Material edgeMat = MakeMaterial("Edge", new Color(0.93f, 0.42f, 0.12f), grid);
             Material endMat = MakeMaterial("Finish", new Color(0.95f, 0.75f, 0.25f), grid);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             SetupLighting();
-
             var map = new GameObject("Map").transform;
 
-            // Three ramps on alternating walls: left, right, left. Each one starts before the
-            // previous ends and a stage lower, so you transfer across the corridor to it.
+            // Ramp 1, the big drop: the ridge starts level just below the ledge, dives at up to
+            // ~27 degrees through the middle, then levels out again, over 180m
+            var ramp1 = LayRamp(new Vector3(0f, -1f, 2f), 180f, t => 0f, t => -60f * t * t * (3f - 2f * t));
+            // Ramp 2: a gentle S-bend, slightly downhill
+            var ramp2 = LayRamp(NextStart(ramp1), 200f, t => -15f * Mathf.Sin(2f * Mathf.PI * t), t => -20f * t);
+            // Ramp 3: straight and a bit steeper downhill into the finish
+            var ramp3 = LayRamp(NextStart(ramp2), 140f, t => 0f, t => -15f * t);
+            var ramps = new[] { ramp1, ramp2, ramp3 };
+
             BotRoute.Clear();
-            float z = 0f, top = 0f;
-            float midX = CorridorHalfWidth - RampDepth * 0.5f;
-            float lowX = CorridorHalfWidth - RampDepth * 0.8f;
-            for (int i = 0; i < 3; i++)
+            for (int r = 0; r < ramps.Length; r++)
             {
-                float side = i % 2 == 0 ? -1f : 1f;
-                WallRamp($"Ramp{i + 1}", side, z, top, rampMat, map);
-                BotRoute.Add(new Vector2(side * midX, z + RampLength * 0.6f));
-                BotRoute.Add(new Vector2(side * lowX, z + RampLength - TransferOverlap));
-                z += RampLength - TransferOverlap;
-                top -= RampDecline + StageDrop;
+                RidgeRamp($"Ramp{r + 1}", ramps[r], rampMat, map);
+                for (int i = 0; i < ramps[r].ridge.Count; i += 3)
+                {
+                    Vector3 p = ramps[r].ridge[i] - ramps[r].right[i] * FaceWidth * 0.45f;
+                    BotRoute.Add(new Vector2(p.x, p.z));
+                }
             }
-            float rampsEnd = z + TransferOverlap;
-            float lastTop = top + StageDrop;
 
-            // Start ledge juts 3m out from the left wall, just above the top of ramp 1: walk off
-            // the front edge and you land high on the face with room to start surfing
-            float wall = CorridorHalfWidth;
-            Box("StartPlatform", new Vector3(-wall + 1.5f, 1.5f, -8f), new Vector3(3f, 1f, 12f), startMat, map);
+            // Start ledge hangs just above the left face of ramp 1, with an orange lip at the
+            // edge. Walk off the front and you drop a few metres onto the face.
+            Box("StartPlatform", new Vector3(-5f, -0.5f, -10.5f), new Vector3(6f, 1f, 19f), startMat, map);
+            Box("StartEdge", new Vector3(-5f, -0.5f, -0.5f), new Vector3(6f, 1f, 1f), edgeMat, map);
 
-            float finishTop = lastTop - RampHeight - 8f;
-            float finishLength = 80f;
-            Vector3 finishCenter = new(0f, finishTop - 0.5f, rampsEnd + 2f + finishLength * 0.5f);
-            Box("FinishPlatform", finishCenter, new Vector3(wall * 2f, 1f, finishLength), endMat, map);
-            BotRoute.Add(new Vector2(0f, finishCenter.z));
+            // Finish platform well below the end of ramp 3
+            Vector3 end = ramp3.End;
+            float finishTop = end.y - 32f;
+            const float finishLength = 100f;
+            var finishCenter = new Vector3(end.x, finishTop - 0.5f, end.z + 4f + finishLength * 0.5f);
+            Box("FinishPlatform", finishCenter, new Vector3(60f, 1f, finishLength), endMat, map);
+            BotRoute.Add(new Vector2(finishCenter.x, finishCenter.z));
 
-            // Corridor shell: side walls, a back wall behind the start, an end wall, and a floor
-            float zMin = -20f, zMax = finishCenter.z + finishLength * 0.5f + 1f;
-            float yTop = 25f, yBottom = finishTop - 30f;
-            float zMid = (zMin + zMax) * 0.5f, zLen = zMax - zMin, yMid = (yTop + yBottom) * 0.5f, yLen = yTop - yBottom;
-            Box("WallLeft", new Vector3(-wall - 0.5f, yMid, zMid), new Vector3(1f, yLen, zLen), wallMat, map);
-            Box("WallRight", new Vector3(wall + 0.5f, yMid, zMid), new Vector3(1f, yLen, zLen), wallMat, map);
-            Box("WallBack", new Vector3(0f, yMid, zMin - 0.5f), new Vector3(wall * 2f, yLen, 1f), wallMat, map);
-            Box("WallEnd", new Vector3(0f, yMid, zMax + 0.5f), new Vector3(wall * 2f, yLen, 1f), wallMat, map);
-            Box("Floor", new Vector3(0f, yBottom - 0.5f, zMid), new Vector3(wall * 2f, 1f, zLen), floorMat, map);
+            // The hall: striped walls around everything, and a floor far below
+            float xMin = -16f, xMax = 4f, zMin = -20f, zMax = finishCenter.z + finishLength * 0.5f;
+            foreach (var ramp in ramps)
+            foreach (var p in ramp.ridge)
+            {
+                xMin = Mathf.Min(xMin, p.x - FaceWidth);
+                xMax = Mathf.Max(xMax, p.x + FaceWidth);
+            }
+            xMin = Mathf.Min(xMin, finishCenter.x - 30f) - 12f;
+            xMax = Mathf.Max(xMax, finishCenter.x + 30f) + 12f;
+            float yTop = 30f, yBottom = finishTop - 25f;
+            float xMid = (xMin + xMax) * 0.5f, xLen = xMax - xMin;
+            float zMid = (zMin + zMax) * 0.5f, zLen = zMax - zMin;
+            float yMid = (yTop + yBottom) * 0.5f, yLen = yTop - yBottom;
+            Box("WallLeft", new Vector3(xMin - 0.5f, yMid, zMid), new Vector3(1f, yLen, zLen + 2f), wallMat, map, stripes: true);
+            Box("WallRight", new Vector3(xMax + 0.5f, yMid, zMid), new Vector3(1f, yLen, zLen + 2f), wallMat, map, stripes: true);
+            Box("WallBack", new Vector3(xMid, yMid, zMin - 0.5f), new Vector3(xLen, yLen, 1f), wallMat, map, stripes: true);
+            Box("WallEnd", new Vector3(xMid, yMid, zMax + 0.5f), new Vector3(xLen, yLen, 1f), wallMat, map, stripes: true);
+            Box("Floor", new Vector3(xMid, yBottom - 0.5f, zMid), new Vector3(xLen, 1f, zLen), floorMat, map);
 
-            BoxCollider startZone = Zone("StartZone", new Vector3(-wall + 1.5f, 4f, -8f), new Vector3(3f, 4f, 12f));
-            BoxCollider endZone = Zone("FinishZone", finishCenter + Vector3.up * 2.5f, new Vector3(wall * 2f, 4f, finishLength));
+            BoxCollider startZone = Zone("StartZone", new Vector3(-5f, 2f, -10f), new Vector3(6f, 4f, 20f));
+            BoxCollider endZone = Zone("FinishZone", finishCenter + Vector3.up * 2.5f, new Vector3(60f, 4f, finishLength));
 
             var spawn = new GameObject("Spawn").transform;
-            spawn.SetPositionAndRotation(new Vector3(-wall + 1.5f, 2.02f, -12f), Quaternion.identity);
+            spawn.SetPositionAndRotation(new Vector3(-5f, 0.02f, -16f), Quaternion.identity);
 
             PlayerMovement player = MakePlayer(spawn);
 
@@ -115,26 +140,155 @@ namespace VoidFlow.EditorTools
             Debug.Log("VoidFlow: graybox map built at " + ScenePath);
         }
 
+        static Vector3 WithY(this Vector3 v, float y) => new(v.x, y, v.z);
+
+        static Vector3 NextStart(RampPath previous) =>
+            previous.End + previous.EndForward * RampGap + Vector3.down * RampStepDown;
+
+        // Lays a ramp's ridge along a path. heading(t) is in degrees (0 = +Z, positive turns
+        // right) and height(t) is the ridge height relative to the start, for t from 0 to 1.
+        static RampPath LayRamp(Vector3 start, float length, Func<float, float> heading, Func<float, float> height)
+        {
+            var path = new RampPath();
+            int steps = Mathf.CeilToInt(length / PathStep);
+            float ds = length / steps;
+            Vector3 flat = start;
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = (float)i / steps;
+                float h = heading(t) * Mathf.Deg2Rad;
+                path.ridge.Add(new Vector3(flat.x, start.y + height(t), flat.z));
+                path.right.Add(new Vector3(Mathf.Cos(h), 0f, -Mathf.Sin(h)));
+                path.distance.Add(i * ds);
+
+                float hMid = heading(t + 0.5f / steps) * Mathf.Deg2Rad;
+                flat += new Vector3(Mathf.Sin(hMid), 0f, Mathf.Cos(hMid)) * ds;
+            }
+            return path;
+        }
+
+        // Builds a free-standing ridge ramp along a path: two curved faces meeting at a sharp
+        // ridge, plus the underside and end caps. Uses a (non-convex) mesh collider so the
+        // curved faces are exactly what you surf on.
+        static void RidgeRamp(string name, RampPath path, Material mat, Transform parent)
+        {
+            // Cross-section of one face: (distance out from the ridge, depth below it)
+            var profile = new List<Vector2> { Vector2.zero };
+            var profileArc = new List<float> { 0f };
+            float step = FaceWidth / ProfileSteps;
+            for (int k = 0; k < ProfileSteps; k++)
+            {
+                float angle = Mathf.Lerp(TopAngle, BottomAngle, (k + 0.5f) / ProfileSteps) * Mathf.Deg2Rad;
+                Vector2 next = profile[^1] + new Vector2(step, step * Mathf.Tan(angle));
+                profileArc.Add(profileArc[^1] + Vector2.Distance(profile[^1], next));
+                profile.Add(next);
+            }
+
+            Vector3 origin = path.ridge[0];
+            int n = path.ridge.Count, kCount = profile.Count;
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+
+            Vector3 Point(int i, float side, int k) =>
+                path.ridge[i] + path.right[i] * (side * profile[k].x) + Vector3.down * profile[k].y;
+
+            void Tri(int a, int b, int c, Vector3 outward)
+            {
+                Vector3 normal = Vector3.Cross(verts[b] - verts[a], verts[c] - verts[a]);
+                if (Vector3.Dot(normal, outward) < 0f) (b, c) = (c, b);
+                tris.Add(a); tris.Add(b); tris.Add(c);
+            }
+
+            int Add(Vector3 world, Vector2 uv)
+            {
+                verts.Add(world - origin);
+                uvs.Add(uv);
+                return verts.Count - 1;
+            }
+
+            // The two surf faces. Vertices are shared within a face so it shades smoothly,
+            // but not across the ridge, which stays sharp.
+            foreach (float side in new[] { -1f, 1f })
+            {
+                int first = verts.Count;
+                for (int i = 0; i < n; i++)
+                for (int k = 0; k < kCount; k++)
+                    Add(Point(i, side, k), new Vector2(path.distance[i], profileArc[k]) / UvMeters);
+
+                for (int i = 0; i < n - 1; i++)
+                for (int k = 0; k < kCount - 1; k++)
+                {
+                    int a = first + i * kCount + k, b = a + kCount, c = b + 1, d = a + 1;
+                    Vector3 outward = path.right[i] * side + Vector3.up;
+                    Tri(a, b, c, outward);
+                    Tri(a, c, d, outward);
+                }
+            }
+
+            // Underside
+            int bottom = kCount - 1;
+            for (int i = 0; i < n - 1; i++)
+            {
+                Vector3 l0 = Point(i, -1f, bottom), l1 = Point(i + 1, -1f, bottom);
+                Vector3 r0 = Point(i, 1f, bottom), r1 = Point(i + 1, 1f, bottom);
+                int a = Add(l0, new Vector2(l0.x, l0.z) / UvMeters), b = Add(l1, new Vector2(l1.x, l1.z) / UvMeters);
+                int c = Add(r1, new Vector2(r1.x, r1.z) / UvMeters), d = Add(r0, new Vector2(r0.x, r0.z) / UvMeters);
+                Tri(a, b, c, Vector3.down);
+                Tri(a, c, d, Vector3.down);
+            }
+
+            // End caps: the cross-section outline, fanned from its middle
+            foreach (int i in new[] { 0, n - 1 })
+            {
+                Vector3 forward = i == 0 ? -(path.ridge[1] - path.ridge[0]).WithY(0f) : (path.ridge[i] - path.ridge[i - 1]).WithY(0f);
+                var outline = new List<Vector3>();
+                for (int k = bottom; k >= 0; k--) outline.Add(Point(i, -1f, k));
+                for (int k = 1; k <= bottom; k++) outline.Add(Point(i, 1f, k));
+
+                Vector3 middle = Vector3.zero;
+                foreach (var p in outline) middle += p;
+                middle /= outline.Count;
+                Vector3 right = path.right[i];
+                Vector2 CapUv(Vector3 p) => new Vector2(Vector3.Dot(p, right), p.y) / UvMeters;
+
+                int center = Add(middle, CapUv(middle));
+                var ring = new List<int>();
+                foreach (var p in outline) ring.Add(Add(p, CapUv(p)));
+                for (int j = 0; j < ring.Count; j++)
+                    Tri(center, ring[j], ring[(j + 1) % ring.Count], forward);
+            }
+
+            var mesh = new Mesh { name = name };
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            mesh.RecalculateTangents();
+            SpawnMesh(name, origin, mesh, mat, parent, convex: false);
+        }
+
         static void SetupLighting()
         {
-            Color voidColor = new Color(0.05f, 0.06f, 0.1f);
+            Color sky = new Color(0.62f, 0.76f, 0.92f);
             RenderSettings.skybox = null;
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.55f, 0.6f, 0.75f);
-            RenderSettings.ambientEquatorColor = new Color(0.35f, 0.36f, 0.45f);
-            RenderSettings.ambientGroundColor = new Color(0.15f, 0.15f, 0.2f);
+            RenderSettings.ambientSkyColor = new Color(0.75f, 0.8f, 0.9f);
+            RenderSettings.ambientEquatorColor = new Color(0.6f, 0.6f, 0.65f);
+            RenderSettings.ambientGroundColor = new Color(0.35f, 0.33f, 0.33f);
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = voidColor;
-            RenderSettings.fogStartDistance = 80f;
-            RenderSettings.fogEndDistance = 450f;
+            RenderSettings.fogColor = sky;
+            RenderSettings.fogStartDistance = 150f;
+            RenderSettings.fogEndDistance = 800f;
 
             var sun = new GameObject("Sun").AddComponent<Light>();
             sun.type = LightType.Directional;
-            sun.intensity = 1.2f;
+            sun.intensity = 1.3f;
             sun.color = new Color(1f, 0.96f, 0.9f);
             sun.shadows = LightShadows.Soft;
-            sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+            sun.transform.rotation = Quaternion.Euler(55f, -35f, 0f);
         }
 
         static PlayerMovement MakePlayer(Transform spawn)
@@ -165,47 +319,26 @@ namespace VoidFlow.EditorTools
             return movement;
         }
 
-        static void Box(string name, Vector3 center, Vector3 size, Material mat, Transform parent)
+        static void Box(string name, Vector3 center, Vector3 size, Material mat, Transform parent, bool stripes = false)
         {
             Vector3 e = size * 0.5f;
             var c = new Vector3[8];
             for (int i = 0; i < 8; i++)
                 c[i] = new Vector3((i & 1) == 0 ? -e.x : e.x, (i & 2) == 0 ? -e.y : e.y, (i & 4) == 0 ? -e.z : e.z);
 
-            var mb = new MeshBuilder(center);
+            var mb = new MeshBuilder(center) { Stripes = stripes };
             mb.Face(c[0], c[1], c[3], c[2]); // front
             mb.Face(c[4], c[5], c[7], c[6]); // back
             mb.Face(c[0], c[2], c[6], c[4]); // left
             mb.Face(c[1], c[3], c[7], c[5]); // right
             mb.Face(c[2], c[3], c[7], c[6]); // top
             mb.Face(c[0], c[1], c[5], c[4]); // bottom
-            Spawn(name, center, mb, mat, parent);
+            SpawnMesh(name, center, mb.ToMesh(name), mat, parent, convex: true);
         }
 
-        // Surf ramp attached to a side wall (side -1 = left, +1 = right). Its top edge runs
-        // along the wall starting at (z, top); the face slopes down and out into the corridor.
-        static void WallRamp(string name, float side, float z, float top, Material mat, Transform parent)
+        static void SpawnMesh(string name, Vector3 pos, Mesh mesh, Material mat, Transform parent, bool convex)
         {
-            float h = RampHeight, d = RampDepth, len = RampLength, drop = RampDecline;
-            float inward = -side * d;
-            Vector3 t0 = Vector3.zero, b0 = new(0f, -h, 0f), i0 = new(inward, -h, 0f);
-            Vector3 t1 = new(0f, -drop, len), b1 = new(0f, -h - drop, len), i1 = new(inward, -h - drop, len);
-
-            var origin = new Vector3(side * CorridorHalfWidth, top, z);
-            var mb = new MeshBuilder(origin) { SolidCenter = (t0 + b0 + i0 + t1 + b1 + i1) / 6f };
-            mb.Face(t0, i0, i1, t1); // the surf face
-            mb.Face(t0, b0, b1, t1); // against the wall
-            mb.Face(b0, i0, i1, b1); // underside
-            mb.Face(t0, b0, i0);
-            mb.Face(t1, b1, i1);
-            Spawn(name, origin, mb, mat, parent);
-        }
-
-        static void Spawn(string name, Vector3 pos, MeshBuilder mb, Material mat, Transform parent)
-        {
-            Mesh mesh = mb.ToMesh(name);
-            string path = $"{Root}/Meshes/{name}.asset";
-            AssetDatabase.CreateAsset(mesh, path);
+            AssetDatabase.CreateAsset(mesh, $"{Root}/Meshes/{name}.asset");
 
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -215,7 +348,7 @@ namespace VoidFlow.EditorTools
             go.AddComponent<MeshRenderer>().sharedMaterial = mat;
             var col = go.AddComponent<MeshCollider>();
             col.sharedMesh = mesh;
-            col.convex = true;
+            col.convex = convex;
         }
 
         static BoxCollider Zone(string name, Vector3 center, Vector3 size)
@@ -228,10 +361,10 @@ namespace VoidFlow.EditorTools
             return box;
         }
 
-        static Material MakeMaterial(string name, Color color, Texture2D grid)
+        static Material MakeMaterial(string name, Color color, Texture2D texture)
         {
             var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            mat.SetTexture("_BaseMap", grid);
+            mat.SetTexture("_BaseMap", texture);
             mat.SetColor("_BaseColor", color);
             mat.SetFloat("_Smoothness", 0.15f);
             AssetDatabase.CreateAsset(mat, $"{Root}/{name}.mat");
@@ -240,7 +373,6 @@ namespace VoidFlow.EditorTools
 
         static Texture2D MakeGridTexture()
         {
-            string path = Root + "/Grid.png";
             const int size = 256;
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
             for (int y = 0; y < size; y++)
@@ -251,6 +383,31 @@ namespace VoidFlow.EditorTools
                 float v = major ? 0.55f : minor ? 0.8f : 0.95f;
                 tex.SetPixel(x, y, new Color(v, v, v, 1f));
             }
+            return SaveTexture(tex, Root + "/Grid.png");
+        }
+
+        // Utopia-style wall bands: pale grey with orange and blue stripes
+        static Texture2D MakeStripeTexture()
+        {
+            var grey = new Color(0.86f, 0.85f, 0.88f);
+            var orange = new Color(0.93f, 0.42f, 0.12f);
+            var blue = new Color(0.25f, 0.45f, 0.72f);
+            const int height = 256;
+            var tex = new Texture2D(4, height, TextureFormat.RGBA32, false);
+            for (int y = 0; y < height; y++)
+            {
+                float f = (float)y / height;
+                Color c = f is >= 0.70f and < 0.78f ? orange
+                    : f is >= 0.80f and < 0.90f ? blue
+                    : f is >= 0.93f and < 0.96f ? orange
+                    : grey;
+                for (int x = 0; x < 4; x++) tex.SetPixel(x, y, c);
+            }
+            return SaveTexture(tex, Root + "/Stripes.png");
+        }
+
+        static Texture2D SaveTexture(Texture2D tex, string path)
+        {
             File.WriteAllBytes(path, tex.EncodeToPNG());
             Object.DestroyImmediate(tex);
 
@@ -263,7 +420,8 @@ namespace VoidFlow.EditorTools
             return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
-        // Flat-shaded convex solid with grid UVs in world metres, so every surface tiles the same
+        // Flat-shaded convex solid with grid UVs in world metres, so every surface tiles the same.
+        // With Stripes on, V follows world height instead, so wall stripes line up everywhere.
         class MeshBuilder
         {
             readonly Vector3 origin;
@@ -272,6 +430,7 @@ namespace VoidFlow.EditorTools
             readonly List<Vector2> uvs = new();
             readonly List<int> tris = new();
             public Vector3 SolidCenter = Vector3.zero;
+            public bool Stripes;
 
             public MeshBuilder(Vector3 worldOrigin) => origin = worldOrigin;
 
@@ -284,19 +443,25 @@ namespace VoidFlow.EditorTools
                 Vector3 n = Vector3.Cross(pts[1] - pts[0], pts[2] - pts[0]).normalized;
                 if (Vector3.Dot(n, centroid - SolidCenter) < 0f)
                 {
-                    System.Array.Reverse(pts);
+                    Array.Reverse(pts);
                     n = -n;
                 }
 
                 Vector3 u = (pts[1] - pts[0]).normalized;
                 Vector3 v = Vector3.Cross(n, u);
+                Vector3 across = Vector3.Cross(Vector3.up, n);
+                bool stripeFace = Stripes && across.sqrMagnitude > 0.01f;
+                across.Normalize();
+
                 int start = verts.Count;
                 foreach (var p in pts)
                 {
                     Vector3 world = origin + p;
                     verts.Add(p);
                     normals.Add(n);
-                    uvs.Add(new Vector2(Vector3.Dot(world, u), Vector3.Dot(world, v)) / UvMeters);
+                    uvs.Add(stripeFace
+                        ? new Vector2(Vector3.Dot(world, across) / UvMeters, world.y / StripeTileMeters)
+                        : new Vector2(Vector3.Dot(world, u), Vector3.Dot(world, v)) / UvMeters);
                 }
                 for (int i = 1; i < pts.Length - 1; i++)
                 {

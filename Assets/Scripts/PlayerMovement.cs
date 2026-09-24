@@ -269,6 +269,9 @@ namespace VoidFlow
                 // Wedged between two planes: slide along the seam between them
                 for (int p = 0; p < planeCount - 1; p++)
                 {
+                    // Neighbouring triangles of a curved ramp are nearly the same plane, not
+                    // a corner; treating them as one would stop you dead (a "ramp bug")
+                    if (Vector3.Dot(planes[p], n) > 0.99f) continue;
                     if (Vector3.Dot(velocity, planes[p]) >= 0f) continue;
                     Vector3 crease = Vector3.Cross(planes[p], n);
                     velocity = crease.sqrMagnitude < 1e-6f
