@@ -37,18 +37,26 @@ namespace VoidFlow.EditorTools
 
             var rt = new RenderTexture(1280, 720, 24);
             var tex = new Texture2D(1280, 720, TextureFormat.RGB24, false);
-            foreach (var (name, offset, euler) in Views)
+            void Shoot(string name, Vector3 offset, Vector3 euler)
             {
                 cam.transform.SetPositionAndRotation(spawn.position + offset + Vector3.up * 1.63f, Quaternion.Euler(euler));
                 cam.targetTexture = rt;
-                // The first headless render after changes can come out with mixed-up materials (the
-            // game itself is fine), so render a throwaway frame first
-            cam.Render();
-            cam.Render();
+                // The first headless render after changes can come out with mixed-up materials
+                // (the game itself is fine), so render a throwaway frame first
+                cam.Render();
+                cam.Render();
                 RenderTexture.active = rt;
                 tex.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0);
                 tex.Apply();
                 File.WriteAllBytes($"Logs/{name}.png", tex.EncodeToPNG());
+            }
+            foreach (var (name, offset, euler) in Views) Shoot(name, offset, euler);
+            if (viewModel)
+            {
+                viewModel.Equip(ViewModel.SniperSlot);
+                Shoot("viewmodel_sniper", new Vector3(0f, 0f, 8f), Vector3.zero);
+                viewModel.PreviewSniperCycle(0.65f);
+                Shoot("viewmodel_sniper_bolt", new Vector3(0f, 0f, 8f), Vector3.zero);
             }
             cam.targetTexture = null;
             RenderTexture.active = null;

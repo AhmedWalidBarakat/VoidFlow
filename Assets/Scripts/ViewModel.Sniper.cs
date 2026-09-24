@@ -1,0 +1,496 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace VoidFlow
+{
+    // The sniper: a heavy bolt-action rifle with a big scope, held in fingerless gloves. It
+    // plays by the AWP's rules from CS: a 1.46 s bolt cycle between shots, a 5 round magazine
+    // with a 3.67 s reload, right click cycles 40 then 10 degree zoom, firing kicks you out of
+    // the scope and puts you back once the bolt is home, and you move at 200 (100 scoped).
+    // Unlike CS every shot goes exactly where the center of the screen points: no spread,
+    // no movement or unscoped inaccuracy, no drop and no falloff.
+    public partial class ViewModel
+    {
+        static readonly Vector3 SniperRest = new(0.15f, -0.135f, 0.32f);
+        static readonly Quaternion SniperRestRotation = Quaternion.Euler(-1f, -6f, -4f);
+
+        const int MagSize = 5;
+        const float CycleTime = 1.463f, ReloadTime = 3.67f, Range = 5000f;
+        static readonly float[] ZoomFov = { 90f, 40f, 10f }; // CS field of view at each zoom level
+
+        Transform gun, bolt, magazine, rightFist, flash;
+        Vector3 boltRest, magRest, fistRest;
+        Quaternion fistRestRotation;
+        Material holeMat, sparkMat, tracerMat;
+        Texture2D scopeTexture;
+
+        int mag = MagSize, zoom, resumeZoom;
+        float boltTime = -1f, reloadTime = -1f, sniperInspect = -1f, flashTime = 99f;
+        float baseFov, baseSens;
+
+        class Effect { public Transform t; public Vector3 velocity, scale; public float life, age; }
+        readonly List<Effect> effects = new();
+        readonly Queue<GameObject> holes = new();
+        LineRenderer tracer;
+        float tracerTime = 99f;
+
+        string SniperStatus() => reloadTime >= 0f ? "RELOADING" : $"{mag} / ∞   ·   RMB scope";
+
+        void SetupSniper()
+        {
+            baseFov = view.fieldOfView;
+            baseSens = player ? player.sensitivity : 0f;
+
+            // Scope overlay: see-through circle with a soft dark rim, black outside
+            const int size = 512;
+            scopeTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float r = new Vector2(x + 0.5f - size / 2f, y + 0.5f - size / 2f).magnitude / (size / 2f);
+                float alpha = Mathf.Max(Mathf.SmoothStep(0.8f, 0.985f, r) * 0.85f, Mathf.InverseLerp(0.985f, 1f, r));
+                scopeTexture.SetPixel(x, y, new Color(0f, 0f, 0f, alpha));
+            }
+            scopeTexture.Apply();
+        }
+
+        void RestoreView()
+        {
+            if (view && baseFov > 0f) view.fieldOfView = baseFov;
+            if (player && baseSens > 0f) player.sensitivity = baseSens;
+        }
+
+        void SetZoom(int level, bool sound = true)
+        {
+            if (level == zoom || baseFov <= 0f) return;
+            zoom = level;
+            // Same view shrink as CS (by the tangent of half the angle), and the mouse slows
+            // by the same amount, so turning feels the same at every zoom
+            float ratio = Mathf.Tan(ZoomFov[level] * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(45f * Mathf.Deg2Rad);
+            view.fieldOfView = 2f * Mathf.Atan(Mathf.Tan(baseFov * 0.5f * Mathf.Deg2Rad) * ratio) * Mathf.Rad2Deg;
+            if (player) player.sensitivity = baseSens * ratio;
+            overlay.cullingMask = level > 0 ? 0 : 1 << Layer;
+            if (sound) Play(WeaponSounds.Zoom, 0.5f);
+        }
+
+        void DrawScope()
+        {
+            if (zoom == 0 || !scopeTexture) return;
+            float s = Screen.height, x0 = (Screen.width - s) * 0.5f;
+            var old = GUI.color;
+            GUI.color = Color.black;
+            GUI.DrawTexture(new Rect(0f, 0f, x0 + 1f, s), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(x0 + s - 1f, 0f, Screen.width - x0 - s + 1f, s), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(0f, s * 0.5f - 0.5f, Screen.width, 1f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(Screen.width * 0.5f - 0.5f, 0f, 1f, s), Texture2D.whiteTexture);
+            GUI.color = old;
+            GUI.DrawTexture(new Rect(x0, 0f, s, s), scopeTexture);
+        }
+
+        void UpdateSniper(Keyboard kb, Mouse mouse, bool locked, bool ready, float dt)
+        {
+            float before;
+            if (reloadTime >= 0f)
+            {
+                before = reloadTime;
+                reloadTime += dt;
+                if (Crossed(before, reloadTime, 0.62f)) Play(WeaponSounds.MagOut);
+                if (Crossed(before, reloadTime, 2.05f)) Play(WeaponSounds.MagIn);
+                if (Crossed(before, reloadTime, 2.57f)) Play(WeaponSounds.BoltUp);
+                if (Crossed(before, reloadTime, 2.68f)) Play(WeaponSounds.BoltBack);
+                if (Crossed(before, reloadTime, 2.95f)) Play(WeaponSounds.BoltForward);
+                if (reloadTime >= ReloadTime) { reloadTime = -1f; mag = MagSize; }
+            }
+            if (boltTime >= 0f)
+            {
+                before = boltTime;
+                boltTime += dt;
+                if (Crossed(before, boltTime, 0.42f)) Play(WeaponSounds.BoltUp);
+                if (Crossed(before, boltTime, 0.56f)) Play(WeaponSounds.BoltBack);
+                if (Crossed(before, boltTime, 0.8f)) Play(WeaponSounds.BoltForward);
+                if (boltTime >= CycleTime)
+                {
+                    boltTime = -1f;
+                    if (mag == 0) StartReload();
+                    else SetZoom(resumeZoom, false);
+                    resumeZoom = 0;
+                }
+            }
+
+            bool idle = boltTime < 0f && reloadTime < 0f;
+            if (locked && ready && mouse != null)
+            {
+                if (mouse.rightButton.wasPressedThisFrame && reloadTime < 0f)
+                {
+                    sniperInspect = -1f;
+                    if (boltTime >= 0f) resumeZoom = (resumeZoom + 1) % ZoomFov.Length;
+                    else SetZoom((zoom + 1) % ZoomFov.Length);
+                }
+                if (mouse.leftButton.wasPressedThisFrame && idle)
+                {
+                    if (mag > 0) Fire();
+                    else { Play(WeaponSounds.Dry); StartReload(); }
+                }
+            }
+            if (kb != null && kb.fKey.wasPressedThisFrame && idle && zoom == 0 && sniperInspect < 0f) sniperInspect = 0f;
+            if (sniperInspect >= 0f)
+            {
+                sniperInspect += dt;
+                if (sniperInspect > SniperInspectKeys[^1].t) sniperInspect = -1f;
+            }
+            flashTime += dt;
+            PoseSniper();
+        }
+
+        static bool Crossed(float before, float now, float at) => before < at && now >= at;
+
+        void StartReload()
+        {
+            SetZoom(0, false);
+            resumeZoom = 0;
+            sniperInspect = -1f;
+            reloadTime = 0f;
+        }
+
+        void Fire()
+        {
+            mag--;
+            resumeZoom = zoom;
+            SetZoom(0, false);
+            boltTime = 0f;
+            sniperInspect = -1f;
+            flashTime = 0f;
+            flash.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 90f));
+            Play(sniperShotClip ? sniperShotClip : WeaponSounds.SniperShot);
+
+            // Perfectly accurate: straight out of the center of the screen
+            var ray = new Ray(view.transform.position, view.transform.forward);
+            Vector3 end = ray.GetPoint(Range);
+            var mask = player ? player.collisionMask : (LayerMask)~0;
+            RaycastHit best = default;
+            float bestDistance = float.MaxValue;
+            foreach (var hit in Physics.RaycastAll(ray, Range, mask, QueryTriggerInteraction.Ignore))
+            {
+                if (player && hit.collider.transform.IsChildOf(player.transform)) continue;
+                if (hit.distance < bestDistance) { best = hit; bestDistance = hit.distance; }
+            }
+            if (bestDistance < float.MaxValue)
+            {
+                end = best.point;
+                Impact(best);
+            }
+
+            // Tracer from roughly the muzzle to the hit
+            Transform v = view.transform;
+            ShowTracer(v.position + v.right * 0.1f - v.up * 0.07f + v.forward * 0.8f, end);
+        }
+
+        void Impact(RaycastHit hit)
+        {
+            if (!holeMat)
+            {
+                holeMat = Make(new Color(0.03f, 0.03f, 0.03f), 0.05f, 0f);
+                sparkMat = MakeGlow(new Color(1f, 0.7f, 0.3f), 4f);
+            }
+            // Bullet hole, stuck to whatever was hit so it moves with it
+            var hole = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            Destroy(hole.GetComponent<Collider>());
+            hole.GetComponent<MeshRenderer>().sharedMaterial = holeMat;
+            hole.transform.SetPositionAndRotation(hit.point + hit.normal * 0.01f,
+                Quaternion.LookRotation(-hit.normal) * Quaternion.Euler(0f, 0f, Random.Range(0f, 360f)));
+            hole.transform.localScale = Vector3.one * 0.14f;
+            hole.transform.SetParent(hit.collider.transform, true);
+            holes.Enqueue(hole);
+            while (holes.Count > 30) Destroy(holes.Dequeue());
+
+            // Sparks and a flash
+            for (int i = 0; i < 8; i++)
+            {
+                var spark = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Destroy(spark.GetComponent<Collider>());
+                spark.GetComponent<MeshRenderer>().sharedMaterial = sparkMat;
+                spark.transform.position = hit.point;
+                Vector3 dir = (hit.normal + Random.insideUnitSphere * 0.9f).normalized;
+                effects.Add(new Effect { t = spark.transform, velocity = dir * Random.Range(4f, 9f), scale = Vector3.one * 0.05f, life = Random.Range(0.2f, 0.4f) });
+            }
+            var puff = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            Destroy(puff.GetComponent<Collider>());
+            puff.GetComponent<MeshRenderer>().sharedMaterial = sparkMat;
+            puff.transform.position = hit.point + hit.normal * 0.05f;
+            effects.Add(new Effect { t = puff.transform, scale = Vector3.one * 0.35f, life = 0.1f });
+        }
+
+        void ShowTracer(Vector3 from, Vector3 to)
+        {
+            if (!tracer)
+            {
+                tracerMat = MakeGlow(new Color(1f, 0.85f, 0.55f), 3f);
+                tracer = new GameObject("Tracer").AddComponent<LineRenderer>();
+                tracer.sharedMaterial = tracerMat;
+                tracer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                tracer.receiveShadows = false;
+                tracer.positionCount = 2;
+                tracer.widthCurve = new AnimationCurve(new Keyframe(0f, 0.012f), new Keyframe(1f, 0.03f));
+            }
+            tracer.SetPosition(0, from);
+            tracer.SetPosition(1, to);
+            tracer.enabled = true;
+            tracerTime = 0f;
+        }
+
+        void UpdateEffects(float dt)
+        {
+            for (int i = effects.Count - 1; i >= 0; i--)
+            {
+                var e = effects[i];
+                e.age += dt;
+                if (e.age >= e.life || !e.t)
+                {
+                    if (e.t) Destroy(e.t.gameObject);
+                    effects.RemoveAt(i);
+                    continue;
+                }
+                e.velocity += Physics.gravity * dt;
+                e.t.position += e.velocity * dt;
+                e.t.localScale = e.scale * (1f - e.age / e.life);
+            }
+            tracerTime += dt;
+            if (tracer) tracer.enabled = tracerTime < 0.06f;
+            if (flash) flash.gameObject.SetActive(flashTime < 0.05f);
+        }
+
+        // Keyframes for the whole rifle (offset, rotation), the bolt (slide back in pos.z,
+        // lift in rot.z), the magazine (offset) and how far the right hand has moved from the
+        // grip to the bolt (pos.x, 0..1)
+        static readonly (float t, Vector3 pos, Vector3 rot)[] FireKeys =
+        {
+            (0f, Vector3.zero, Vector3.zero),
+            (0.04f, new Vector3(0f, 0.012f, -0.06f), new Vector3(-10f, 0f, 2f)),
+            (0.2f, new Vector3(0f, 0.004f, -0.015f), new Vector3(-2f, 0f, 0f)),
+            (0.35f, new Vector3(-0.01f, 0.01f, -0.02f), new Vector3(0f, 6f, 14f)),
+            (1f, new Vector3(-0.01f, 0.01f, -0.02f), new Vector3(2f, 6f, 14f)),
+            (1.3f, Vector3.zero, Vector3.zero),
+        };
+
+        static readonly (float t, Vector3 pos, Vector3 rot)[] FireBoltKeys =
+        {
+            (0.4f, Vector3.zero, Vector3.zero),
+            (0.5f, Vector3.zero, new Vector3(0f, 0f, 65f)),
+            (0.62f, new Vector3(0f, 0f, -0.07f), new Vector3(0f, 0f, 65f)),
+            (0.75f, new Vector3(0f, 0f, -0.07f), new Vector3(0f, 0f, 65f)),
+            (0.86f, Vector3.zero, new Vector3(0f, 0f, 65f)),
+            (0.96f, Vector3.zero, Vector3.zero),
+        };
+
+        static readonly (float t, Vector3 pos, Vector3 rot)[] FireHandKeys =
+        {
+            (0.28f, Vector3.zero, Vector3.zero),
+            (0.4f, Vector3.right, Vector3.zero),
+            (0.96f, Vector3.right, Vector3.zero),
+            (1.15f, Vector3.zero, Vector3.zero),
+        };
+
+        static readonly (float t, Vector3 pos, Vector3 rot)[] ReloadKeys =
+        {
+            (0f, Vector3.zero, Vector3.zero),
+            (0.4f, new Vector3(-0.02f, 0.02f, -0.01f), new Vector3(-5f, 0f, -22f)),
+            (2.3f, new Vector3(-0.02f, 0.02f, -0.01f), new Vector3(-5f, 0f, -22f)),
+            (2.5f, new Vector3(-0.01f, 0.01f, -0.02f), new Vector3(0f, 6f, 14f)),
+            (3.2f, new Vector3(-0.01f, 0.01f, -0.02f), new Vector3(0f, 6f, 14f)),
+            (3.6f, Vector3.zero, Vector3.zero),
+        };
+
+        static readonly (float t, Vector3 pos, Vector3 rot)[] ReloadMagKeys =
+        {
+            (0.6f, Vector3.zero, Vector3.zero),
+            (0.9f, new Vector3(0f, -0.25f, 0f), Vector3.zero),
+            (1.5f, new Vector3(0f, -0.25f, 0f), Vector3.zero),
+            (1.95f, new Vector3(0f, -0.012f, 0f), Vector3.zero),
+            (2.1f, Vector3.zero, Vector3.zero),
+        };
+
+        static readonly (float t, Vector3 pos, Vector3 rot)[] ReloadBoltKeys =
+        {
+            (2.52f, Vector3.zero, Vector3.zero),
+            (2.6f, Vector3.zero, new Vector3(0f, 0f, 65f)),
+            (2.7f, new Vector3(0f, 0f, -0.07f), new Vector3(0f, 0f, 65f)),
+            (2.85f, new Vector3(0f, 0f, -0.07f), new Vector3(0f, 0f, 65f)),
+            (2.95f, Vector3.zero, new Vector3(0f, 0f, 65f)),
+            (3.04f, Vector3.zero, Vector3.zero),
+        };
+
+        static readonly (float t, Vector3 pos, Vector3 rot)[] ReloadHandKeys =
+        {
+            (2.4f, Vector3.zero, Vector3.zero),
+            (2.52f, Vector3.right, Vector3.zero),
+            (3.04f, Vector3.right, Vector3.zero),
+            (3.25f, Vector3.zero, Vector3.zero),
+        };
+
+        static readonly (float t, Vector3 pos, Vector3 rot)[] SniperInspectKeys =
+        {
+            (0f, Vector3.zero, Vector3.zero),
+            (0.5f, new Vector3(-0.03f, 0.03f, 0.02f), new Vector3(0f, 15f, -35f)),
+            (1.4f, new Vector3(-0.03f, 0.035f, 0.02f), new Vector3(-8f, 18f, -38f)),
+            (1.9f, new Vector3(-0.02f, 0.05f, 0.05f), new Vector3(-18f, -10f, 20f)),
+            (2.7f, new Vector3(-0.02f, 0.05f, 0.05f), new Vector3(-20f, -12f, 22f)),
+            (3.2f, Vector3.zero, Vector3.zero),
+        };
+
+        void PoseSniper()
+        {
+            var (pos, rot) = (Vector3.zero, Vector3.zero);
+            var (slide, lift) = (Vector3.zero, Vector3.zero);
+            Vector3 magOffset = Vector3.zero;
+            float toBolt = 0f;
+            if (boltTime >= 0f)
+            {
+                (pos, rot) = Sample(FireKeys, boltTime);
+                (slide, lift) = Sample(FireBoltKeys, boltTime);
+                toBolt = Sample(FireHandKeys, boltTime).Item1.x;
+            }
+            else if (reloadTime >= 0f)
+            {
+                (pos, rot) = Sample(ReloadKeys, reloadTime);
+                (slide, lift) = Sample(ReloadBoltKeys, reloadTime);
+                magOffset = Sample(ReloadMagKeys, reloadTime).Item1;
+                toBolt = Sample(ReloadHandKeys, reloadTime).Item1.x;
+            }
+            else if (sniperInspect >= 0f) (pos, rot) = Sample(SniperInspectKeys, sniperInspect);
+
+            gun.SetLocalPositionAndRotation(pos, Quaternion.Euler(rot));
+            bolt.SetLocalPositionAndRotation(boltRest + slide, Quaternion.Euler(lift));
+            magazine.localPosition = magRest + magOffset;
+
+            // The right hand leaves the grip to work the bolt
+            Vector3 knob = bolt.localPosition + bolt.localRotation * new Vector3(0.05f, -0.014f, 0f);
+            Quaternion atBolt = Quaternion.Euler(0f, 0f, -70f) * fistRestRotation;
+            Vector3 onKnob = knob - atBolt * new Vector3(0f, -0.02f, 0f) * 1.15f + new Vector3(0.012f, 0f, 0f);
+            rightFist.SetLocalPositionAndRotation(Vector3.Lerp(fistRest, onKnob, toBolt), Quaternion.Slerp(fistRestRotation, atBolt, toBolt));
+        }
+
+        // Shows a moment of the bolt cycle (seconds after the shot) in edit mode, for photos
+        public void PreviewSniperCycle(float time)
+        {
+            if (weapons == null) return;
+            boltTime = time;
+            PoseSniper();
+            boltTime = -1f;
+        }
+
+        Transform BuildSniper()
+        {
+            Material metal = Make(new Color(0.1f, 0.1f, 0.11f), 0.5f, 0.6f);
+            Material metalLight = Make(new Color(0.28f, 0.28f, 0.3f), 0.45f, 0.6f);
+            Material chassis = Make(new Color(0.24f, 0.25f, 0.21f), 0.2f, 0.1f);
+            Material rubber = Make(new Color(0.04f, 0.04f, 0.04f), 0.15f, 0f);
+            Material lens = Make(new Color(0.06f, 0.1f, 0.2f), 0.95f, 0.4f);
+            Material red = Make(new Color(0.85f, 0.1f, 0.06f), 0.4f, 0.1f);
+            Material cloth = Make(new Color(0.5f, 0.48f, 0.44f), 0.1f, 0f);
+
+            var root = new GameObject("Sniper Rig").transform;
+            root.SetParent(anchor, false);
+            gun = new GameObject("Rifle").transform;
+            gun.SetParent(root, false);
+
+            // Rifle space: +Z along the barrel, +Y up, origin at the trigger
+            var t = gun;
+            // Receiver, rail and chassis
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.02f, 0.04f), new Vector3(0.046f, 0.058f, 0.26f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.054f, 0.04f), new Vector3(0.026f, 0.01f, 0.3f));
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.01f, 0.05f), new Vector3(0.052f, 0.032f, 0.27f));
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, 0f, 0.3f), new Vector3(0.054f, 0.054f, 0.26f));
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0f, 0.3f), new Vector3(0.056f, 0.012f, 0.22f));
+            // Barrel and muzzle brake
+            Rod(t, metal, new Vector3(0f, 0.018f, 0.17f), new Vector3(0f, 0.018f, 0.82f), 0.022f);
+            Rod(t, metal, new Vector3(0f, 0.018f, 0.43f), new Vector3(0f, 0.018f, 0.47f), 0.028f);
+            Rod(t, metalLight, new Vector3(0f, 0.018f, 0.82f), new Vector3(0f, 0.018f, 0.9f), 0.036f);
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, 0.845f), new Vector3(0.038f, 0.012f, 0.012f));
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, 0.875f), new Vector3(0.038f, 0.012f, 0.012f));
+            // Stock
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.005f, -0.2f), new Vector3(0.04f, 0.07f, 0.3f));
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, 0.038f, -0.17f), new Vector3(0.036f, 0.022f, 0.2f));
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.012f, -0.358f), new Vector3(0.046f, 0.12f, 0.02f));
+            // Pistol grip, trigger guard and trigger
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.065f, -0.035f), new Vector3(0.03f, 0.095f, 0.038f), Quaternion.Euler(20f, 0f, 0f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.035f, 0.005f), new Vector3(0.008f, 0.006f, 0.065f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.022f, 0.036f), new Vector3(0.008f, 0.03f, 0.006f));
+            Part(t, PrimitiveType.Cube, metalLight, new Vector3(0f, -0.022f, 0f), new Vector3(0.006f, 0.022f, 0.006f), Quaternion.Euler(15f, 0f, 0f));
+            // Magazine
+            magazine = new GameObject("Magazine").transform;
+            magazine.SetParent(t, false);
+            magRest = new Vector3(0f, -0.035f, 0.08f);
+            magazine.localPosition = magRest;
+            Part(magazine, PrimitiveType.Cube, metal, new Vector3(0f, -0.03f, 0f), new Vector3(0.032f, 0.07f, 0.07f), Quaternion.Euler(-6f, 0f, 0f));
+            // Bolt handle on the right, pivoting around the bore
+            bolt = new GameObject("Bolt").transform;
+            bolt.SetParent(t, false);
+            boltRest = new Vector3(0.024f, 0.035f, -0.035f);
+            bolt.localPosition = boltRest;
+            Rod(bolt, metalLight, Vector3.zero, new Vector3(0.045f, -0.012f, 0f), 0.009f);
+            Part(bolt, PrimitiveType.Sphere, rubber, new Vector3(0.05f, -0.014f, 0f), Vector3.one * 0.02f);
+
+            // Scope: rings, tube, big objective bell with lens, eyepiece, turrets
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.075f, -0.02f), new Vector3(0.04f, 0.04f, 0.018f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.075f, 0.12f), new Vector3(0.04f, 0.04f, 0.018f));
+            const float sy = 0.1f;
+            Rod(t, metal, new Vector3(0f, sy, -0.1f), new Vector3(0f, sy, 0.2f), 0.034f);
+            Rod(t, metal, new Vector3(0f, sy, 0.2f), new Vector3(0f, sy, 0.235f), 0.048f);
+            Rod(t, metal, new Vector3(0f, sy, 0.235f), new Vector3(0f, sy, 0.3f), 0.062f);
+            Rod(t, lens, new Vector3(0f, sy, 0.299f), new Vector3(0f, sy, 0.302f), 0.054f);
+            Rod(t, metalLight, new Vector3(0f, sy, -0.075f), new Vector3(0f, sy, -0.055f), 0.042f);
+            Rod(t, metalLight, new Vector3(0f, sy, -0.045f), new Vector3(0f, sy, -0.025f), 0.042f);
+            Rod(t, metal, new Vector3(0f, sy, -0.1f), new Vector3(0f, sy, -0.135f), 0.044f);
+            Rod(t, rubber, new Vector3(0f, sy, -0.135f), new Vector3(0f, sy, -0.155f), 0.046f);
+            Rod(t, lens, new Vector3(0f, sy, -0.155f), new Vector3(0f, sy, -0.156f), 0.036f);
+            Rod(t, metal, new Vector3(0f, sy + 0.017f, 0.05f), new Vector3(0f, sy + 0.042f, 0.05f), 0.03f);
+            Rod(t, red, new Vector3(0f, sy + 0.032f, 0.05f), new Vector3(0f, sy + 0.036f, 0.05f), 0.032f);
+            Rod(t, metal, new Vector3(0.017f, sy, 0.05f), new Vector3(0.042f, sy, 0.05f), 0.028f);
+            Rod(t, metal, new Vector3(-0.017f, sy, 0.05f), new Vector3(-0.036f, sy, 0.05f), 0.03f);
+
+            // Bipod, folded forward under the barrel
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.032f, 0.4f), new Vector3(0.04f, 0.018f, 0.03f));
+            foreach (float x in new[] { -0.012f, 0.012f })
+            {
+                Rod(t, metalLight, new Vector3(x, -0.035f, 0.41f), new Vector3(x, -0.035f, 0.6f), 0.009f);
+                Part(t, PrimitiveType.Sphere, rubber, new Vector3(x, -0.035f, 0.61f), Vector3.one * 0.016f);
+            }
+
+            // Muzzle flash, shown for a moment after each shot
+            Material fire = MakeGlow(new Color(1f, 0.65f, 0.25f), 6f);
+            flash = new GameObject("Muzzle Flash").transform;
+            flash.SetParent(t, false);
+            flash.localPosition = new Vector3(0f, 0.018f, 0.93f);
+            Part(flash, PrimitiveType.Sphere, fire, Vector3.zero, Vector3.one * 0.05f);
+            Part(flash, PrimitiveType.Cube, fire, new Vector3(0f, 0f, 0.05f), new Vector3(0.012f, 0.012f, 0.12f));
+            Part(flash, PrimitiveType.Cube, fire, Vector3.zero, new Vector3(0.14f, 0.01f, 0.01f));
+            Part(flash, PrimitiveType.Cube, fire, Vector3.zero, new Vector3(0.01f, 0.14f, 0.01f));
+            flash.gameObject.SetActive(false);
+
+            // Right hand around the pistol grip (fingerless gloves: cloth fingertips)
+            rightFist = new GameObject("Right Hand").transform;
+            rightFist.SetParent(t, false);
+            fistRest = new Vector3(0f, -0.028f, -0.022f);
+            fistRestRotation = Quaternion.Euler(20f, 0f, 0f) * Quaternion.Euler(0f, 90f, 0f);
+            rightFist.SetLocalPositionAndRotation(fistRest, fistRestRotation);
+            rightFist.localScale = Vector3.one * 1.15f;
+            Fist(rightFist, cloth);
+
+            // Left hand cupping the forend from below: palm under, fingers up the left side,
+            // thumb on the right, forearm back toward the lower left
+            Part(t, PrimitiveType.Cube, glove, new Vector3(0.004f, -0.042f, 0.3f), new Vector3(0.062f, 0.024f, 0.09f), Quaternion.Euler(0f, 0f, 10f));
+            for (int f = 0; f < 4; f++)
+            {
+                float z = 0.268f + f * 0.022f;
+                Part(t, PrimitiveType.Capsule, glove, new Vector3(-0.034f, -0.03f, z), new Vector3(0.02f, 0.018f, 0.02f));
+                Part(t, PrimitiveType.Capsule, cloth, new Vector3(-0.031f, -0.008f, z), new Vector3(0.018f, 0.013f, 0.018f));
+            }
+            Part(t, PrimitiveType.Capsule, cloth, new Vector3(0.034f, -0.026f, 0.285f), new Vector3(0.02f, 0.025f, 0.02f), Quaternion.Euler(0f, 0f, -20f));
+            Part(t, PrimitiveType.Cube, strap, new Vector3(0.004f, -0.055f, 0.28f), new Vector3(0.05f, 0.004f, 0.03f), Quaternion.Euler(0f, 0f, 10f));
+            Rod(t, glove, new Vector3(-0.005f, -0.05f, 0.27f), new Vector3(-0.04f, -0.12f, 0.17f), 0.06f);
+            Rod(t, sleeve, new Vector3(-0.04f, -0.12f, 0.17f), new Vector3(-0.2f, -0.32f, -0.06f), 0.09f);
+            return root;
+        }
+    }
+}

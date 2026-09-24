@@ -6,31 +6,49 @@ using UnityEngine.Rendering.Universal;
 
 namespace VoidFlow
 {
-    // The first-person knife, CS style: a gloved right hand holding a knife in the lower
-    // right of the screen. It's drawn by its own overlay camera on its own layer, so it never
-    // clips into ramps or walls. Built from simple shapes at startup.
+    // First-person weapons, CS style, drawn by their own overlay camera on their own layer so
+    // they never clip into ramps or walls. Built from simple shapes at startup.
     //
-    // It sways and lags behind your mouse, bobs with your speed, tilts when you strafe, and
-    // breathes a little at rest. F inspects the knife; left click swings it. A small
-    // see-through panel in the bottom right shows which knife you're holding.
+    // Slot 2 is the sniper (see ViewModel.Sniper.cs), slot 3 the knife; Q swaps to the last
+    // weapon and the mouse wheel toggles. The held weapon sways and lags behind your mouse,
+    // bobs with your speed, tilts when you strafe and breathes a little at rest. A small
+    // see-through panel in the bottom right shows which weapon you're holding.
+    //
+    // Like CS, the weapon sets your max speed: knife 250, sniper 200, scoped 100. That feeds
+    // air acceleration too, so the knife is still the one to surf with.
     [RequireComponent(typeof(Camera))]
-    public class ViewModel : MonoBehaviour
+    public partial class ViewModel : MonoBehaviour
     {
         public PlayerMovement player;
-        [Tooltip("Any URP Lit material; the knife and glove materials are made from it")]
+        [Tooltip("Any URP Lit material; the weapon and glove materials are made from it")]
         public Material template;
         public float fieldOfView = 58f;
-
-        [Header("Weapon shown in the HUD")]
-        public string weaponName = "Standard Knife";
-        public string rarity = "Default";
-        public Color rarityColor = new(0.7f, 0.72f, 0.78f);
+        [Tooltip("Optional: a clip to use for the sniper shot instead of the generated one")]
+        public AudioClip sniperShotClip;
 
         const int Layer = 30; // drawn only by the viewmodel camera
+        public const int KnifeSlot = 0, SniperSlot = 1;
 
-        // Resting spot of the hand, relative to the camera (right, down, forward)
-        static readonly Vector3 RestPosition = new(0.17f, -0.15f, 0.4f);
+        class Weapon
+        {
+            public string name, rarity;
+            public Color color;
+            public float speed;    // max speed in Source units per second
+            public float drawTime; // seconds before it can be used after switching to it
+            public Transform root;
+            public Vector3 restPosition;
+            public Quaternion restRotation;
+        }
 
+        Weapon[] weapons;
+        int current = KnifeSlot, previous = SniperSlot;
+        float drawTime = 99f;
+
+        // Resting spot of the knife hand, relative to the camera (right, down, forward)
+        static readonly Vector3 KnifeRest = new(0.17f, -0.15f, 0.4f);
+
+        Camera view, overlay;
+        AudioSource audioSource;
         Transform anchor, hand;
         Texture2D panel;
         GUIStyle nameStyle, detailStyle;
@@ -38,14 +56,16 @@ namespace VoidFlow
         float bobPhase, inspectTime = -1f, slashTime = -1f;
         readonly List<Material> materials = new();
 
+        Weapon Current => weapons[current];
+
         void Awake()
         {
             if (anchor) return;
-            var cam = GetComponent<Camera>();
-            cam.cullingMask &= ~(1 << Layer);
+            view = GetComponent<Camera>();
+            view.cullingMask &= ~(1 << Layer);
 
             // Overlay camera that draws only the viewmodel, on top of the world
-            var overlay = new GameObject("ViewModel Camera").AddComponent<Camera>();
+            overlay = new GameObject("ViewModel Camera").AddComponent<Camera>();
             overlay.transform.SetParent(transform, false);
             overlay.cullingMask = 1 << Layer;
             overlay.fieldOfView = fieldOfView;
@@ -54,21 +74,58 @@ namespace VoidFlow
             var overlayData = overlay.GetUniversalAdditionalCameraData();
             overlayData.renderType = CameraRenderType.Overlay;
             overlayData.renderShadows = false;
-            cam.GetUniversalAdditionalCameraData().cameraStack.Add(overlay);
+            view.GetUniversalAdditionalCameraData().cameraStack.Add(overlay);
+
+            if (Application.isPlaying)
+            {
+                audioSource = gameObject.AddComponent<AudioSource>();
+                audioSource.playOnAwake = false;
+                audioSource.spatialBlend = 0f;
+            }
 
             anchor = new GameObject("ViewModel").transform;
             anchor.SetParent(transform, false);
-            anchor.localPosition = RestPosition;
-            BuildHandAndKnife();
+
+            weapons = new[]
+            {
+                new Weapon { name = "Standard Knife", rarity = "Default", color = new Color(0.7f, 0.72f, 0.78f), speed = 250f, drawTime = 0.6f },
+                new Weapon { name = "Longreach", rarity = "Default", color = new Color(0.7f, 0.72f, 0.78f), speed = 200f, drawTime = 1.1f },
+            };
+            weapons[KnifeSlot].root = BuildKnife();
+            weapons[KnifeSlot].restPosition = KnifeRest;
+            weapons[KnifeSlot].restRotation = Quaternion.identity;
+            weapons[SniperSlot].root = BuildSniper();
+            weapons[SniperSlot].restPosition = SniperRest;
+            weapons[SniperSlot].restRotation = SniperRestRotation;
+            foreach (var w in weapons)
+            {
+                w.root.SetLocalPositionAndRotation(w.restPosition, w.restRotation);
+                w.root.gameObject.SetActive(w == Current);
+            }
+            SetupSniper();
         }
 
         // Builds the viewmodel outside play mode too, so editor tools can photograph it
         public void BuildNow() => Awake();
 
+        public void Equip(int slot)
+        {
+            if (weapons == null || slot == current) return;
+            SetZoom(0, false);
+            inspectTime = slashTime = sniperInspect = -1f;
+            previous = current;
+            current = slot;
+            drawTime = Application.isPlaying ? 0f : 99f;
+            foreach (var w in weapons) w.root.gameObject.SetActive(w == Current);
+            Play(WeaponSounds.Draw, 0.6f);
+        }
+
         void OnDestroy()
         {
+            RestoreView();
             foreach (var m in materials) Kill(m);
             Kill(panel);
+            Kill(scopeTexture);
         }
 
         static void Kill(Object o)
@@ -78,9 +135,18 @@ namespace VoidFlow
             else DestroyImmediate(o);
         }
 
-        // The weapon panel: bottom right, translucent, knife name over rarity and a hint
+        void Play(AudioClip clip, float volume = 1f)
+        {
+            if (audioSource && clip) audioSource.PlayOneShot(clip, volume);
+        }
+
+        // The scope overlay, then the weapon panel: bottom right, translucent, weapon name
+        // over rarity and a hint. Drawn behind the rest of the HUD.
         void OnGUI()
         {
+            if (weapons == null) return;
+            GUI.depth = 10;
+            DrawScope();
             if (!panel)
             {
                 panel = new Texture2D(1, 1);
@@ -89,16 +155,18 @@ namespace VoidFlow
                 nameStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight };
                 detailStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, alignment = TextAnchor.MiddleRight };
             }
+            var weapon = Current;
             const float w = 230f, h = 58f, margin = 16f;
             var box = new Rect(Screen.width - w - margin, Screen.height - h - margin, w, h);
             GUI.DrawTexture(box, panel);
             var old = GUI.color;
-            GUI.color = rarityColor;
+            GUI.color = weapon.color;
             GUI.DrawTexture(new Rect(box.xMax - 4f, box.y, 4f, box.height), Texture2D.whiteTexture);
             GUI.color = old;
-            GUI.Label(new Rect(box.x, box.y + 6f, w - 14f, 24f), weaponName, nameStyle);
-            detailStyle.normal.textColor = rarityColor;
-            GUI.Label(new Rect(box.x, box.y + 30f, w - 14f, 20f), $"{rarity}   ·   F inspect", detailStyle);
+            GUI.Label(new Rect(box.x, box.y + 6f, w - 14f, 24f), weapon.name, nameStyle);
+            detailStyle.normal.textColor = weapon.color;
+            string detail = current == SniperSlot ? SniperStatus() : "F inspect";
+            GUI.Label(new Rect(box.x, box.y + 30f, w - 14f, 20f), $"{weapon.rarity}   ·   {detail}", detailStyle);
         }
 
         void Update()
@@ -106,12 +174,19 @@ namespace VoidFlow
             var kb = Keyboard.current;
             var mouse = Mouse.current;
             bool locked = Cursor.lockState == CursorLockMode.Locked;
-            if (kb != null && kb.fKey.wasPressedThisFrame && inspectTime < 0f) inspectTime = 0f;
-            if (locked && mouse != null && mouse.leftButton.wasPressedThisFrame) { slashTime = 0f; inspectTime = -1f; }
-
             float dt = Time.deltaTime;
 
-            // Sway: the hand lags behind the mouse and springs back
+            // Weapon switching: 2 sniper, 3 knife, Q last weapon, wheel toggles
+            if (kb != null)
+            {
+                if (kb.digit2Key.wasPressedThisFrame) Equip(SniperSlot);
+                else if (kb.digit3Key.wasPressedThisFrame) Equip(KnifeSlot);
+                else if (kb.qKey.wasPressedThisFrame) Equip(previous);
+            }
+            if (locked && mouse != null && mouse.scroll.ReadValue().y != 0f) Equip(current == KnifeSlot ? SniperSlot : KnifeSlot);
+            drawTime += dt;
+
+            // Sway: the weapon lags behind the mouse and springs back
             Vector2 look = locked && mouse != null ? mouse.delta.ReadValue() : Vector2.zero;
             Vector3 swayTarget = new Vector3(-look.x, -look.y, 0f) * 0.0006f;
             swayTarget = Vector3.ClampMagnitude(swayTarget, 0.04f);
@@ -133,8 +208,33 @@ namespace VoidFlow
             }
             tilt = Vector3.Lerp(tilt, new Vector3(0f, 0f, -sideways * 6f + look.x * 0.05f), dt * 8f);
 
-            anchor.localPosition = RestPosition + sway + bob + Vector3.up * breathe;
+            anchor.localPosition = sway + bob + Vector3.up * breathe;
             anchor.localRotation = Quaternion.Euler(tilt + new Vector3(look.y * 0.04f, 0f, 0f));
+
+            // Draw: the new weapon comes up from below the screen
+            var weapon = Current;
+            float up = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(drawTime / (weapon.drawTime * 0.6f)));
+            weapon.root.SetLocalPositionAndRotation(
+                weapon.restPosition + new Vector3(0f, -0.16f, -0.04f) * (1f - up),
+                weapon.restRotation * Quaternion.Euler(40f * (1f - up), 0f, 0f));
+            bool ready = drawTime >= weapon.drawTime;
+
+            if (current == KnifeSlot) UpdateKnife(kb, mouse, locked, ready, dt);
+            else UpdateSniper(kb, mouse, locked, ready, dt);
+            UpdateEffects(dt);
+
+            if (player) player.maxSpeed = (current == SniperSlot && zoom > 0 ? 100f : weapon.speed) * PlayerMovement.SourceUnit;
+        }
+
+        void UpdateKnife(Keyboard kb, Mouse mouse, bool locked, bool ready, float dt)
+        {
+            if (kb != null && kb.fKey.wasPressedThisFrame && inspectTime < 0f) inspectTime = 0f;
+            if (ready && locked && mouse != null && mouse.leftButton.wasPressedThisFrame)
+            {
+                slashTime = 0f;
+                inspectTime = -1f;
+                Play(WeaponSounds.Slash, 0.7f);
+            }
 
             // Inspect and slash are keyframed offsets on the hand
             var (pos, rot) = (Vector3.zero, Vector3.zero);
@@ -154,7 +254,7 @@ namespace VoidFlow
             hand.localRotation = HoldRotation * Quaternion.Euler(rot);
         }
 
-        // Keyframes: time, hand offset, hand rotation offset (degrees), smoothly blended
+        // Keyframes: time, offset, rotation offset (degrees), smoothly blended
         static readonly (float t, Vector3 pos, Vector3 rot)[] InspectKeys =
         {
             (0f, Vector3.zero, Vector3.zero),
@@ -175,6 +275,7 @@ namespace VoidFlow
 
         static (Vector3, Vector3) Sample((float t, Vector3 pos, Vector3 rot)[] keys, float t)
         {
+            if (t <= keys[0].t) return (keys[0].pos, keys[0].rot);
             for (int i = 1; i < keys.Length; i++)
             {
                 if (t > keys[i].t) continue;
@@ -187,16 +288,20 @@ namespace VoidFlow
         // How the hand holds the knife: blade up and forward, slightly toward the center
         static readonly Quaternion HoldRotation = Quaternion.Euler(55f, -5f, 10f);
 
-        void BuildHandAndKnife()
+        Material glove, strap, sleeve;
+
+        Transform BuildKnife()
         {
-            Material glove = Make(new Color(0.07f, 0.07f, 0.08f), 0.35f, 0f);
-            Material strap = Make(new Color(0.95f, 0.38f, 0.05f), 0.3f, 0f);
-            Material sleeve = Make(new Color(0.13f, 0.14f, 0.16f), 0.15f, 0f);
+            glove = Make(new Color(0.07f, 0.07f, 0.08f), 0.35f, 0f);
+            strap = Make(new Color(0.95f, 0.38f, 0.05f), 0.3f, 0f);
+            sleeve = Make(new Color(0.13f, 0.14f, 0.16f), 0.15f, 0f);
             Material steel = Make(new Color(0.78f, 0.8f, 0.84f), 0.8f, 0.55f);
             Material grip = Make(new Color(0.05f, 0.05f, 0.05f), 0.25f, 0f);
 
+            var root = new GameObject("Knife Rig").transform;
+            root.SetParent(anchor, false);
             hand = new GameObject("Hand").transform;
-            hand.SetParent(anchor, false);
+            hand.SetParent(root, false);
             hand.localRotation = HoldRotation;
 
             // Knife, in hand space: blade along +Y from the guard, edge facing -X
@@ -211,25 +316,32 @@ namespace VoidFlow
             blade.AddComponent<MeshFilter>().sharedMesh = BladeMesh();
             Finish(blade.AddComponent<MeshRenderer>(), steel);
 
-            // Gloved fist around the handle: palm on the spine side, four fingers wrapped
-            // around, thumb over the top, a strap across the back, then the cuff and sleeve
-            Part(hand, PrimitiveType.Cube, glove, new Vector3(0.03f, -0.055f, 0.004f), new Vector3(0.034f, 0.1f, 0.075f), Quaternion.Euler(0f, 0f, -4f));
+            Fist(hand, glove);
+            return root;
+        }
+
+        // A gloved fist around a handle that runs along +Y (from -0.11 to 0): palm on the +X
+        // side, four fingers wrapped around, thumb over the top, a strap across the back, then
+        // the cuff and sleeve. `tips` colors the fingertips (fingerless gloves show cloth).
+        void Fist(Transform parent, Material tips)
+        {
+            Part(parent, PrimitiveType.Cube, glove, new Vector3(0.03f, -0.055f, 0.004f), new Vector3(0.034f, 0.1f, 0.075f), Quaternion.Euler(0f, 0f, -4f));
             for (int f = 0; f < 4; f++)
             {
                 float y = -0.018f - f * 0.024f;
-                Part(hand, PrimitiveType.Capsule, glove, new Vector3(-0.004f, y, 0.02f), new Vector3(0.024f, 0.028f, 0.024f), Quaternion.Euler(0f, 0f, 90f));
-                Part(hand, PrimitiveType.Capsule, glove, new Vector3(-0.016f, y, -0.004f), new Vector3(0.022f, 0.022f, 0.022f), Quaternion.Euler(90f, 0f, 0f));
+                Part(parent, PrimitiveType.Capsule, glove, new Vector3(-0.004f, y, 0.02f), new Vector3(0.024f, 0.028f, 0.024f), Quaternion.Euler(0f, 0f, 90f));
+                Part(parent, PrimitiveType.Capsule, tips, new Vector3(-0.016f, y, -0.004f), new Vector3(0.022f, 0.022f, 0.022f), Quaternion.Euler(90f, 0f, 0f));
             }
-            Part(hand, PrimitiveType.Capsule, glove, new Vector3(0.012f, 0.004f, -0.024f), new Vector3(0.022f, 0.03f, 0.022f), Quaternion.Euler(20f, 0f, -35f));
-            Part(hand, PrimitiveType.Cube, strap, new Vector3(0.048f, -0.05f, 0.004f), new Vector3(0.004f, 0.03f, 0.078f));
-            Part(hand, PrimitiveType.Cylinder, glove, new Vector3(0.04f, -0.13f, 0.004f), new Vector3(0.07f, 0.035f, 0.07f), Quaternion.Euler(0f, 0f, -8f));
-            Part(hand, PrimitiveType.Cylinder, sleeve, new Vector3(0.06f, -0.34f, 0.004f), new Vector3(0.085f, 0.19f, 0.085f), Quaternion.Euler(0f, 0f, -8f));
+            Part(parent, PrimitiveType.Capsule, tips, new Vector3(0.012f, 0.004f, -0.024f), new Vector3(0.022f, 0.03f, 0.022f), Quaternion.Euler(20f, 0f, -35f));
+            Part(parent, PrimitiveType.Cube, strap, new Vector3(0.048f, -0.05f, 0.004f), new Vector3(0.004f, 0.03f, 0.078f));
+            Part(parent, PrimitiveType.Cylinder, glove, new Vector3(0.04f, -0.13f, 0.004f), new Vector3(0.07f, 0.035f, 0.07f), Quaternion.Euler(0f, 0f, -8f));
+            Part(parent, PrimitiveType.Cylinder, sleeve, new Vector3(0.06f, -0.34f, 0.004f), new Vector3(0.085f, 0.19f, 0.085f), Quaternion.Euler(0f, 0f, -8f));
         }
 
         void Part(Transform parent, PrimitiveType shape, Material mat, Vector3 position, Vector3 scale) =>
             Part(parent, shape, mat, position, scale, Quaternion.identity);
 
-        void Part(Transform parent, PrimitiveType shape, Material mat, Vector3 position, Vector3 scale, Quaternion rotation)
+        Transform Part(Transform parent, PrimitiveType shape, Material mat, Vector3 position, Vector3 scale, Quaternion rotation)
         {
             var go = GameObject.CreatePrimitive(shape);
             Kill(go.GetComponent<Collider>());
@@ -237,6 +349,15 @@ namespace VoidFlow
             go.transform.SetLocalPositionAndRotation(position, rotation);
             go.transform.localScale = scale;
             Finish(go.GetComponent<MeshRenderer>(), mat);
+            return go.transform;
+        }
+
+        // A cylinder from one point to another
+        Transform Rod(Transform parent, Material mat, Vector3 from, Vector3 to, float diameter)
+        {
+            Vector3 d = to - from;
+            return Part(parent, PrimitiveType.Cylinder, mat, (from + to) * 0.5f, new Vector3(diameter, d.magnitude * 0.5f, diameter),
+                Quaternion.FromToRotation(Vector3.up, d));
         }
 
         static void Finish(MeshRenderer r, Material mat)
@@ -255,6 +376,14 @@ namespace VoidFlow
             m.SetFloat("_Smoothness", smoothness);
             m.SetFloat("_Metallic", metallic);
             materials.Add(m);
+            return m;
+        }
+
+        Material MakeGlow(Color color, float intensity)
+        {
+            var m = Make(color, 0f, 0f);
+            m.EnableKeyword("_EMISSION");
+            m.SetColor("_EmissionColor", color * intensity);
             return m;
         }
 
