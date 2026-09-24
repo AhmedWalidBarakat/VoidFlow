@@ -5,7 +5,7 @@ namespace VoidFlow
 {
     // Source-style movement: ground friction, air strafing and ramp sliding.
     // Defaults are CS:GO surf-server values converted from Source units (1u = 0.0254m).
-    // Simulation runs on a fixed 128 tick; the transform is interpolated between ticks.
+    // Simulation runs on a fixed 64 tick like CS2; the transform is interpolated between ticks.
     [RequireComponent(typeof(CapsuleCollider))]
     public class PlayerMovement : MonoBehaviour
     {
@@ -18,7 +18,7 @@ namespace VoidFlow
         [Header("Movement")]
         public float gravity = 800f * SourceUnit;
         public float jumpSpeed = 301.993f * SourceUnit;
-        public float maxSpeed = 300f * SourceUnit;
+        public float maxSpeed = 250f * SourceUnit; // knife speed
         public float accelerate = 5.5f;
         public float airAccelerate = 150f;
         public float airWishCap = 30f * SourceUnit;
@@ -26,20 +26,12 @@ namespace VoidFlow
         public float stopSpeed = 80f * SourceUnit;
         public float maxVelocity = 3500f * SourceUnit;
         public bool autoHop = true;
-        [Tooltip("Keeps you on surf ramps without holding a key, so you can just look where you want to go.")]
-        public bool surfAssist = true;
-        [Tooltip("Sideways speed toward the ramp that surf assist holds you at. Higher drifts you up the ramp.")]
-        public float surfAssistClimb = 0.3f;
-        [Tooltip("Max speed (u/s per second) that air input can take away. In CS a wrong key can brake ~20000 u/s per second; 0 restores that.")]
-        public float airBrakeLimit = 250f;
-        [Tooltip("Lets Space hop you off a surf ramp while keeping your speed. CS has no ramp jump.")]
-        public bool rampJump = true;
 
         [Header("Collision")]
         [Tooltip("Surfaces whose normal.y is below this are too steep to stand on, so they become surf ramps.")]
         public float groundNormalY = 0.7f;
         public LayerMask collisionMask = ~(1 << 2);
-        public float tickRate = 128f;
+        public float tickRate = 64f; // CS2 servers run 64 tick
 
         const float Skin = 0.015f;
         const float GroundProbe = 0.06f;
@@ -49,8 +41,6 @@ namespace VoidFlow
         CapsuleCollider capsule;
         Vector3 position, prevPosition, velocity;
         bool grounded, jumpQueued;
-        Vector3 surfNormal;
-        int ticksSinceSurf = int.MaxValue;
         float yaw, pitch, accumulator;
         readonly Collider[] overlaps = new Collider[16];
         readonly Vector3[] planes = new Vector3[MaxSlides];
@@ -93,7 +83,6 @@ namespace VoidFlow
             Init();
             position = prevPosition = pos;
             velocity = Vector3.zero;
-            ticksSinceSurf = int.MaxValue;
             yaw = newYaw;
             pitch = 0f;
             accumulator = 0f;
@@ -180,12 +169,6 @@ namespace VoidFlow
                 velocity.y = jumpSpeed;
                 grounded = false;
             }
-            else if (rampJump && input.jumpPressed && !grounded && ticksSinceSurf <= 2)
-            {
-                // Hop relative to the ramp, so all forward speed is kept
-                velocity.y += jumpSpeed;
-                ticksSinceSurf = int.MaxValue;
-            }
 
             if (grounded)
             {
@@ -196,10 +179,8 @@ namespace VoidFlow
             else
             {
                 AirAccelerate(wishDir, wishSpeed, dt);
-                if (surfAssist) ApplySurfAssist(wishDir);
                 velocity.y -= gravity * dt;
             }
-            if (ticksSinceSurf < int.MaxValue) ticksSinceSurf++;
 
             velocity = Vector3.ClampMagnitude(velocity, maxVelocity);
 
@@ -243,55 +224,7 @@ namespace VoidFlow
         {
             float add = Mathf.Min(wishSpeed, airWishCap) - Vector3.Dot(velocity, wishDir);
             if (add <= 0f) return;
-
-            Vector3 push = wishDir * Mathf.Min(airAccelerate * wishSpeed * dt, add);
-            if (airBrakeLimit > 0f) push *= BrakeLimitedFraction(push, dt);
-            velocity += push;
-        }
-
-        // A key pointing against your motion would brake you at ~20000 u/s per second in CS.
-        // Shrink the push so horizontal speed drops by at most airBrakeLimit per second.
-        // Pushes that keep or add speed (proper strafing) come back as 1, untouched.
-        float BrakeLimitedFraction(Vector3 push, float dt)
-        {
-            var h = new Vector3(velocity.x, 0f, velocity.z);
-            var p = new Vector3(push.x, 0f, push.z);
-            float floor = h.magnitude - airBrakeLimit * SourceUnit * dt;
-            if (floor <= 0f || (h + p).magnitude >= floor) return 1f;
-
-            // Smallest f in [0,1] where |h + f*p| reaches the floor
-            float a = Vector3.Dot(p, p), b = 2f * Vector3.Dot(h, p), c = Vector3.Dot(h, h) - floor * floor;
-            float disc = Mathf.Max(b * b - 4f * a * c, 0f);
-            return Mathf.Clamp01((-b - Mathf.Sqrt(disc)) / (2f * a));
-        }
-
-        // Auto-strafe: does what holding A/D toward the ramp does in CS, so you can look
-        // forward (or hold W) and stay on. It only works along your sideways axis, so it
-        // never touches forward speed. Looking at the ramp, or pressing away from it, hands
-        // control back to you.
-        void ApplySurfAssist(Vector3 wishDir)
-        {
-            if (ticksSinceSurf > 2) return;
-            Vector3 into = new Vector3(-surfNormal.x, 0f, -surfNormal.z);
-            if (into.sqrMagnitude < 1e-4f) return;
-            into.Normalize();
-
-            Vector3 side = Quaternion.Euler(0f, yaw, 0f) * Vector3.right;
-            if (Vector3.Dot(side, into) < 0f) side = -side;
-            if (Vector3.Dot(side, into) < 0.3f) return;
-            if (Vector3.Dot(wishDir, into) < -0.3f) return;
-
-            float away = surfAssistClimb - Vector3.Dot(velocity, side);
-            if (away > 0f) velocity += side * away;
-        }
-
-        void NoteContact(Vector3 normal)
-        {
-            if (normal.y > 0.05f && normal.y < groundNormalY)
-            {
-                surfNormal = normal;
-                ticksSinceSurf = 0;
-            }
+            velocity += wishDir * Mathf.Min(airAccelerate * wishSpeed * dt, add);
         }
 
         void CategorizePosition()
@@ -330,7 +263,6 @@ namespace VoidFlow
                 timeLeft -= timeLeft * (travel / dist);
 
                 Vector3 n = hit.normal;
-                NoteContact(n);
                 if (planeCount < planes.Length) planes[planeCount++] = n;
                 velocity = Clip(velocity, n);
 
@@ -366,7 +298,6 @@ namespace VoidFlow
                         out Vector3 dir, out float depth))
                 {
                     position += dir * (depth + Skin * 0.5f);
-                    NoteContact(dir);
                     velocity = Clip(velocity, dir);
                 }
             }
