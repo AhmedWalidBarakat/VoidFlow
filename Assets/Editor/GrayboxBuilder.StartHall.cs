@@ -8,11 +8,11 @@ namespace VoidFlow.EditorTools
     // The start hall: where you spawn before dropping into the course. A room on the ledge
     // above ramp 1, open at the front onto the course, with:
     //  - a glowing VOIDFLOW title over the opening
-    //  - neon speed gates and floor arrows down the middle lane to the orange drop edge
+    //  - neon speed gates and floor arrows down the middle lane to the purple drop edge
     //  - a knife wall: every Mythic and Void knife spinning over a pedestal (E to try on)
     //  - the Knife Case and Sniper Case (E to open)
     //  - a small practice ramp to warm up your strafes
-    //  - utopia's orange and blue as neon strips, a skylight, and glowing cubes scattered
+    //  - black and purple throughout: purple neon strips, a skylight, and glowing cubes scattered
     //    at random overhead
     public static partial class GrayboxBuilder
     {
@@ -29,21 +29,21 @@ namespace VoidFlow.EditorTools
             hall.SetParent(parent, false);
 
             // Wood floor, stone walls, dark riveted metal overhead
-            Material floor = MakeMaterial("HallFloor", new Color(0.85f, 0.82f, 0.8f), wood);
-            Material wall = MakeMaterial("HallWall", new Color(0.72f, 0.7f, 0.74f), stone);
-            Material dark = MakeMaterial("HallDark", new Color(0.18f, 0.18f, 0.22f), GrayboxBuilder.metal);
-            Material metal = MakeMaterial("HallMetal", new Color(0.55f, 0.56f, 0.62f), GrayboxBuilder.metal);
-            Material orange = MakeGlow("GlowOrange", new Color(1f, 0.33f, 0.02f), 1.1f);
-            Material cyan = MakeGlow("GlowCyan", new Color(0.1f, 0.75f, 1f), 1.3f);
-            Material blue = MakeGlow("GlowBlue", new Color(0.2f, 0.35f, 1f), 1.3f);
+            Material floor = MakeMaterial("HallFloor", new Color(0.42f, 0.36f, 0.5f), wood);
+            Material wall = MakeMaterial("HallWall", new Color(0.24f, 0.22f, 0.3f), stone);
+            Material dark = MakeMaterial("HallDark", new Color(0.07f, 0.06f, 0.09f), GrayboxBuilder.metal);
+            Material metal = MakeMaterial("HallMetal", new Color(0.2f, 0.18f, 0.25f), GrayboxBuilder.metal);
+            Material purple = MakeGlow("GlowPurple", new Color(0.55f, 0.12f, 1f), 0.75f);
+            Material violet = MakeGlow("GlowViolet", new Color(0.7f, 0.3f, 1f), 0.6f);
+            Material indigo = MakeGlow("GlowIndigo", new Color(0.3f, 0.08f, 0.75f), 0.9f);
 
             float left = lane - HallHalfWidth, right = lane + HallHalfWidth;
             float width = right - left, midZ = (HallFront + HallBack) * 0.5f;
 
-            // Shell: floor up to a 1m orange drop edge, walls, and a ceiling split by a
+            // Shell: floor up to a 1m purple drop edge, walls, and a ceiling split by a
             // skylight slot over the lane
             Box("HallFloor", new Vector3(lane, -0.5f, midZ - 0.5f), new Vector3(width, 1f, HallDepth - 1f), floor, hall);
-            Box("DropEdge", new Vector3(lane, -0.5f, HallFront - 0.5f), new Vector3(width, 1f, 1f), orange, hall);
+            Box("DropEdge", new Vector3(lane, -0.5f, HallFront - 0.5f), new Vector3(width, 1f, 1f), purple, hall);
             Box("HallWallLeft", new Vector3(left - 0.5f, HallHeight * 0.5f, midZ), new Vector3(1f, HallHeight, HallDepth), wall, hall);
             Box("HallWallRight", new Vector3(right + 0.5f, HallHeight * 0.5f, midZ), new Vector3(1f, HallHeight, HallDepth), wall, hall);
             Box("HallWallBack", new Vector3(lane, HallHeight * 0.5f, HallBack - 0.5f), new Vector3(width + 2f, HallHeight, 1f), wall, hall);
@@ -51,17 +51,17 @@ namespace VoidFlow.EditorTools
             Box("HallCeilingLeft", new Vector3((left + lane - slot) * 0.5f, HallHeight + 0.5f, midZ), new Vector3(lane - slot - left, 1f, HallDepth), dark, hall);
             Box("HallCeilingRight", new Vector3((right + lane + slot) * 0.5f, HallHeight + 0.5f, midZ), new Vector3(right - lane - slot, 1f, HallDepth), dark, hall);
 
-            // Orange frame around the opening
-            Box("FrameLeft", new Vector3(left + 0.4f, HallHeight * 0.5f, HallFront - 0.4f), new Vector3(0.8f, HallHeight, 0.8f), orange, hall);
-            Box("FrameRight", new Vector3(right - 0.4f, HallHeight * 0.5f, HallFront - 0.4f), new Vector3(0.8f, HallHeight, 0.8f), orange, hall);
-            Box("FrameTop", new Vector3(lane, HallHeight - 0.4f, HallFront - 0.4f), new Vector3(width, 0.8f, 0.8f), orange, hall);
+            // Purple frame around the opening
+            Box("FrameLeft", new Vector3(left + 0.4f, HallHeight * 0.5f, HallFront - 0.4f), new Vector3(0.8f, HallHeight, 0.8f), purple, hall);
+            Box("FrameRight", new Vector3(right - 0.4f, HallHeight * 0.5f, HallFront - 0.4f), new Vector3(0.8f, HallHeight, 0.8f), purple, hall);
+            Box("FrameTop", new Vector3(lane, HallHeight - 0.4f, HallFront - 0.4f), new Vector3(width, 0.8f, 0.8f), purple, hall);
 
             // Neon strips along both side walls
             foreach (float x in new[] { left + 0.06f, right - 0.06f })
             {
-                Deco("StripLow", hall, new Vector3(x, 1.2f, midZ), new Vector3(0.1f, 0.25f, HallDepth), Quaternion.identity, orange);
-                Deco("StripHigh", hall, new Vector3(x, 12.6f, midZ), new Vector3(0.1f, 0.4f, HallDepth), Quaternion.identity, blue);
-                Deco("StripTop", hall, new Vector3(x, 13.3f, midZ), new Vector3(0.1f, 0.15f, HallDepth), Quaternion.identity, orange);
+                Deco("StripLow", hall, new Vector3(x, 1.2f, midZ), new Vector3(0.1f, 0.25f, HallDepth), Quaternion.identity, purple);
+                Deco("StripHigh", hall, new Vector3(x, 12.6f, midZ), new Vector3(0.1f, 0.4f, HallDepth), Quaternion.identity, indigo);
+                Deco("StripTop", hall, new Vector3(x, 13.3f, midZ), new Vector3(0.1f, 0.15f, HallDepth), Quaternion.identity, purple);
             }
 
             // Spawn pad with a glowing ring
@@ -72,23 +72,23 @@ namespace VoidFlow.EditorTools
                          (new Vector3(0f, 0f, 2f), new Vector3(4.2f, 0.04f, 0.2f)), (new Vector3(0f, 0f, -2f), new Vector3(4.2f, 0.04f, 0.2f)),
                          (new Vector3(2f, 0f, 0f), new Vector3(0.2f, 0.04f, 4.2f)), (new Vector3(-2f, 0f, 0f), new Vector3(0.2f, 0.04f, 4.2f)),
                      })
-                Deco("SpawnRing", hall, spawnPos.WithY(0.02f) + offset, size, Quaternion.identity, cyan);
+                Deco("SpawnRing", hall, spawnPos.WithY(0.02f) + offset, size, Quaternion.identity, violet);
 
-            // Speed gates down the lane, alternating cyan and orange, with arrows between them
+            // Speed gates down the lane, alternating violet and purple, with arrows between them
             for (int g = 0; g < 4; g++)
             {
                 float z = HallBack + 14f + g * 8f;
-                Material m = g % 2 == 0 ? cyan : orange;
+                Material m = g % 2 == 0 ? violet : purple;
                 Box($"Gate{g + 1}PostL", new Vector3(lane - 4.5f, 2.6f, z), new Vector3(0.4f, 5.2f, 0.4f), m, hall);
                 Box($"Gate{g + 1}PostR", new Vector3(lane + 4.5f, 2.6f, z), new Vector3(0.4f, 5.2f, 0.4f), m, hall);
                 Box($"Gate{g + 1}Beam", new Vector3(lane, 5.4f, z), new Vector3(9.4f, 0.4f, 0.4f), m, hall);
             }
             for (float z = HallBack + 10f; z < HallFront - 4f; z += 4f)
             {
-                Deco("ArrowL", hall, new Vector3(lane - 0.45f, 0.01f, z), new Vector3(0.25f, 0.02f, 1.3f), Quaternion.Euler(0f, 45f, 0f), orange);
-                Deco("ArrowR", hall, new Vector3(lane + 0.45f, 0.01f, z), new Vector3(0.25f, 0.02f, 1.3f), Quaternion.Euler(0f, -45f, 0f), orange);
+                Deco("ArrowL", hall, new Vector3(lane - 0.45f, 0.01f, z), new Vector3(0.25f, 0.02f, 1.3f), Quaternion.Euler(0f, 45f, 0f), purple);
+                Deco("ArrowR", hall, new Vector3(lane + 0.45f, 0.01f, z), new Vector3(0.25f, 0.02f, 1.3f), Quaternion.Euler(0f, -45f, 0f), purple);
             }
-            Label("DROP IN", hall, new Vector3(lane, 0.02f, HallFront - 2.5f), 0f, 0.9f, new Color(1f, 0.55f, 0.2f), pitch: 90f);
+            Label("DROP IN", hall, new Vector3(lane, 0.02f, HallFront - 2.5f), 0f, 0.9f, new Color(0.85f, 0.5f, 1f), pitch: 90f);
 
             // Knife wall on the left: every Mythic and Void knife spinning over a pedestal
             float knifeX = left + 3f;
@@ -116,8 +116,8 @@ namespace VoidFlow.EditorTools
             float caseX = right - 4f;
             var cases = new[]
             {
-                ("KNIFE CASE", false, 2, HallFront - 8f, new Color(0.07f, 0.05f, 0.12f), new Color(1f, 0.72f, 0.2f), new Color(1f, 0.78f, 0.3f)),
-                ("SNIPER CASE", true, 1, HallFront - 16f, new Color(0.03f, 0.05f, 0.1f), new Color(0.2f, 0.85f, 1f), new Color(0.95f, 0.35f, 1f)),
+                ("KNIFE CASE", false, 2, HallFront - 8f, new Color(0.04f, 0.03f, 0.06f), new Color(0.55f, 0.15f, 1f), new Color(0.7f, 0.35f, 1f)),
+                ("SNIPER CASE", true, 1, HallFront - 16f, new Color(0.04f, 0.03f, 0.06f), new Color(0.8f, 0.5f, 1f), new Color(0.9f, 0.3f, 1f)),
             };
             foreach (var (title, sniper, showcase, caseZ, stripeA, stripeB, rayColor) in cases)
             {
@@ -141,18 +141,18 @@ namespace VoidFlow.EditorTools
             var practice = RampShapes.Lay(RampShapes.Kind.Prism, 4f, -1f, new Vector3(right - 4f, 5.3f, HallBack + 3f), Vector3.forward,
                 new[] { (0f, 0f), (22f, 0f) }, null);
             SpawnMesh("PracticeRamp", practice.ridge[0], RampShapes.BuildMesh(practice, "PracticeRamp"), rampMat, hall, convex: false);
-            Label("PRACTICE RAMP", hall, new Vector3(right - 0.15f, 8.5f, HallBack + 14f), 90f, 0.9f, new Color(0.5f, 0.85f, 1f));
+            Label("PRACTICE RAMP", hall, new Vector3(right - 0.15f, 8.5f, HallBack + 14f), 90f, 0.9f, new Color(0.8f, 0.55f, 1f));
 
             // Title over the opening, on a dark banner so it reads against the sky
             Deco("TitleBanner", hall, new Vector3(lane, 10.6f, HallFront - 0.9f), new Vector3(22f, 4.6f, 0.2f), Quaternion.identity, dark);
-            Deco("TitleBannerEdge", hall, new Vector3(lane, 8.25f, HallFront - 0.95f), new Vector3(22f, 0.15f, 0.2f), Quaternion.identity, orange);
+            Deco("TitleBannerEdge", hall, new Vector3(lane, 8.25f, HallFront - 0.95f), new Vector3(22f, 0.15f, 0.2f), Quaternion.identity, purple);
             Label("VOIDFLOW", hall, new Vector3(lane, 11.2f, HallFront - 1.1f), 0f, 3f, Color.white);
-            Label("surf  /  bhop  /  knives  /  cases", hall, new Vector3(lane, 9.1f, HallFront - 1.1f), 0f, 0.7f, new Color(0.4f, 0.85f, 1f));
+            Label("surf  /  bhop  /  knives  /  cases", hall, new Vector3(lane, 9.1f, HallFront - 1.1f), 0f, 0.7f, new Color(0.75f, 0.5f, 1f));
 
             // Glowing cubes scattered at random overhead, each spinning and bobbing its own way
             var rng = new System.Random(20260924);
             float Rand(float min, float max) => min + (float)rng.NextDouble() * (max - min);
-            var palette = new[] { orange, cyan, blue, MakeGlow("GlowPink", new Color(1f, 0.15f, 0.55f), 1.3f), MakeGlow("GlowGold", new Color(1f, 0.7f, 0.1f), 1.3f) };
+            var palette = new[] { purple, violet, indigo, MakeGlow("GlowMagenta", new Color(0.85f, 0.15f, 1f), 0.8f), dark };
             for (int c = 0; c < FloatingCubes; c++)
             {
                 float size = Rand(0.25f, 1.1f);
@@ -167,8 +167,8 @@ namespace VoidFlow.EditorTools
             }
 
             // A little colored light to go with the neon
-            PointLight("CyanLight", hall, new Vector3(lane - 8f, 8f, midZ + 6f), new Color(0.3f, 0.8f, 1f));
-            PointLight("OrangeLight", hall, new Vector3(lane + 8f, 8f, midZ - 8f), new Color(1f, 0.5f, 0.15f));
+            PointLight("VioletLight", hall, new Vector3(lane - 8f, 8f, midZ + 6f), new Color(0.7f, 0.4f, 1f));
+            PointLight("PurpleLight", hall, new Vector3(lane + 8f, 8f, midZ - 8f), new Color(0.55f, 0.2f, 1f));
 
             var spawn = new GameObject("Spawn").transform;
             spawn.SetParent(hall, false);
