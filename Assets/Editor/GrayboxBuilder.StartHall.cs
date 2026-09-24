@@ -9,8 +9,8 @@ namespace VoidFlow.EditorTools
     // above ramp 1, open at the front onto the course, with:
     //  - a glowing VOIDFLOW title over the opening
     //  - neon speed gates and floor arrows down the middle lane to the orange drop edge
-    //  - a knife wall: one spinning knife per rarity, a teaser for knives to come
-    //  - a spinning VOID CASE, earned by finishing maps
+    //  - a knife wall: every Mythic and Void knife spinning over a pedestal (E to try on)
+    //  - the Knife Case and Sniper Case (E to open)
     //  - a small practice ramp to warm up your strafes
     //  - utopia's orange and blue as neon strips, a skylight, and glowing cubes scattered
     //    at random overhead
@@ -19,14 +19,6 @@ namespace VoidFlow.EditorTools
         const float HallHalfWidth = 16f, HallDepth = 45f, HallHeight = 15f;
         const float HallFront = -1f, HallBack = HallFront - HallDepth;
         const int FloatingCubes = 32;
-
-        static readonly (string name, string rarity, Color color)[] ShowcaseKnives =
-        {
-            ("Tide Cutter", "RARE", new Color(0.2f, 0.5f, 1f)),
-            ("Frost Line", "EPIC", new Color(0.6f, 0.3f, 1f)),
-            ("Neon Fang", "MYTHIC", new Color(1f, 0.2f, 0.6f)),
-            ("Void Edge", "LEGENDARY", new Color(1f, 0.75f, 0.15f)),
-        };
 
         // Builds the hall around `lane`, the x you walk down to drop onto the first ramp.
         // Returns the start zone (the whole hall floor), the spawn point at the back, and the
@@ -98,43 +90,52 @@ namespace VoidFlow.EditorTools
             }
             Label("DROP IN", hall, new Vector3(lane, 0.02f, HallFront - 2.5f), 0f, 0.9f, new Color(1f, 0.55f, 0.2f), pitch: 90f);
 
-            // Knife wall on the left: one spinning knife per rarity on a glowing pedestal
-            Material grip = MakeMaterial("KnifeGrip", new Color(0.12f, 0.1f, 0.09f), grid);
+            // Knife wall on the left: every Mythic and Void knife spinning over a pedestal
             float knifeX = left + 3f;
-            for (int k = 0; k < ShowcaseKnives.Length; k++)
+            for (int k = 1; k < Skins.Knives.Length; k++)
             {
-                var (name, rarity, color) = ShowcaseKnives[k];
-                float z = HallBack + 10f + k * 8f;
-                Material glow = MakeGlow($"Glow{rarity[0]}{rarity.Substring(1).ToLower()}", color, 1.4f);
-                Box($"KnifePedestal{k + 1}", new Vector3(knifeX, 0.6f, z), new Vector3(1.6f, 1.2f, 1.6f), metal, hall);
-                Deco("PedestalRim", hall, new Vector3(knifeX, 1.22f, z), new Vector3(1.7f, 0.06f, 1.7f), Quaternion.identity, glow);
+                var skin = Skins.Knives[k];
+                float z = HallBack + 5f + (k - 1) * 4f;
+                Color color = skin.rarity == SkinRarity.Void ? new Color(0.6f, 0.25f, 1f) : Skins.RarityColor(skin.rarity);
+                Material glow = MakeGlow($"Glow{Skins.RarityName(skin.rarity)}", color, 1.4f);
+                Box($"KnifePedestal{k}", new Vector3(knifeX, 0.6f, z), new Vector3(1.2f, 1.2f, 1.2f), metal, hall);
+                Deco("PedestalRim", hall, new Vector3(knifeX, 1.22f, z), new Vector3(1.3f, 0.06f, 1.3f), Quaternion.identity, glow);
 
-                var knife = new GameObject(name).transform;
-                knife.SetParent(hall, false);
-                knife.SetPositionAndRotation(new Vector3(knifeX, 3f, z), Quaternion.Euler(0f, 0f, 18f));
-                knife.localScale = Vector3.one * 2.4f;
-                BuildKnife(knife, glow, grip, metal);
-                var floaty = knife.gameObject.AddComponent<Floaty>();
-                floaty.spin = new Vector3(0f, 55f, 0f);
-                floaty.bobHeight = 0.12f;
+                var display = new GameObject($"Display {skin.name}").AddComponent<SkinDisplay>();
+                display.transform.SetParent(hall, false);
+                display.transform.position = new Vector3(knifeX, 2.9f, z);
+                display.skinIndex = k;
+                display.template = rampMat;
 
-                Label($"{name}\n{rarity}", hall, new Vector3(knifeX + 0.82f, 0.65f, z), -90f, 0.28f, color);
+                string name = skin.name.Replace(" | ", "\n");
+                Label($"{name}\n{Skins.RarityName(skin.rarity).ToUpper()}", hall, new Vector3(knifeX + 0.62f, 0.7f, z), -90f, 0.2f, color);
             }
-            Label("KNIVES\ncoming soon", hall, new Vector3(left + 0.15f, 7.5f, HallBack + 22f), -90f, 1.1f, Color.white);
+            Label("KNIVES\nwalk up + E to try on", hall, new Vector3(left + 0.15f, 7.5f, HallBack + 22f), -90f, 1f, Color.white);
 
-            // Case display near the front on the right
-            float caseX = right - 4f, caseZ = HallFront - 10f;
-            Box("CasePedestal", new Vector3(caseX, 0.6f, caseZ), new Vector3(2f, 1.2f, 2f), metal, hall);
-            Deco("CasePedestalRim", hall, new Vector3(caseX, 1.22f, caseZ), new Vector3(2.1f, 0.06f, 2.1f), Quaternion.identity, orange);
-            var voidCase = new GameObject("VoidCase").transform;
-            voidCase.SetParent(hall, false);
-            voidCase.position = new Vector3(caseX, 2.6f, caseZ);
-            voidCase.localScale = Vector3.one * 1.6f;
-            BuildCase(voidCase, dark, metal, orange);
-            var spinCase = voidCase.gameObject.AddComponent<Floaty>();
-            spinCase.spin = new Vector3(0f, 30f, 0f);
-            spinCase.bobHeight = 0.08f;
-            Label("VOID CASE\nearn cases by finishing maps", hall, new Vector3(caseX - 1.02f, 0.65f, caseZ), 90f, 0.24f, new Color(1f, 0.6f, 0.25f));
+            // The two cases near the front on the right
+            float caseX = right - 4f;
+            var cases = new[]
+            {
+                ("KNIFE CASE", false, 2, HallFront - 8f, new Color(0.07f, 0.05f, 0.12f), new Color(1f, 0.72f, 0.2f), new Color(1f, 0.78f, 0.3f)),
+                ("SNIPER CASE", true, 1, HallFront - 16f, new Color(0.03f, 0.05f, 0.1f), new Color(0.2f, 0.85f, 1f), new Color(0.95f, 0.35f, 1f)),
+            };
+            foreach (var (title, sniper, showcase, caseZ, stripeA, stripeB, rayColor) in cases)
+            {
+                Material rim = MakeGlow(sniper ? "GlowSniperCase" : "GlowKnifeCase", rayColor, 1.4f);
+                Box(sniper ? "SniperCasePedestal" : "KnifeCasePedestal", new Vector3(caseX, 0.6f, caseZ), new Vector3(2.2f, 1.2f, 2.2f), metal, hall);
+                Deco("CasePedestalRim", hall, new Vector3(caseX, 1.22f, caseZ), new Vector3(2.3f, 0.06f, 2.3f), Quaternion.identity, rim);
+                var station = new GameObject(title).AddComponent<CaseStation>();
+                station.transform.SetParent(hall, false);
+                station.transform.SetPositionAndRotation(new Vector3(caseX, 1.25f, caseZ), Quaternion.Euler(0f, 90f, 0f));
+                station.title = title;
+                station.sniperCase = sniper;
+                station.showcaseSkin = showcase;
+                station.stripeA = stripeA;
+                station.stripeB = stripeB;
+                station.rayColor = rayColor;
+                station.template = rampMat;
+                Label($"{title}\nMythic  ·  Void 6%", hall, new Vector3(caseX - 1.12f, 0.7f, caseZ), 90f, 0.26f, rayColor);
+            }
 
             // Practice ramp along the right wall, to warm up your strafes before dropping in
             var practice = RampShapes.Lay(RampShapes.Kind.Prism, 4f, -1f, new Vector3(right - 4f, 5.3f, HallBack + 3f), Vector3.forward,
@@ -174,29 +175,6 @@ namespace VoidFlow.EditorTools
             spawn.SetPositionAndRotation(spawnPos, Quaternion.identity);
             BoxCollider zone = Zone("StartZone", new Vector3(lane, 2f, midZ), new Vector3(width, 4f, HallDepth), hall);
             return (zone, spawn, hall);
-        }
-
-        // A simple knife from boxes: glowing blade with a diamond tip, guard, grip, pommel
-        static void BuildKnife(Transform root, Material blade, Material grip, Material metal)
-        {
-            Deco("Blade", root, new Vector3(0f, 0.55f, 0f), new Vector3(0.05f, 0.75f, 0.2f), Quaternion.identity, blade, local: true);
-            Deco("Tip", root, new Vector3(0f, 0.93f, 0.03f), new Vector3(0.05f, 0.16f, 0.16f), Quaternion.Euler(45f, 0f, 0f), blade, local: true);
-            Deco("Guard", root, new Vector3(0f, 0.15f, 0f), new Vector3(0.1f, 0.06f, 0.38f), Quaternion.identity, metal, local: true);
-            Deco("Grip", root, new Vector3(0f, -0.07f, 0f), new Vector3(0.08f, 0.34f, 0.12f), Quaternion.identity, grip, local: true);
-            Deco("Pommel", root, new Vector3(0f, -0.27f, 0f), new Vector3(0.1f, 0.07f, 0.15f), Quaternion.identity, metal, local: true);
-        }
-
-        // A case from boxes: dark body, glowing band and seams, metal lid and handle, a "?"
-        static void BuildCase(Transform root, Material body, Material metal, Material glow)
-        {
-            Deco("Body", root, Vector3.zero, new Vector3(1.4f, 0.8f, 0.9f), Quaternion.identity, body, local: true);
-            Deco("Band", root, Vector3.zero, new Vector3(1.44f, 0.07f, 0.94f), Quaternion.identity, glow, local: true);
-            Deco("Lid", root, new Vector3(0f, 0.46f, 0f), new Vector3(1.44f, 0.12f, 0.94f), Quaternion.identity, metal, local: true);
-            Deco("Handle", root, new Vector3(0f, 0.58f, 0f), new Vector3(0.5f, 0.08f, 0.08f), Quaternion.identity, metal, local: true);
-            foreach (float x in new[] { -0.7f, 0.7f })
-                Deco("Seam", root, new Vector3(x, 0f, 0f), new Vector3(0.04f, 0.82f, 0.92f), Quaternion.identity, glow, local: true);
-            Label("?", root, new Vector3(0f, -0.15f, -0.46f), 0f, 0.5f, new Color(1f, 0.6f, 0.25f), local: true);
-            Label("?", root, new Vector3(0f, -0.15f, 0.46f), 180f, 0.5f, new Color(1f, 0.6f, 0.25f), local: true);
         }
 
         // A decorative cube with no collider

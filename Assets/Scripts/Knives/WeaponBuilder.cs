@@ -1,0 +1,596 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Rendering;
+
+namespace VoidFlow
+{
+    // A built weapon model and the moving bits its animations need
+    public class WeaponParts
+    {
+        public Transform root;
+        public KnifeModel model;
+        public SkinRarity rarity;
+        public Transform blade, swingHandle, aura, bolt, magazine; // butterfly / Void / rifle parts
+        public Vector3 ringCenter, boltRest, magRest;
+        public readonly List<Material> glowMaterials = new();
+        public readonly List<Color> glowColors = new();
+        public readonly List<(Transform t, Vector3 home, float phase)> motes = new();
+
+        public bool IsSword => model is KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus;
+
+        // Karambit spins on its ring, the butterfly knife flips open, Void swords get the
+        // big flip from the hand plus a burst of glow
+        public float InspectLength => model switch
+        {
+            KnifeModel.Karambit => 2.6f,
+            KnifeModel.Butterfly => 2.2f,
+            _ => 2.9f,
+        };
+
+        // Keeps the model alive: aura motes drift, glow pulses, inspect moves parts.
+        // `inspect` is seconds into the inspect, or negative when not inspecting.
+        public void Animate(float time, float inspect)
+        {
+            float burst = inspect >= 0f ? Bump(inspect, 0.8f, 1.3f, 2.2f) : 0f;
+            for (int i = 0; i < glowMaterials.Count; i++)
+            {
+                if (!glowMaterials[i]) continue;
+                float pulse = 1f + 0.25f * Mathf.Sin(time * 3f + i) + burst * 2.5f;
+                glowMaterials[i].SetColor("_EmissionColor", glowColors[i] * pulse);
+            }
+            if (aura)
+            {
+                aura.localRotation = Quaternion.Euler(0f, time * 40f, 0f);
+                foreach (var (t, home, phase) in motes)
+                {
+                    if (!t) continue;
+                    t.localPosition = home + new Vector3(0f, Mathf.Sin(time * 1.7f + phase) * 0.01f, 0f);
+                    t.localScale = Vector3.one * (0.005f * (1f + burst) * (0.7f + 0.3f * Mathf.Sin(time * 4f + phase)));
+                }
+            }
+
+            if (model == KnifeModel.Karambit && root)
+            {
+                // Twirl around the finger ring, twice
+                float a = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.75f, 1.85f, inspect)) * 720f : 0f;
+                var spin = Quaternion.Euler(0f, 0f, a);
+                root.SetLocalPositionAndRotation(ringCenter - spin * ringCenter, spin);
+            }
+            if (model == KnifeModel.Butterfly && blade && swingHandle)
+            {
+                // The loose handle swings open, the blade flips around the pivot twice, and
+                // the handle closes again
+                float open = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 0.7f, inspect)) - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.2f, 1.55f, inspect)) : 0f;
+                float flip = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 1.4f, inspect)) * 720f : 0f;
+                swingHandle.localRotation = Quaternion.Euler(0f, 0f, open * 180f);
+                blade.localRotation = Quaternion.Euler(0f, 0f, flip);
+            }
+        }
+
+        static float Bump(float t, float start, float peak, float end) =>
+            t < peak ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(start, peak, t)) : 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(peak, end, t));
+    }
+
+    // Builds weapon models from simple shapes and generated meshes: the knives (in "hand
+    // space": handle along +Y from -0.11 to 0, blade above it, edge toward -X, blade flat in
+    // the XY plane) and the sniper rifle (+Z along the barrel, origin at the trigger).
+    // Used for the first-person view, the hall displays and the cases.
+    public class WeaponBuilder
+    {
+        readonly Material template;
+        readonly int layer;
+        readonly bool shadows;
+        readonly List<Material> materials;
+
+        public WeaponBuilder(Material template, int layer, bool shadows, List<Material> materials)
+        {
+            this.template = template;
+            this.layer = layer;
+            this.shadows = shadows;
+            this.materials = materials;
+        }
+
+        public static void Kill(Object o)
+        {
+            if (!o) return;
+            if (Application.isPlaying) Object.Destroy(o);
+            else Object.DestroyImmediate(o);
+        }
+
+        // ---------------------------------------------------------------- knives
+
+        public WeaponParts Knife(Skins.Skin skin, Transform parent)
+        {
+            var root = new GameObject(skin.name).transform;
+            root.SetParent(parent, false);
+            var parts = new WeaponParts { root = root, model = skin.model, rarity = skin.rarity };
+            Material finish = FinishMaterial(skin.finish, parts);
+            switch (skin.model)
+            {
+                case KnifeModel.Butterfly: Butterfly(parts, finish); break;
+                case KnifeModel.HollowMoon: HollowMoon(parts, finish); break;
+                case KnifeModel.Tidebreaker: Tidebreaker(parts, finish); break;
+                case KnifeModel.Colossus: Colossus(parts, finish); break;
+                default: Karambit(parts, finish); break;
+            }
+            if (skin.rarity == SkinRarity.Void) Aura(parts, skin.finish);
+            parts.Animate(0f, -1f);
+            return parts;
+        }
+
+        // Held in reverse grip like CS: the finger ring sits above the index finger (top of
+        // the handle), and the curved claw blade comes out under the pinky (bottom), curling
+        // toward the edge side. Black grip with a brass bolster, pins and ring.
+        void Karambit(WeaponParts parts, Material finish)
+        {
+            var t = parts.root;
+            Material grip = Mat(new Color(0.05f, 0.05f, 0.055f), 0.45f, 0f);
+            Material brass = Mat(new Color(0.9f, 0.66f, 0.28f), 0.88f, 0.9f);
+            Part(t, PrimitiveType.Cube, grip, new Vector3(0f, -0.054f, 0f), new Vector3(0.03f, 0.114f, 0.018f));
+            foreach (float y in new[] { -0.028f, -0.078f })
+                Part(t, PrimitiveType.Cylinder, brass, new Vector3(0f, y, 0f), new Vector3(0.007f, 0.0105f, 0.007f), Quaternion.Euler(90f, 0f, 0f));
+            Part(t, PrimitiveType.Cube, brass, new Vector3(0f, -0.113f, 0f), new Vector3(0.036f, 0.008f, 0.02f));
+            parts.ringCenter = new Vector3(0.002f, 0.02f, 0f);
+            MeshPart(t, brass, Torus(0.017f, 0.0045f), parts.ringCenter, Quaternion.identity);
+
+            // Blade: an arc heading down from the bolster and bending toward the edge side,
+            // spine on the outside of the curve, edge on the inside
+            const int n = 20;
+            const float radius = 0.1f, sweep = 95f * Mathf.Deg2Rad, top = -0.116f;
+            var spine = new Vector2[n + 1];
+            var edge = new Vector2[n + 1];
+            for (int i = 0; i <= n; i++)
+            {
+                float s = (float)i / n, a = s * sweep;
+                var c = new Vector2(-radius + radius * Mathf.Cos(a), top - radius * Mathf.Sin(a));
+                var outward = new Vector2(Mathf.Cos(a), -Mathf.Sin(a));
+                float w = 0.034f * (1f - Mathf.Pow(s, 1.6f));
+                spine[i] = c + outward * w * 0.5f;
+                edge[i] = c - outward * w * 0.5f;
+            }
+            MeshPart(t, finish, RailBlade(spine, edge, 0.0028f, 0.0004f), Vector3.zero, Quaternion.identity);
+        }
+
+        // Two skeletonized handles around the blade tang; one swings free for flips
+        void Butterfly(WeaponParts parts, Material finish)
+        {
+            var t = parts.root;
+            Material steel = Mat(new Color(0.72f, 0.74f, 0.78f), 0.88f, 0.9f);
+            Material dark = Mat(new Color(0.06f, 0.06f, 0.07f), 0.3f, 0.2f);
+            Transform Handle(string name, float side)
+            {
+                var pivot = new GameObject(name).transform;
+                pivot.SetParent(t, false);
+                Part(pivot, PrimitiveType.Cube, steel, new Vector3(0f, -0.06f, side * 0.0095f), new Vector3(0.026f, 0.12f, 0.006f));
+                foreach (float y in new[] { -0.03f, -0.06f, -0.09f })
+                    Part(pivot, PrimitiveType.Cube, dark, new Vector3(0f, y, side * 0.0128f), new Vector3(0.012f, 0.02f, 0.0015f));
+                Part(pivot, PrimitiveType.Cylinder, dark, new Vector3(0f, -0.004f, side * 0.0095f), new Vector3(0.008f, 0.004f, 0.008f), Quaternion.Euler(90f, 0f, 0f));
+                return pivot;
+            }
+            Handle("Handle", 1f);
+            parts.swingHandle = Handle("Swing Handle", -1f);
+            Part(parts.swingHandle, PrimitiveType.Cube, steel, new Vector3(0f, -0.124f, -0.0095f), new Vector3(0.01f, 0.012f, 0.004f));
+
+            parts.blade = new GameObject("Blade").transform;
+            parts.blade.SetParent(t, false);
+            parts.blade.localPosition = new Vector3(0f, 0.002f, 0f);
+            Part(parts.blade, PrimitiveType.Cube, steel, new Vector3(0f, -0.004f, 0f), new Vector3(0.022f, 0.012f, 0.005f));
+            const int n = 16;
+            var spine = new Vector2[n + 1];
+            var edge = new Vector2[n + 1];
+            for (int i = 0; i <= n; i++)
+            {
+                float y = 0.13f * i / n;
+                spine[i] = new Vector2(y < 0.085f ? 0.011f : Mathf.Lerp(0.011f, 0f, (y - 0.085f) / 0.045f), y);
+                float k = Mathf.Clamp01((y - 0.06f) / 0.07f);
+                edge[i] = new Vector2(-0.012f * (1f - k * k), y);
+            }
+            MeshPart(parts.blade, finish, RailBlade(spine, edge, 0.0024f, 0.0004f), Vector3.zero, Quaternion.identity);
+        }
+
+        // A curved katana blade: spine on +X, gentle curve toward the spine, rounded tip
+        static (Vector2[], Vector2[]) Katana(float length, float width, float curve, float tipLength, float start)
+        {
+            const int n = 24;
+            var spine = new Vector2[n + 1];
+            var edge = new Vector2[n + 1];
+            float tipStart = 1f - tipLength / length;
+            for (int i = 0; i <= n; i++)
+            {
+                float s = (float)i / n, y = start + s * length, cx = curve * s * s;
+                float sx = cx + width * 0.38f, ex = cx - width * 0.62f;
+                if (s > tipStart)
+                {
+                    float k = (s - tipStart) / (1f - tipStart);
+                    float tipX = curve + width * 0.3f;
+                    sx = Mathf.Lerp(sx, tipX, k * k);
+                    ex = tipX + (ex - tipX) * Mathf.Sqrt(Mathf.Max(0f, 1f - k * k));
+                }
+                spine[i] = new Vector2(sx, y);
+                edge[i] = new Vector2(ex, y);
+            }
+            return (spine, edge);
+        }
+
+        // Black katana with a small black guard, black grip wrapped with red diamonds, and a
+        // chain hanging from the pommel. Faint dark-red edge glow.
+        void HollowMoon(WeaponParts parts, Material finish)
+        {
+            var t = parts.root;
+            Material black = Mat(new Color(0.03f, 0.03f, 0.035f), 0.5f, 0.4f);
+            Material red = Mat(new Color(0.8f, 0.04f, 0.05f), 0.35f, 0f);
+            Material chain = Mat(new Color(0.12f, 0.12f, 0.13f), 0.7f, 0.8f);
+            Part(t, PrimitiveType.Cylinder, black, new Vector3(0f, -0.055f, 0f), new Vector3(0.021f, 0.058f, 0.017f));
+            RedDiamonds(t, red);
+            Part(t, PrimitiveType.Cube, black, new Vector3(0f, 0.002f, 0f), new Vector3(0.034f, 0.008f, 0.026f));
+            Part(t, PrimitiveType.Cube, black, new Vector3(0f, 0.002f, 0f), new Vector3(0.012f, 0.008f, 0.042f), Quaternion.Euler(0f, 45f, 0f));
+            Part(t, PrimitiveType.Cube, black, new Vector3(0f, -0.116f, 0f), new Vector3(0.022f, 0.008f, 0.018f));
+            // Chain from the pommel, hanging off to the side
+            for (int i = 0; i < 7; i++)
+            {
+                var p = new Vector3(-0.004f - i * 0.009f, -0.124f - i * 0.011f + (i * i) * 0.0004f, 0f);
+                MeshPart(t, chain, Torus(0.0055f, 0.0016f, 12, 6), p, Quaternion.Euler(i % 2 == 0 ? 0f : 90f, 0f, 38f));
+            }
+            var (spine, edge) = Katana(0.25f, 0.022f, 0.022f, 0.03f, 0.006f);
+            MeshPart(t, finish, RailBlade(spine, edge, 0.0028f, 0.0005f), Vector3.zero, Quaternion.identity);
+        }
+
+        // Red diamonds peeking through black wrap, on all four sides of the grip
+        void RedDiamonds(Transform t, Material red)
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                float y = -0.012f - i * 0.017f;
+                foreach (var (offset, turn) in new[] { (new Vector3(0f, 0f, 0.0085f), 0f), (new Vector3(0f, 0f, -0.0085f), 0f), (new Vector3(0.0105f, 0f, 0f), 90f), (new Vector3(-0.0105f, 0f, 0f), 90f) })
+                    Part(t, PrimitiveType.Cube, red, offset + Vector3.up * y, new Vector3(0.008f, 0.008f, 0.002f), Quaternion.Euler(0f, turn, 45f));
+            }
+        }
+
+        // Black katana with a glowing blue wave along the edge, round gold-rimmed guard,
+        // navy grip with white wraps
+        void Tidebreaker(WeaponParts parts, Material finish)
+        {
+            var t = parts.root;
+            Material navy = Mat(new Color(0.05f, 0.08f, 0.2f), 0.35f, 0f);
+            Material white = Mat(new Color(0.9f, 0.92f, 0.95f), 0.3f, 0f);
+            Material black = Mat(new Color(0.04f, 0.04f, 0.05f), 0.6f, 0.5f);
+            Material gold = Mat(new Color(0.95f, 0.72f, 0.3f), 0.85f, 0.9f);
+            Part(t, PrimitiveType.Cylinder, navy, new Vector3(0f, -0.055f, 0f), new Vector3(0.021f, 0.057f, 0.018f));
+            for (int i = 0; i < 6; i++)
+                Part(t, PrimitiveType.Cube, white, new Vector3(0f, -0.012f - i * 0.017f, 0f), new Vector3(0.023f, 0.004f, 0.02f), Quaternion.Euler(0f, 0f, i % 2 == 0 ? 20f : -20f));
+            Part(t, PrimitiveType.Cylinder, gold, new Vector3(0f, -0.114f, 0f), new Vector3(0.023f, 0.005f, 0.02f));
+            Part(t, PrimitiveType.Cylinder, black, new Vector3(0f, 0.001f, 0f), new Vector3(0.05f, 0.003f, 0.046f));
+            Part(t, PrimitiveType.Cylinder, gold, new Vector3(0f, 0.001f, 0f), new Vector3(0.053f, 0.0015f, 0.049f));
+            Part(t, PrimitiveType.Cube, gold, new Vector3(0f, 0.008f, 0f), new Vector3(0.026f, 0.01f, 0.008f));
+            var (spine, edge) = Katana(0.23f, 0.024f, 0.012f, 0.035f, 0.01f);
+            MeshPart(t, finish, RailBlade(spine, edge, 0.003f, 0.0005f), Vector3.zero, Quaternion.identity);
+        }
+
+        // A huge cleaver in miniature: broad straight blade with a chisel tip, two holes with
+        // glowing orbs, a wide guard and a long wrapped grip
+        void Colossus(WeaponParts parts, Material finish)
+        {
+            var t = parts.root;
+            Material dark = Mat(new Color(0.12f, 0.12f, 0.14f), 0.6f, 0.8f);
+            Material wrap = Mat(new Color(0.18f, 0.1f, 0.06f), 0.3f, 0f);
+            Material hole = Mat(new Color(0.01f, 0.01f, 0.015f), 0.2f, 0f);
+            Part(t, PrimitiveType.Cylinder, wrap, new Vector3(0f, -0.058f, 0f), new Vector3(0.02f, 0.06f, 0.02f));
+            Part(t, PrimitiveType.Cube, dark, new Vector3(0f, -0.122f, 0f), new Vector3(0.016f, 0.012f, 0.016f), Quaternion.Euler(0f, 45f, 0f));
+            Part(t, PrimitiveType.Cube, dark, new Vector3(-0.006f, 0.004f, 0f), new Vector3(0.072f, 0.014f, 0.018f));
+
+            const int n = 12;
+            var spine = new Vector2[n + 1];
+            var edge = new Vector2[n + 1];
+            for (int i = 0; i <= n; i++)
+            {
+                float s = (float)i / n;
+                spine[i] = new Vector2(0.02f, 0.011f + s * 0.2f);
+                // Straight edge, then a chisel line up to the spine at the tip
+                float ey = 0.011f + s * 0.2f;
+                edge[i] = new Vector2(s < 0.82f ? -0.034f : Mathf.Lerp(-0.034f, 0.02f, (s - 0.82f) / 0.18f), s < 0.82f ? ey : Mathf.Lerp(0.011f + 0.82f * 0.2f, 0.211f, (s - 0.82f) / 0.18f));
+            }
+            MeshPart(t, finish, RailBlade(spine, edge, 0.0034f, 0.0006f), Vector3.zero, Quaternion.identity);
+
+            var orbColors = new[] { new Color(0.3f, 1f, 0.6f), new Color(0.6f, 0.3f, 1f) };
+            for (int i = 0; i < 2; i++)
+            {
+                var p = new Vector3(-0.004f, 0.04f + i * 0.042f, 0f);
+                Part(t, PrimitiveType.Cylinder, hole, p, new Vector3(0.019f, 0.0042f, 0.019f), Quaternion.Euler(90f, 0f, 0f));
+                Part(t, PrimitiveType.Sphere, Glow(orbColors[i], 3f, null), p, Vector3.one * 0.012f);
+            }
+        }
+
+        // Void knives: little glowing motes circling the blade
+        void Aura(WeaponParts parts, KnifeFinish finish)
+        {
+            var look = KnifeFinishes.Get(finish);
+            Color c = look.glow.maxColorComponent > 0f ? look.glow / look.glow.maxColorComponent : new Color(0.6f, 0.3f, 1f);
+            Material mote = Glow(c, 3f, parts);
+            parts.aura = new GameObject("Aura").transform;
+            parts.aura.SetParent(parts.root, false);
+            var random = new System.Random(finish.GetHashCode());
+            for (int i = 0; i < 10; i++)
+            {
+                float a = (float)random.NextDouble() * Mathf.PI * 2f, r = 0.022f + (float)random.NextDouble() * 0.018f;
+                var home = new Vector3(Mathf.Cos(a) * r, 0.02f + (float)random.NextDouble() * 0.2f, Mathf.Sin(a) * r);
+                var t = Part(parts.aura, PrimitiveType.Cube, mote, home, Vector3.one * 0.005f, Quaternion.Euler(45f, 45f, 0f));
+                parts.motes.Add((t, home, (float)random.NextDouble() * 10f));
+            }
+        }
+
+        // ---------------------------------------------------------------- sniper rifle
+
+        // The heavy bolt-action rifle. The skin's finish goes on the stock and chassis.
+        public WeaponParts Rifle(Skins.Skin skin, Transform parent)
+        {
+            var t = new GameObject(skin.name).transform;
+            t.SetParent(parent, false);
+            var parts = new WeaponParts { root = t, model = KnifeModel.Rifle, rarity = skin.rarity };
+            Material metal = Mat(new Color(0.1f, 0.1f, 0.11f), 0.5f, 0.6f);
+            Material metalLight = Mat(new Color(0.28f, 0.28f, 0.3f), 0.45f, 0.6f);
+            Material chassis = skin.finish == KnifeFinish.Polished ? Mat(new Color(0.24f, 0.25f, 0.21f), 0.2f, 0.1f) : FinishMaterial(skin.finish, parts);
+            Material rubber = Mat(new Color(0.04f, 0.04f, 0.04f), 0.15f, 0f);
+            Material lens = Mat(new Color(0.06f, 0.1f, 0.2f), 0.95f, 0.4f);
+            Material red = Mat(new Color(0.85f, 0.1f, 0.06f), 0.4f, 0.1f);
+
+            // Receiver, rail and chassis
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.02f, 0.04f), new Vector3(0.046f, 0.058f, 0.26f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.054f, 0.04f), new Vector3(0.026f, 0.01f, 0.3f));
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.01f, 0.05f), new Vector3(0.052f, 0.032f, 0.27f));
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, 0f, 0.3f), new Vector3(0.054f, 0.054f, 0.26f));
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0f, 0.3f), new Vector3(0.056f, 0.012f, 0.22f));
+            // Barrel and muzzle brake
+            Rod(t, metal, new Vector3(0f, 0.018f, 0.17f), new Vector3(0f, 0.018f, 0.82f), 0.022f);
+            Rod(t, metal, new Vector3(0f, 0.018f, 0.43f), new Vector3(0f, 0.018f, 0.47f), 0.028f);
+            Rod(t, metalLight, new Vector3(0f, 0.018f, 0.82f), new Vector3(0f, 0.018f, 0.9f), 0.036f);
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, 0.845f), new Vector3(0.038f, 0.012f, 0.012f));
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, 0.875f), new Vector3(0.038f, 0.012f, 0.012f));
+            // Stock
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.005f, -0.2f), new Vector3(0.04f, 0.07f, 0.3f));
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, 0.038f, -0.17f), new Vector3(0.036f, 0.022f, 0.2f));
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.012f, -0.358f), new Vector3(0.046f, 0.12f, 0.02f));
+            // Pistol grip, trigger guard and trigger
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.065f, -0.035f), new Vector3(0.03f, 0.095f, 0.038f), Quaternion.Euler(20f, 0f, 0f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.035f, 0.005f), new Vector3(0.008f, 0.006f, 0.065f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.022f, 0.036f), new Vector3(0.008f, 0.03f, 0.006f));
+            Part(t, PrimitiveType.Cube, metalLight, new Vector3(0f, -0.022f, 0f), new Vector3(0.006f, 0.022f, 0.006f), Quaternion.Euler(15f, 0f, 0f));
+            // Magazine
+            parts.magazine = new GameObject("Magazine").transform;
+            parts.magazine.SetParent(t, false);
+            parts.magRest = new Vector3(0f, -0.035f, 0.08f);
+            parts.magazine.localPosition = parts.magRest;
+            Part(parts.magazine, PrimitiveType.Cube, metal, new Vector3(0f, -0.03f, 0f), new Vector3(0.032f, 0.07f, 0.07f), Quaternion.Euler(-6f, 0f, 0f));
+            // Bolt handle on the right, pivoting around the bore
+            parts.bolt = new GameObject("Bolt").transform;
+            parts.bolt.SetParent(t, false);
+            parts.boltRest = new Vector3(0.024f, 0.035f, -0.035f);
+            parts.bolt.localPosition = parts.boltRest;
+            Rod(parts.bolt, metalLight, Vector3.zero, new Vector3(0.045f, -0.012f, 0f), 0.009f);
+            Part(parts.bolt, PrimitiveType.Sphere, rubber, new Vector3(0.05f, -0.014f, 0f), Vector3.one * 0.02f);
+
+            // Scope: rings, tube, big objective bell with lens, eyepiece, turrets
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.075f, -0.02f), new Vector3(0.04f, 0.04f, 0.018f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.075f, 0.12f), new Vector3(0.04f, 0.04f, 0.018f));
+            const float sy = 0.1f;
+            Rod(t, metal, new Vector3(0f, sy, -0.1f), new Vector3(0f, sy, 0.2f), 0.034f);
+            Rod(t, metal, new Vector3(0f, sy, 0.2f), new Vector3(0f, sy, 0.235f), 0.048f);
+            Rod(t, metal, new Vector3(0f, sy, 0.235f), new Vector3(0f, sy, 0.3f), 0.062f);
+            Rod(t, lens, new Vector3(0f, sy, 0.299f), new Vector3(0f, sy, 0.302f), 0.054f);
+            Rod(t, metalLight, new Vector3(0f, sy, -0.075f), new Vector3(0f, sy, -0.055f), 0.042f);
+            Rod(t, metalLight, new Vector3(0f, sy, -0.045f), new Vector3(0f, sy, -0.025f), 0.042f);
+            Rod(t, metal, new Vector3(0f, sy, -0.1f), new Vector3(0f, sy, -0.135f), 0.044f);
+            Rod(t, rubber, new Vector3(0f, sy, -0.135f), new Vector3(0f, sy, -0.155f), 0.046f);
+            Rod(t, lens, new Vector3(0f, sy, -0.155f), new Vector3(0f, sy, -0.156f), 0.036f);
+            Rod(t, metal, new Vector3(0f, sy + 0.017f, 0.05f), new Vector3(0f, sy + 0.042f, 0.05f), 0.03f);
+            Rod(t, red, new Vector3(0f, sy + 0.032f, 0.05f), new Vector3(0f, sy + 0.036f, 0.05f), 0.032f);
+            Rod(t, metal, new Vector3(0.017f, sy, 0.05f), new Vector3(0.042f, sy, 0.05f), 0.028f);
+            Rod(t, metal, new Vector3(-0.017f, sy, 0.05f), new Vector3(-0.036f, sy, 0.05f), 0.03f);
+
+            // Bipod, folded forward under the barrel
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.032f, 0.4f), new Vector3(0.04f, 0.018f, 0.03f));
+            foreach (float x in new[] { -0.012f, 0.012f })
+            {
+                Rod(t, metalLight, new Vector3(x, -0.035f, 0.41f), new Vector3(x, -0.035f, 0.6f), 0.009f);
+                Part(t, PrimitiveType.Sphere, rubber, new Vector3(x, -0.035f, 0.61f), Vector3.one * 0.016f);
+            }
+            parts.Animate(0f, -1f);
+            return parts;
+        }
+
+        // ---------------------------------------------------------------- materials
+
+        public Material Mat(Color color, float smoothness, float metallic)
+        {
+            var m = new Material(template);
+            m.SetTexture("_BaseMap", null);
+            m.SetColor("_BaseColor", color);
+            m.SetFloat("_Smoothness", smoothness);
+            m.SetFloat("_Metallic", metallic);
+            materials.Add(m);
+            return m;
+        }
+
+        // Emissive material; if `parts` is given it pulses with the weapon
+        public Material Glow(Color color, float intensity, WeaponParts parts)
+        {
+            var m = Mat(color, 0.2f, 0f);
+            m.EnableKeyword("_EMISSION");
+            m.SetColor("_EmissionColor", color * intensity);
+            if (parts != null)
+            {
+                parts.glowMaterials.Add(m);
+                parts.glowColors.Add(color * intensity);
+            }
+            return m;
+        }
+
+        Material FinishMaterial(KnifeFinish finish, WeaponParts parts)
+        {
+            var look = KnifeFinishes.Get(finish);
+            var m = Mat(look.tint, look.smoothness, look.metallic);
+            if (look.albedo) m.SetTexture("_BaseMap", look.albedo);
+            if (look.emission)
+            {
+                m.EnableKeyword("_EMISSION");
+                m.SetTexture("_EmissionMap", look.emission);
+                m.SetColor("_EmissionColor", look.glow);
+                parts.glowMaterials.Add(m);
+                parts.glowColors.Add(look.glow);
+            }
+            return m;
+        }
+
+        // ---------------------------------------------------------------- shapes
+
+        public Transform Part(Transform parent, PrimitiveType shape, Material mat, Vector3 position, Vector3 scale) =>
+            Part(parent, shape, mat, position, scale, Quaternion.identity);
+
+        public Transform Part(Transform parent, PrimitiveType shape, Material mat, Vector3 position, Vector3 scale, Quaternion rotation)
+        {
+            var go = GameObject.CreatePrimitive(shape);
+            Kill(go.GetComponent<Collider>());
+            go.transform.SetParent(parent, false);
+            go.transform.SetLocalPositionAndRotation(position, rotation);
+            go.transform.localScale = scale;
+            Finish(go.GetComponent<MeshRenderer>(), mat);
+            return go.transform;
+        }
+
+        // A cylinder from one point to another
+        public Transform Rod(Transform parent, Material mat, Vector3 from, Vector3 to, float diameter)
+        {
+            Vector3 d = to - from;
+            return Part(parent, PrimitiveType.Cylinder, mat, (from + to) * 0.5f, new Vector3(diameter, d.magnitude * 0.5f, diameter),
+                Quaternion.FromToRotation(Vector3.up, d));
+        }
+
+        public Transform MeshPart(Transform parent, Material mat, Mesh mesh, Vector3 position, Quaternion rotation)
+        {
+            var go = new GameObject(mesh.name);
+            go.transform.SetParent(parent, false);
+            go.transform.SetLocalPositionAndRotation(position, rotation);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            Finish(go.AddComponent<MeshRenderer>(), mat);
+            return go.transform;
+        }
+
+        void Finish(MeshRenderer r, Material mat)
+        {
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = shadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
+            r.receiveShadows = shadows;
+            r.gameObject.layer = layer;
+        }
+
+        // A blade between two rails of points: spine and edge (same count, the last pair
+        // meeting at the tip). Thick at the spine, thin at the edge, thinning toward the tip.
+        public static Mesh RailBlade(Vector2[] spine, Vector2[] edge, float spineHalf, float edgeHalf)
+        {
+            int n = spine.Length;
+            var along = new float[n];
+            for (int i = 1; i < n; i++)
+                along[i] = along[i - 1] + Vector2.Distance((spine[i] + edge[i]) * 0.5f, (spine[i - 1] + edge[i - 1]) * 0.5f);
+            float total = Mathf.Max(along[n - 1], 1e-5f);
+            float Half(int i) => Mathf.Lerp(spineHalf, edgeHalf, Mathf.Pow(along[i] / total, 4f) * 0.9f);
+
+            var verts = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var tris = new List<int>();
+            void Tri(int a, int b, int c, Vector3 facing)
+            {
+                var normal = Vector3.Cross(verts[b] - verts[a], verts[c] - verts[a]);
+                if (Vector3.Dot(normal, facing) < 0f) (b, c) = (c, b);
+                tris.Add(a); tris.Add(b); tris.Add(c);
+            }
+            void Quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, Vector3 facing, float v0, float v1)
+            {
+                int s = verts.Count;
+                verts.AddRange(new[] { p0, p1, p2, p3 });
+                uvs.AddRange(new[] { new Vector2(0f, v0), new Vector2(0f, v1), new Vector2(0f, v1), new Vector2(0f, v0) });
+                Tri(s, s + 1, s + 2, facing);
+                Tri(s, s + 2, s + 3, facing);
+            }
+
+            // Both flat faces, smooth-shaded
+            foreach (float side in new[] { 1f, -1f })
+            {
+                int b = verts.Count;
+                for (int i = 0; i < n; i++)
+                {
+                    verts.Add(new Vector3(spine[i].x, spine[i].y, side * Half(i)));
+                    verts.Add(new Vector3(edge[i].x, edge[i].y, side * edgeHalf));
+                    uvs.Add(new Vector2(1f, along[i] / total));
+                    uvs.Add(new Vector2(0f, along[i] / total));
+                }
+                var facing = new Vector3(0f, 0f, side);
+                for (int i = 0; i < n - 1; i++)
+                {
+                    int s0 = b + i * 2, e0 = s0 + 1, s1 = s0 + 2, e1 = s0 + 3;
+                    Tri(s0, e0, e1, facing);
+                    Tri(s0, e1, s1, facing);
+                }
+            }
+            // Spine and edge rims, flat-shaded
+            for (int i = 0; i < n - 1; i++)
+            {
+                Vector2 across = (spine[i] - edge[i]).sqrMagnitude > 1e-10f ? (spine[i] - edge[i]).normalized : Vector2.right;
+                float v0 = along[i] / total, v1 = along[i + 1] / total;
+                Quad(new Vector3(spine[i].x, spine[i].y, Half(i)), new Vector3(spine[i + 1].x, spine[i + 1].y, Half(i + 1)),
+                     new Vector3(spine[i + 1].x, spine[i + 1].y, -Half(i + 1)), new Vector3(spine[i].x, spine[i].y, -Half(i)), across, v0, v1);
+                Quad(new Vector3(edge[i].x, edge[i].y, edgeHalf), new Vector3(edge[i + 1].x, edge[i + 1].y, edgeHalf),
+                     new Vector3(edge[i + 1].x, edge[i + 1].y, -edgeHalf), new Vector3(edge[i].x, edge[i].y, -edgeHalf), -across, v0, v1);
+            }
+            // Base cap
+            Vector2 back = ((spine[0] + edge[0]) - (spine[1] + edge[1])).normalized;
+            Quad(new Vector3(spine[0].x, spine[0].y, Half(0)), new Vector3(edge[0].x, edge[0].y, edgeHalf),
+                 new Vector3(edge[0].x, edge[0].y, -edgeHalf), new Vector3(spine[0].x, spine[0].y, -Half(0)), back, 0f, 0f);
+
+            var mesh = new Mesh { name = "Blade" };
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        // A ring around the Z axis
+        public static Mesh Torus(float radius, float tube, int segments = 24, int sides = 8)
+        {
+            var verts = new List<Vector3>();
+            var tris = new List<int>();
+            for (int i = 0; i <= segments; i++)
+            {
+                float a = i * Mathf.PI * 2f / segments;
+                var center = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f) * radius;
+                var outward = center.normalized;
+                for (int j = 0; j <= sides; j++)
+                {
+                    float b = j * Mathf.PI * 2f / sides;
+                    verts.Add(center + (outward * Mathf.Cos(b) + Vector3.forward * Mathf.Sin(b)) * tube);
+                }
+            }
+            for (int i = 0; i < segments; i++)
+            for (int j = 0; j < sides; j++)
+            {
+                int a = i * (sides + 1) + j, b = a + sides + 1;
+                tris.AddRange(new[] { a, a + 1, b, b, a + 1, b + 1 });
+            }
+            var mesh = new Mesh { name = "Ring" };
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            // Make sure the faces point outward
+            int[] t = mesh.triangles;
+            Vector3 n0 = Vector3.Cross(verts[t[1]] - verts[t[0]], verts[t[2]] - verts[t[0]]);
+            Vector3 c0 = new Vector3(Mathf.Cos(0f), Mathf.Sin(0f), 0f) * radius;
+            if (Vector3.Dot(n0, verts[t[0]] - c0) < 0f)
+            {
+                for (int i = 0; i < t.Length; i += 3) (t[i + 1], t[i + 2]) = (t[i + 2], t[i + 1]);
+                mesh.triangles = t;
+                mesh.RecalculateNormals();
+            }
+            return mesh;
+        }
+    }
+}

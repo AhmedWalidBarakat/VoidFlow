@@ -141,6 +141,7 @@ namespace VoidFlow
             }
             flashTime += dt;
             PoseSniper();
+            rifle.Animate(Time.time, -1f);
         }
 
         static bool Crossed(float before, float now, float at) => before < at && now >= at;
@@ -379,83 +380,43 @@ namespace VoidFlow
             boltTime = -1f;
         }
 
+        WeaponParts rifle;
+        readonly List<Material> rifleMaterials = new();
+
+        // Puts on a sniper skin (index into Skins.Snipers), remembers it, and pulls it out
+        public void EquipSniperSkin(int index)
+        {
+            if (weapons == null) return;
+            sniperSkin = Mathf.Clamp(index, 0, Skins.Snipers.Length - 1);
+            Skins.EquippedSniper = sniperSkin;
+            BuildRifleModel();
+            if (current == SniperSlot) { drawTime = Application.isPlaying ? 0f : 99f; Play(WeaponSounds.Draw, 0.6f); }
+            else Equip(SniperSlot);
+        }
+
+        void BuildRifleModel()
+        {
+            if (rifle != null) Kill(rifle.root.gameObject);
+            foreach (var m in rifleMaterials) Kill(m);
+            rifleMaterials.Clear();
+            rifle = new WeaponBuilder(template, Layer, false, rifleMaterials).Rifle(Skins.Snipers[sniperSkin], gun);
+            bolt = rifle.bolt;
+            magazine = rifle.magazine;
+            boltRest = rifle.boltRest;
+            magRest = rifle.magRest;
+        }
+
         Transform BuildSniper()
         {
-            Material metal = Make(new Color(0.1f, 0.1f, 0.11f), 0.5f, 0.6f);
-            Material metalLight = Make(new Color(0.28f, 0.28f, 0.3f), 0.45f, 0.6f);
-            Material chassis = Make(new Color(0.24f, 0.25f, 0.21f), 0.2f, 0.1f);
-            Material rubber = Make(new Color(0.04f, 0.04f, 0.04f), 0.15f, 0f);
-            Material lens = Make(new Color(0.06f, 0.1f, 0.2f), 0.95f, 0.4f);
-            Material red = Make(new Color(0.85f, 0.1f, 0.06f), 0.4f, 0.1f);
-            Material cloth = Make(new Color(0.5f, 0.48f, 0.44f), 0.1f, 0f);
 
             var root = new GameObject("Sniper Rig").transform;
             root.SetParent(anchor, false);
             gun = new GameObject("Rifle").transform;
             gun.SetParent(root, false);
+            BuildRifleModel();
 
             // Rifle space: +Z along the barrel, +Y up, origin at the trigger
             var t = gun;
-            // Receiver, rail and chassis
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.02f, 0.04f), new Vector3(0.046f, 0.058f, 0.26f));
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.054f, 0.04f), new Vector3(0.026f, 0.01f, 0.3f));
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.01f, 0.05f), new Vector3(0.052f, 0.032f, 0.27f));
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, 0f, 0.3f), new Vector3(0.054f, 0.054f, 0.26f));
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0f, 0.3f), new Vector3(0.056f, 0.012f, 0.22f));
-            // Barrel and muzzle brake
-            Rod(t, metal, new Vector3(0f, 0.018f, 0.17f), new Vector3(0f, 0.018f, 0.82f), 0.022f);
-            Rod(t, metal, new Vector3(0f, 0.018f, 0.43f), new Vector3(0f, 0.018f, 0.47f), 0.028f);
-            Rod(t, metalLight, new Vector3(0f, 0.018f, 0.82f), new Vector3(0f, 0.018f, 0.9f), 0.036f);
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, 0.845f), new Vector3(0.038f, 0.012f, 0.012f));
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, 0.875f), new Vector3(0.038f, 0.012f, 0.012f));
-            // Stock
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.005f, -0.2f), new Vector3(0.04f, 0.07f, 0.3f));
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, 0.038f, -0.17f), new Vector3(0.036f, 0.022f, 0.2f));
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.012f, -0.358f), new Vector3(0.046f, 0.12f, 0.02f));
-            // Pistol grip, trigger guard and trigger
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.065f, -0.035f), new Vector3(0.03f, 0.095f, 0.038f), Quaternion.Euler(20f, 0f, 0f));
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.035f, 0.005f), new Vector3(0.008f, 0.006f, 0.065f));
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.022f, 0.036f), new Vector3(0.008f, 0.03f, 0.006f));
-            Part(t, PrimitiveType.Cube, metalLight, new Vector3(0f, -0.022f, 0f), new Vector3(0.006f, 0.022f, 0.006f), Quaternion.Euler(15f, 0f, 0f));
-            // Magazine
-            magazine = new GameObject("Magazine").transform;
-            magazine.SetParent(t, false);
-            magRest = new Vector3(0f, -0.035f, 0.08f);
-            magazine.localPosition = magRest;
-            Part(magazine, PrimitiveType.Cube, metal, new Vector3(0f, -0.03f, 0f), new Vector3(0.032f, 0.07f, 0.07f), Quaternion.Euler(-6f, 0f, 0f));
-            // Bolt handle on the right, pivoting around the bore
-            bolt = new GameObject("Bolt").transform;
-            bolt.SetParent(t, false);
-            boltRest = new Vector3(0.024f, 0.035f, -0.035f);
-            bolt.localPosition = boltRest;
-            Rod(bolt, metalLight, Vector3.zero, new Vector3(0.045f, -0.012f, 0f), 0.009f);
-            Part(bolt, PrimitiveType.Sphere, rubber, new Vector3(0.05f, -0.014f, 0f), Vector3.one * 0.02f);
-
-            // Scope: rings, tube, big objective bell with lens, eyepiece, turrets
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.075f, -0.02f), new Vector3(0.04f, 0.04f, 0.018f));
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.075f, 0.12f), new Vector3(0.04f, 0.04f, 0.018f));
-            const float sy = 0.1f;
-            Rod(t, metal, new Vector3(0f, sy, -0.1f), new Vector3(0f, sy, 0.2f), 0.034f);
-            Rod(t, metal, new Vector3(0f, sy, 0.2f), new Vector3(0f, sy, 0.235f), 0.048f);
-            Rod(t, metal, new Vector3(0f, sy, 0.235f), new Vector3(0f, sy, 0.3f), 0.062f);
-            Rod(t, lens, new Vector3(0f, sy, 0.299f), new Vector3(0f, sy, 0.302f), 0.054f);
-            Rod(t, metalLight, new Vector3(0f, sy, -0.075f), new Vector3(0f, sy, -0.055f), 0.042f);
-            Rod(t, metalLight, new Vector3(0f, sy, -0.045f), new Vector3(0f, sy, -0.025f), 0.042f);
-            Rod(t, metal, new Vector3(0f, sy, -0.1f), new Vector3(0f, sy, -0.135f), 0.044f);
-            Rod(t, rubber, new Vector3(0f, sy, -0.135f), new Vector3(0f, sy, -0.155f), 0.046f);
-            Rod(t, lens, new Vector3(0f, sy, -0.155f), new Vector3(0f, sy, -0.156f), 0.036f);
-            Rod(t, metal, new Vector3(0f, sy + 0.017f, 0.05f), new Vector3(0f, sy + 0.042f, 0.05f), 0.03f);
-            Rod(t, red, new Vector3(0f, sy + 0.032f, 0.05f), new Vector3(0f, sy + 0.036f, 0.05f), 0.032f);
-            Rod(t, metal, new Vector3(0.017f, sy, 0.05f), new Vector3(0.042f, sy, 0.05f), 0.028f);
-            Rod(t, metal, new Vector3(-0.017f, sy, 0.05f), new Vector3(-0.036f, sy, 0.05f), 0.03f);
-
-            // Bipod, folded forward under the barrel
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.032f, 0.4f), new Vector3(0.04f, 0.018f, 0.03f));
-            foreach (float x in new[] { -0.012f, 0.012f })
-            {
-                Rod(t, metalLight, new Vector3(x, -0.035f, 0.41f), new Vector3(x, -0.035f, 0.6f), 0.009f);
-                Part(t, PrimitiveType.Sphere, rubber, new Vector3(x, -0.035f, 0.61f), Vector3.one * 0.016f);
-            }
 
             // Muzzle flash, shown for a moment after each shot
             Material fire = MakeGlow(new Color(1f, 0.65f, 0.25f), 6f);
@@ -468,14 +429,14 @@ namespace VoidFlow
             Part(flash, PrimitiveType.Cube, fire, Vector3.zero, new Vector3(0.01f, 0.14f, 0.01f));
             flash.gameObject.SetActive(false);
 
-            // Right hand around the pistol grip (fingerless gloves: cloth fingertips)
+            // Right hand around the pistol grip
             rightFist = new GameObject("Right Hand").transform;
             rightFist.SetParent(t, false);
             fistRest = new Vector3(0f, -0.028f, -0.022f);
             fistRestRotation = Quaternion.Euler(20f, 0f, 0f) * Quaternion.Euler(0f, 90f, 0f);
             rightFist.SetLocalPositionAndRotation(fistRest, fistRestRotation);
             rightFist.localScale = Vector3.one * 1.15f;
-            Fist(rightFist, cloth);
+            Fist(rightFist);
 
             // Left hand cupping the forend from below: palm under, fingers up the left side,
             // thumb on the right, forearm back toward the lower left
@@ -484,9 +445,9 @@ namespace VoidFlow
             {
                 float z = 0.268f + f * 0.022f;
                 Part(t, PrimitiveType.Capsule, glove, new Vector3(-0.034f, -0.03f, z), new Vector3(0.02f, 0.018f, 0.02f));
-                Part(t, PrimitiveType.Capsule, cloth, new Vector3(-0.031f, -0.008f, z), new Vector3(0.018f, 0.013f, 0.018f));
+                Part(t, PrimitiveType.Capsule, leather, new Vector3(-0.031f, -0.008f, z), new Vector3(0.018f, 0.013f, 0.018f));
             }
-            Part(t, PrimitiveType.Capsule, cloth, new Vector3(0.034f, -0.026f, 0.285f), new Vector3(0.02f, 0.025f, 0.02f), Quaternion.Euler(0f, 0f, -20f));
+            Part(t, PrimitiveType.Capsule, leather, new Vector3(0.034f, -0.026f, 0.285f), new Vector3(0.02f, 0.025f, 0.02f), Quaternion.Euler(0f, 0f, -20f));
             Part(t, PrimitiveType.Cube, strap, new Vector3(0.004f, -0.055f, 0.28f), new Vector3(0.05f, 0.004f, 0.03f), Quaternion.Euler(0f, 0f, 10f));
             Rod(t, glove, new Vector3(-0.005f, -0.05f, 0.27f), new Vector3(-0.04f, -0.12f, 0.17f), 0.06f);
             Rod(t, sleeve, new Vector3(-0.04f, -0.12f, 0.17f), new Vector3(-0.2f, -0.32f, -0.06f), 0.09f);

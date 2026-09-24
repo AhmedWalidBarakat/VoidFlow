@@ -43,8 +43,7 @@ namespace VoidFlow.EditorTools
                 cam.targetTexture = rt;
                 // The first headless render after changes can come out with mixed-up materials
                 // (the game itself is fine), so render a throwaway frame first
-                cam.Render();
-                cam.Render();
+                for (int warm = 0; warm < 4; warm++) cam.Render();
                 RenderTexture.active = rt;
                 tex.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0);
                 tex.Apply();
@@ -57,6 +56,35 @@ namespace VoidFlow.EditorTools
                 Shoot("viewmodel_sniper", new Vector3(0f, 0f, 8f), Vector3.zero);
                 viewModel.PreviewSniperCycle(0.65f);
                 Shoot("viewmodel_sniper_bolt", new Vector3(0f, 0f, 8f), Vector3.zero);
+                viewModel.PreviewSniperCycle(-1f);
+                for (int i = 1; i < Skins.Snipers.Length; i++)
+                {
+                    viewModel.EquipSniperSkin(i);
+                    Shoot($"skin_sniper_{i}", new Vector3(0f, 0f, 8f), Vector3.zero);
+                }
+                viewModel.EquipSniperSkin(0);
+                for (int i = 0; i < Skins.Knives.Length; i++)
+                {
+                    viewModel.EquipKnifeSkin(i);
+                    Shoot($"skin_knife_{i}", new Vector3(0f, 0f, 8f), Vector3.zero);
+                    viewModel.PreviewKnifeInspect(1.0f);
+                    Shoot($"skin_knife_{i}_inspect", new Vector3(0f, 0f, 8f), Vector3.zero);
+                    viewModel.PreviewKnifeInspect(-1f);
+                }
+                viewModel.EquipKnifeSkin(0);
+            }
+            // The cases, from the lane
+            foreach (var station in Object.FindObjectsByType<CaseStation>())
+            {
+                Vector3 p = station.transform.position;
+                cam.transform.SetPositionAndRotation(p + new Vector3(-4.2f, 1.2f, -1.8f), Quaternion.LookRotation(p + Vector3.up * 1f - (p + new Vector3(-4.2f, 1.2f, -1.8f))));
+                cam.targetTexture = rt;
+                cam.Render();
+                cam.Render();
+                RenderTexture.active = rt;
+                tex.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0);
+                tex.Apply();
+                File.WriteAllBytes($"Logs/case_{(station.sniperCase ? "sniper" : "knife")}.png", tex.EncodeToPNG());
             }
             cam.targetTexture = null;
             RenderTexture.active = null;

@@ -23,6 +23,10 @@ namespace VoidFlow
         public static AudioClip Dry => Get(ref dry, "Dry Fire", () => Mechanism(0.08f, (0f, 2000f, 0.6f)));
         public static AudioClip Draw => Get(ref draw, "Draw", () => Mechanism(0.25f, (0.16f, 1800f, 0.4f), slide: (0f, 0.16f, 0.2f)));
         public static AudioClip Slash => Get(ref slash, "Slash", SlashData);
+        static AudioClip tick, reveal, voidReveal;
+        public static AudioClip Tick => Get(ref tick, "Case Tick", () => Mechanism(0.04f, (0f, 2600f, 0.3f)));
+        public static AudioClip Reveal => Get(ref reveal, "Reveal", () => Chime(1.4f, 0.09f, 523.25f, 659.25f, 783.99f, 1046.5f));
+        public static AudioClip VoidReveal => Get(ref voidReveal, "Void Reveal", () => Chime(2.6f, 0.14f, 196f, 293.66f, 392f, 466.16f, 587.33f, 783.99f));
 
         static AudioClip Get(ref AudioClip clip, string name, Func<float[]> make)
         {
@@ -127,6 +131,24 @@ namespace VoidFlow
                 }
             }
             return Master(data, 1f, 0.8f);
+        }
+
+        // Rising bell arpeggio (case reveals): each note a bright decaying bell tone
+        static float[] Chime(float length, float step, params float[] notes)
+        {
+            int n = (int)(Rate * length);
+            var data = new float[n];
+            for (int k = 0; k < notes.Length; k++)
+            {
+                float start = k * step, f = notes[k];
+                for (int i = (int)(start * Rate); i < n; i++)
+                {
+                    float t = (float)i / Rate - start;
+                    float env = Mathf.Exp(-t / 0.5f) * Mathf.Clamp01(t / 0.004f);
+                    data[i] += (Mathf.Sin(2f * Mathf.PI * f * t) + 0.35f * Mathf.Sin(2f * Mathf.PI * f * 2.01f * t) + 0.15f * Mathf.Sin(2f * Mathf.PI * f * 3.98f * t)) * env * 0.3f;
+                }
+            }
+            return Master(data, 1f, 0.7f);
         }
 
         // Knife whoosh: noise through a band that sweeps up then down, swelling and fading
