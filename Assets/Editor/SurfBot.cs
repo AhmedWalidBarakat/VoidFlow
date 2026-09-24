@@ -22,7 +22,7 @@ namespace VoidFlow.EditorTools
     {
         const string ScenePath = "Assets/Scenes/Surf_Graybox.unity";
         const float TurnDeadZone = 2f;  // degrees
-        const float SwingBand = 2.5f;   // metres above/below the line each swing reaches
+        const float SwingBand = GrayboxBuilder.FaceWidth * 0.15f; // how far above/below the line each swing reaches
         const int SyncStrafeTicks = 24; // air strafe switches sides this often flying straight
 
         [MenuItem("VoidFlow/Run Surf Bot Test")]
@@ -43,6 +43,7 @@ namespace VoidFlow.EditorTools
             bool dropped = false, swingingUp = false;
             int waypoint = 0, swings = 0;
             float topSpeed = 0f;
+            Vector3 lastCheck = Vector3.zero;
             string result = "timed out", phase = "walk";
             var log = new StringBuilder("time     x       y       z   speed(u/s)  phase\n");
 
@@ -109,6 +110,16 @@ namespace VoidFlow.EditorTools
                 if (i % 32 == 0)
                     log.AppendLine($"{i * dt,5:0.0} {p.x,7:0.0} {p.y,7:0.0} {p.z,7:0.0} {speed,8:0}    {phase}");
 
+                if (i % 32 == 0)
+                {
+                    if (i > 0 && (p - lastCheck).sqrMagnitude < 0.01f)
+                    {
+                        result = $"STUCK at {p} moving {player.Velocity}: {DescribeContacts(player, p)}";
+                        break;
+                    }
+                    lastCheck = p;
+                }
+
                 if (p.y < timer.killHeight) { result = $"FELL at z={p.z:0}"; break; }
                 if (finish.Contains(p + Vector3.up * 0.9f)) { result = $"FINISHED in {i * dt:0.00}s"; break; }
             }
@@ -117,6 +128,25 @@ namespace VoidFlow.EditorTools
             Directory.CreateDirectory("Logs");
             File.WriteAllText("Logs/surfbot.txt", log.ToString());
             Debug.Log("SurfBot: " + result);
+        }
+
+        // What is the player's capsule overlapping or about to hit? For diagnosing a stuck bot.
+        static string DescribeContacts(PlayerMovement player, Vector3 p)
+        {
+            var capsule = player.GetComponent<CapsuleCollider>();
+            Vector3 center = p + capsule.center, half = Vector3.up * (capsule.height * 0.5f - capsule.radius);
+            var sb = new StringBuilder();
+            foreach (var c in Physics.OverlapCapsule(center + half, center - half, capsule.radius + 0.05f, player.collisionMask, QueryTriggerInteraction.Ignore))
+            {
+                sb.Append($"touching {c.name}");
+                if (Physics.ComputePenetration(capsule, p, Quaternion.identity, c, c.transform.position, c.transform.rotation, out Vector3 dir, out float depth))
+                    sb.Append($" (overlap {depth:0.000}m, push {dir})");
+                sb.Append("; ");
+            }
+            Vector3 v = player.Velocity;
+            if (v.sqrMagnitude > 0f && Physics.CapsuleCast(center + half, center - half, capsule.radius, v.normalized, out RaycastHit hit, 1f, player.collisionMask, QueryTriggerInteraction.Ignore))
+                sb.Append($"moving into {hit.collider.name} at {hit.distance:0.000}m, normal {hit.normal}");
+            return sb.ToString();
         }
 
         // Are we touching a surf ramp, and which way (horizontally) is it? Fans short rays

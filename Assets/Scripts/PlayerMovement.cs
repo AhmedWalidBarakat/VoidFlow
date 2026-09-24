@@ -258,6 +258,15 @@ namespace VoidFlow
                     break;
                 }
 
+                // Grazing a surface we're already moving away from (common on curved ramps):
+                // the sweep still reports it, but it isn't blocking. Step off it and carry on,
+                // otherwise we'd sit still every tick with full speed.
+                if (Vector3.Dot(dir, hit.normal) > -0.001f && hit.distance < Skin * 2f)
+                {
+                    position += hit.normal * Skin;
+                    continue;
+                }
+
                 float travel = Mathf.Max(hit.distance - Skin, 0f);
                 position += dir * travel;
                 timeLeft -= timeLeft * (travel / dist);

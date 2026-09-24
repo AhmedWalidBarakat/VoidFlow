@@ -9,11 +9,11 @@ using Object = UnityEngine.Object;
 
 namespace VoidFlow.EditorTools
 {
-    // Generates a small utopia-style surf test map: a hall with straight, free-standing
-    // ridge ramps down the middle, so you can look forward the whole run. Each ramp dives,
-    // levels out, then rises gently at the end. Swing up the face toward the peak there and
-    // you launch off the end a long way to the next ramp, which starts as a landing hill
-    // shaped to the flight arc, so you touch down smoothly and keep your speed.
+    // Generates a boreas-style surf test map: thin, sleek, straight ridge ramps spaced far
+    // apart, each one shifted sideways from the last. Each ramp dives or levels out, then
+    // rises gently at the end. Swing up toward the peak there and you launch a long way,
+    // air strafing sideways onto the next ramp, which starts as a landing hill shaped to
+    // the flight arc, so you touch down smoothly and keep your speed.
     // Run from the menu (VoidFlow > Rebuild Graybox Map) after changing the layout below.
     public static class GrayboxBuilder
     {
@@ -22,19 +22,21 @@ namespace VoidFlow.EditorTools
         const float UvMeters = 2f;          // one grid tile = 2m
         const float StripeTileMeters = 16f; // wall stripe pattern repeats every 16m of height
 
-        // Ramp cross-section, one side, from the ridge down. The face starts at 48 degrees and
-        // curves steeper to 62 at the bottom. All of it is steeper than ~45.6 degrees
-        // (normal.y < 0.7), so every part is surfable. Steeper faces turn more of the ramp's
-        // push sideways when the ridge bends, which throws you off at speed.
-        const float FaceWidth = 18f;
-        const float TopAngle = 48f, BottomAngle = 62f;
-        const int ProfileSteps = 8;
+        // Ramp cross-section, one side, from the ridge down: a thin blade, 6m out and ~8m
+        // deep. The face starts at 50 degrees and curves steeper to 60 at the bottom. All of
+        // it is steeper than ~45.6 degrees (normal.y < 0.7), so every part is surfable.
+        // Steeper faces turn more of the ramp's push sideways when the ridge bends, which
+        // throws you off at speed.
+        public const float FaceWidth = 6f;
+        const float TopAngle = 50f, BottomAngle = 60f;
+        const int ProfileSteps = 4;
         const float PathStep = 2f; // ramp mesh resolution along its length
 
-        // Flights between ramps. The next ramp starts FlightGap metres past the end of the last
-        // and follows the arc for LandingLength metres: 6m below you at first, rising to meet
-        // you near the end, so you land somewhere along it whether you launched from high or
-        // low on the face, fast or slow.
+        // Flights between ramps. The next ramp starts FlightGap metres past the end of the last,
+        // shifted RampShift metres sideways, and follows the arc for LandingLength metres: 6m
+        // below you at first, rising to meet you near the end, so you land somewhere along it
+        // whether you launched from high or low on the face, fast or slow. The sideways shift
+        // takes about a 15 degree air strafe to cover at these speeds.
         //
         // Rule for every bend in a ridge: at ~2300 u/s it has to be long and gradual (radius
         // around 150m+), or the push needed to bend your path mostly goes sideways into the
@@ -42,6 +44,7 @@ namespace VoidFlow.EditorTools
         const float FlightGap = 35f;
         const float LandingLength = 40f;
         const float LandingClearStart = 6f, LandingClearEnd = 0f;
+        const float RampShift = 14f;
         const float Gravity = 800f * PlayerMovement.SourceUnit;
 
         // The line the bot swings around, which is also roughly where you'd ride. Over the
@@ -51,8 +54,8 @@ namespace VoidFlow.EditorTools
         const float SwingOffset = FaceWidth * 0.15f;
         const float SwingLength = 50f;
 
-        // Where the bot aims, as (x, z) in order: a line along the left face of every ramp,
-        // then the finish. Filled in by Build() from the layout so the bot always matches.
+        // Where the bot aims, as (x, z) in order: a line along the face you ride on every
+        // ramp, then the finish. Filled in by Build() from the layout so the bot always matches.
         public static readonly List<Vector2> BotRoute = new();
 
         class RampPath
@@ -60,6 +63,7 @@ namespace VoidFlow.EditorTools
             public readonly List<Vector3> ridge = new();   // world position of the ridge line
             public readonly List<Vector3> right = new();   // horizontal right vector at each point
             public readonly List<float> distance = new();  // metres along the ramp
+            public float side = -1f;                        // face you ride: -1 left, +1 right
             public Vector3 End => ridge[^1];
             public float EndSlope => (ridge[^1].y - ridge[^2].y) / (ridge[^1].z - ridge[^2].z);
         }
@@ -86,10 +90,12 @@ namespace VoidFlow.EditorTools
             // Ramp 1, the big drop: starts level just below the ledge, dives at ~24 degrees,
             // levels out over 90m, then rises gently at the end for the launch
             var ramp1 = LayRamp(new Vector3(0f, -1f, 2f), (0f, 0f), (40f, -0.45f), (90f, -0.45f), (180f, 0f), (230f, 0.08f));
-            // Ramps 2 and 3: land on the arc, level out over 120m, rise gently again
-            var ramp2 = LandingRamp(ramp1, (120f, 0f), (170f, 0.08f));
-            var ramp3 = LandingRamp(ramp2, (120f, 0f), (160f, 0.06f));
-            var ramps = new[] { ramp1, ramp2, ramp3 };
+            // Ramps 2-4: shifted right, left, right. Land on the arc, level out over 120m,
+            // rise gently again
+            var ramp2 = LandingRamp(ramp1, RampShift, (120f, 0f), (160f, 0.08f));
+            var ramp3 = LandingRamp(ramp2, -RampShift, (120f, 0f), (160f, 0.08f));
+            var ramp4 = LandingRamp(ramp3, RampShift, (120f, 0f), (160f, 0.06f));
+            var ramps = new[] { ramp1, ramp2, ramp3, ramp4 };
 
             BotRoute.Clear();
             for (int r = 0; r < ramps.Length; r++)
@@ -100,19 +106,19 @@ namespace VoidFlow.EditorTools
                 {
                     float toEnd = ridge[^1].z - ridge[i].z;
                     float offset = Mathf.Lerp(SwingOffset, RideOffset, toEnd / SwingLength);
-                    Vector3 p = ridge[i] - ramps[r].right[i] * offset;
+                    Vector3 p = ridge[i] + ramps[r].right[i] * (ramps[r].side * offset);
                     BotRoute.Add(new Vector2(p.x, p.z));
                 }
             }
 
             // Start ledge hangs just above the left face of ramp 1, with an orange lip at the
             // edge. Walk off the front and you drop a few metres onto the face.
-            Box("StartPlatform", new Vector3(-5f, -0.5f, -10.5f), new Vector3(6f, 1f, 19f), startMat, map);
-            Box("StartEdge", new Vector3(-5f, -0.5f, -0.5f), new Vector3(6f, 1f, 1f), edgeMat, map);
+            Box("StartPlatform", new Vector3(-3f, -0.5f, -10.5f), new Vector3(4f, 1f, 19f), startMat, map);
+            Box("StartEdge", new Vector3(-3f, -0.5f, -0.5f), new Vector3(4f, 1f, 1f), edgeMat, map);
 
-            // Finish platform: a long flat landing under the flight off ramp 3
-            Vector3 end = ramp3.End;
-            var (_, flightY) = Flight(ramp3);
+            // Finish platform: a long flat landing under the flight off the last ramp
+            Vector3 end = ramps[^1].End;
+            var (_, flightY) = Flight(ramps[^1]);
             float finishTop = flightY(70f) - 1f;
             const float finishLength = 180f;
             var finishCenter = new Vector3(end.x, finishTop - 0.5f, end.z + 30f + finishLength * 0.5f);
@@ -139,11 +145,11 @@ namespace VoidFlow.EditorTools
             Box("WallEnd", new Vector3(xMid, yMid, zMax + 0.5f), new Vector3(xLen, yLen, 1f), wallMat, map, stripes: true);
             Box("Floor", new Vector3(xMid, yBottom - 0.5f, zMid), new Vector3(xLen, 1f, zLen), floorMat, map);
 
-            BoxCollider startZone = Zone("StartZone", new Vector3(-5f, 2f, -10f), new Vector3(6f, 4f, 20f));
+            BoxCollider startZone = Zone("StartZone", new Vector3(-3f, 2f, -10f), new Vector3(4f, 4f, 20f));
             BoxCollider endZone = Zone("FinishZone", finishCenter + Vector3.up * 2.5f, new Vector3(60f, 4f, finishLength));
 
             var spawn = new GameObject("Spawn").transform;
-            spawn.SetPositionAndRotation(new Vector3(-5f, 0.02f, -16f), Quaternion.identity);
+            spawn.SetPositionAndRotation(new Vector3(-3f, 0.02f, -16f), Quaternion.identity);
 
             PlayerMovement player = MakePlayer(spawn);
 
@@ -204,13 +210,15 @@ namespace VoidFlow.EditorTools
                     d => launchY + vy * d / vz - 0.5f * Gravity * (d / vz) * (d / vz));
         }
 
-        // The next ramp: a landing hill that follows the flight arc off `from`, then the
-        // given (distance, slope) points after it, measured from the end of the landing hill.
-        static RampPath LandingRamp(RampPath from, params (float s, float slope)[] after)
+        // The next ramp, shifted `shift` metres sideways: a landing hill that follows the
+        // flight arc off `from`, then the given (distance, slope) points after it, measured
+        // from the end of the landing hill. You ride the face you arrive on: shifted right,
+        // you come in over its left face.
+        static RampPath LandingRamp(RampPath from, float shift, params (float s, float slope)[] after)
         {
             var (arcSlope, arcY) = Flight(from);
             float rise = (LandingClearStart - LandingClearEnd) / LandingLength;
-            var start = new Vector3(from.End.x, arcY(FlightGap) + FaceDepth(RideOffset) - LandingClearStart, from.End.z + FlightGap);
+            var start = new Vector3(from.End.x + shift, arcY(FlightGap) + FaceDepth(RideOffset) - LandingClearStart, from.End.z + FlightGap);
 
             var slopes = new List<(float, float)>
             {
@@ -218,7 +226,9 @@ namespace VoidFlow.EditorTools
                 (LandingLength, arcSlope(FlightGap + LandingLength) + rise),
             };
             foreach (var (d, slope) in after) slopes.Add((LandingLength + d, slope));
-            return LayRamp(start, slopes.ToArray());
+            var path = LayRamp(start, slopes.ToArray());
+            path.side = shift > 0f ? -1f : shift < 0f ? 1f : from.side;
+            return path;
         }
 
         // Cross-section of one face: (distance out from the ridge, depth below it). The face
