@@ -8,12 +8,13 @@ namespace VoidFlow
     // scenery lines the course.
     public enum SceneryStyle { Pillars, NeonTowers, Industrial, Ice, Temple, Abyss, Inferno, Monoliths }
 
-    public enum Surface { Grid, Stripes, Hazard, Bricks }
+    public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice }
 
     public class Biome
     {
         public string name;
-        public Color sky;                 // background and fog color
+        public Color sky;                 // horizon and fog color
+        public Color skyTop, skyBottom;   // sky dome above and below the horizon
         public float fogStart, fogEnd;
         public Color ambientSky, ambientEquator, ambientGround;
         public Color sunColor;
@@ -29,75 +30,83 @@ namespace VoidFlow
         {
             new Biome
             {
-                name = "UTOPIA", sky = new Color(0.62f, 0.76f, 0.92f), fogStart = 150f, fogEnd = 650f,
-                ambientSky = new Color(0.75f, 0.8f, 0.9f), ambientEquator = new Color(0.6f, 0.6f, 0.65f), ambientGround = new Color(0.35f, 0.33f, 0.33f),
-                sunColor = new Color(1f, 0.96f, 0.9f), sunIntensity = 1.3f,
-                ramp = new Color(0.9f, 0.89f, 0.93f), slab = new Color(0.62f, 0.8f, 0.95f), rampSurface = Surface.Grid,
+                name = "UTOPIA", sky = new Color(0.55f, 0.68f, 0.88f), skyTop = new Color(0.16f, 0.36f, 0.78f), skyBottom = new Color(0.18f, 0.22f, 0.32f),
+                fogStart = 150f, fogEnd = 700f,
+                ambientSky = new Color(0.7f, 0.76f, 0.9f), ambientEquator = new Color(0.55f, 0.56f, 0.62f), ambientGround = new Color(0.3f, 0.28f, 0.3f),
+                sunColor = new Color(1f, 0.93f, 0.8f), sunIntensity = 1.35f,
+                ramp = new Color(0.95f, 0.94f, 0.97f), slab = new Color(0.55f, 0.78f, 1f), rampSurface = Surface.Tiles,
                 glow = new Color(1f, 0.33f, 0.02f), glowAlt = new Color(0.2f, 0.35f, 1f),
                 scenery = Color.white, scenerySurface = Surface.Stripes, style = SceneryStyle.Pillars,
             },
             new Biome
             {
-                name = "NEON CITY", sky = new Color(0.07f, 0.02f, 0.13f), fogStart = 120f, fogEnd = 600f,
-                ambientSky = new Color(0.35f, 0.2f, 0.5f), ambientEquator = new Color(0.25f, 0.12f, 0.35f), ambientGround = new Color(0.1f, 0.05f, 0.15f),
+                name = "NEON CITY", sky = new Color(0.32f, 0.05f, 0.34f), skyTop = new Color(0.02f, 0f, 0.07f), skyBottom = new Color(0.02f, 0f, 0.05f),
+                fogStart = 120f, fogEnd = 600f,
+                ambientSky = new Color(0.4f, 0.22f, 0.55f), ambientEquator = new Color(0.28f, 0.12f, 0.35f), ambientGround = new Color(0.1f, 0.04f, 0.15f),
                 sunColor = new Color(0.9f, 0.82f, 1f), sunIntensity = 0.75f,
-                ramp = new Color(1f, 0.85f, 0.1f), slab = new Color(1f, 0.25f, 0.55f), rampSurface = Surface.Grid,
+                ramp = new Color(1f, 0.85f, 0.15f), slab = new Color(1f, 0.3f, 0.6f), rampSurface = Surface.Tiles,
                 glow = new Color(0.1f, 0.9f, 1f), glowAlt = new Color(1f, 0.1f, 0.7f),
-                scenery = new Color(0.06f, 0.05f, 0.1f), scenerySurface = Surface.Grid, style = SceneryStyle.NeonTowers,
+                scenery = new Color(0.12f, 0.1f, 0.18f), scenerySurface = Surface.Metal, style = SceneryStyle.NeonTowers,
             },
             new Biome
             {
-                name = "INDUSTRIAL", sky = new Color(0.13f, 0.13f, 0.15f), fogStart = 100f, fogEnd = 550f,
-                ambientSky = new Color(0.45f, 0.45f, 0.5f), ambientEquator = new Color(0.3f, 0.3f, 0.32f), ambientGround = new Color(0.12f, 0.12f, 0.13f),
-                sunColor = new Color(0.9f, 0.9f, 1f), sunIntensity = 0.9f,
-                ramp = new Color(0.32f, 0.32f, 0.35f), slab = new Color(0.8f, 0.1f, 0.1f), rampSurface = Surface.Grid,
+                name = "INDUSTRIAL", sky = new Color(0.32f, 0.24f, 0.2f), skyTop = new Color(0.05f, 0.05f, 0.07f), skyBottom = new Color(0.03f, 0.03f, 0.04f),
+                fogStart = 100f, fogEnd = 550f,
+                ambientSky = new Color(0.5f, 0.48f, 0.5f), ambientEquator = new Color(0.32f, 0.3f, 0.3f), ambientGround = new Color(0.12f, 0.12f, 0.13f),
+                sunColor = new Color(1f, 0.85f, 0.7f), sunIntensity = 1f,
+                ramp = new Color(0.62f, 0.64f, 0.7f), slab = new Color(0.85f, 0.18f, 0.12f), rampSurface = Surface.Metal,
                 glow = new Color(1f, 0.08f, 0.05f), glowAlt = new Color(1f, 1f, 1f),
-                scenery = new Color(0.9f, 0.9f, 0.9f), scenerySurface = Surface.Hazard, style = SceneryStyle.Industrial,
+                scenery = new Color(0.95f, 0.95f, 0.95f), scenerySurface = Surface.Hazard, style = SceneryStyle.Industrial,
             },
             new Biome
             {
-                name = "GLACIER", sky = new Color(0.8f, 0.87f, 0.94f), fogStart = 100f, fogEnd = 600f,
-                ambientSky = new Color(0.85f, 0.9f, 1f), ambientEquator = new Color(0.7f, 0.75f, 0.82f), ambientGround = new Color(0.5f, 0.52f, 0.58f),
-                sunColor = new Color(0.9f, 0.95f, 1f), sunIntensity = 1.1f,
-                ramp = new Color(0.95f, 0.97f, 1f), slab = new Color(0.5f, 0.78f, 1f), rampSurface = Surface.Grid,
+                name = "GLACIER", sky = new Color(0.72f, 0.82f, 0.92f), skyTop = new Color(0.25f, 0.45f, 0.75f), skyBottom = new Color(0.55f, 0.6f, 0.68f),
+                fogStart = 100f, fogEnd = 600f,
+                ambientSky = new Color(0.8f, 0.87f, 1f), ambientEquator = new Color(0.62f, 0.68f, 0.78f), ambientGround = new Color(0.45f, 0.48f, 0.55f),
+                sunColor = new Color(0.95f, 0.97f, 1f), sunIntensity = 1.2f,
+                ramp = new Color(0.88f, 0.94f, 1f), slab = new Color(0.55f, 0.82f, 1f), rampSurface = Surface.Ice,
                 glow = new Color(0.3f, 0.85f, 1f), glowAlt = new Color(0.8f, 0.95f, 1f),
-                scenery = new Color(0.55f, 0.58f, 0.65f), scenerySurface = Surface.Grid, style = SceneryStyle.Ice,
+                scenery = new Color(0.62f, 0.66f, 0.74f), scenerySurface = Surface.Stone, style = SceneryStyle.Ice,
             },
             new Biome
             {
-                name = "TEMPLE", sky = new Color(0.72f, 0.52f, 0.32f), fogStart = 100f, fogEnd = 550f,
-                ambientSky = new Color(0.8f, 0.65f, 0.45f), ambientEquator = new Color(0.55f, 0.42f, 0.3f), ambientGround = new Color(0.25f, 0.18f, 0.12f),
-                sunColor = new Color(1f, 0.8f, 0.55f), sunIntensity = 1.2f,
-                ramp = new Color(0.86f, 0.72f, 0.5f), slab = new Color(0.75f, 0.5f, 0.25f), rampSurface = Surface.Bricks,
+                name = "TEMPLE", sky = new Color(0.95f, 0.58f, 0.3f), skyTop = new Color(0.32f, 0.22f, 0.5f), skyBottom = new Color(0.28f, 0.16f, 0.1f),
+                fogStart = 100f, fogEnd = 560f,
+                ambientSky = new Color(0.8f, 0.62f, 0.5f), ambientEquator = new Color(0.58f, 0.42f, 0.3f), ambientGround = new Color(0.25f, 0.16f, 0.1f),
+                sunColor = new Color(1f, 0.75f, 0.45f), sunIntensity = 1.25f,
+                ramp = new Color(0.95f, 0.8f, 0.58f), slab = new Color(0.8f, 0.55f, 0.3f), rampSurface = Surface.Stone,
                 glow = new Color(1f, 0.55f, 0.1f), glowAlt = new Color(1f, 0.85f, 0.1f),
-                scenery = new Color(0.8f, 0.66f, 0.45f), scenerySurface = Surface.Bricks, style = SceneryStyle.Temple,
+                scenery = new Color(0.88f, 0.74f, 0.52f), scenerySurface = Surface.Stone, style = SceneryStyle.Temple,
             },
             new Biome
             {
-                name = "ABYSS", sky = new Color(0.02f, 0.11f, 0.13f), fogStart = 50f, fogEnd = 420f,
-                ambientSky = new Color(0.2f, 0.45f, 0.5f), ambientEquator = new Color(0.1f, 0.28f, 0.3f), ambientGround = new Color(0.03f, 0.1f, 0.12f),
-                sunColor = new Color(0.4f, 0.9f, 1f), sunIntensity = 0.7f,
-                ramp = new Color(0.35f, 0.6f, 0.62f), slab = new Color(0.25f, 0.85f, 0.9f), rampSurface = Surface.Bricks,
+                name = "ABYSS", sky = new Color(0.03f, 0.22f, 0.26f), skyTop = new Color(0f, 0.02f, 0.05f), skyBottom = new Color(0f, 0.03f, 0.04f),
+                fogStart = 50f, fogEnd = 420f,
+                ambientSky = new Color(0.25f, 0.5f, 0.55f), ambientEquator = new Color(0.12f, 0.3f, 0.32f), ambientGround = new Color(0.03f, 0.1f, 0.12f),
+                sunColor = new Color(0.4f, 0.9f, 1f), sunIntensity = 0.75f,
+                ramp = new Color(0.45f, 0.72f, 0.72f), slab = new Color(0.3f, 0.9f, 0.95f), rampSurface = Surface.Stone,
                 glow = new Color(0.1f, 1f, 0.9f), glowAlt = new Color(0.2f, 0.5f, 1f),
-                scenery = new Color(0.2f, 0.35f, 0.38f), scenerySurface = Surface.Bricks, style = SceneryStyle.Abyss,
+                scenery = new Color(0.28f, 0.45f, 0.48f), scenerySurface = Surface.Stone, style = SceneryStyle.Abyss,
             },
             new Biome
             {
-                name = "INFERNO", sky = new Color(0.14f, 0.02f, 0.01f), fogStart = 50f, fogEnd = 420f,
-                ambientSky = new Color(0.55f, 0.18f, 0.1f), ambientEquator = new Color(0.35f, 0.1f, 0.05f), ambientGround = new Color(0.15f, 0.03f, 0.01f),
-                sunColor = new Color(1f, 0.4f, 0.2f), sunIntensity = 0.8f,
-                ramp = new Color(0.4f, 0.16f, 0.12f), slab = new Color(0.9f, 0.3f, 0.05f), rampSurface = Surface.Bricks,
+                name = "INFERNO", sky = new Color(0.5f, 0.1f, 0.02f), skyTop = new Color(0.06f, 0f, 0f), skyBottom = new Color(0.12f, 0.02f, 0f),
+                fogStart = 50f, fogEnd = 420f,
+                ambientSky = new Color(0.6f, 0.2f, 0.1f), ambientEquator = new Color(0.38f, 0.1f, 0.05f), ambientGround = new Color(0.15f, 0.03f, 0.01f),
+                sunColor = new Color(1f, 0.45f, 0.2f), sunIntensity = 0.85f,
+                ramp = new Color(0.6f, 0.28f, 0.2f), slab = new Color(0.95f, 0.35f, 0.08f), rampSurface = Surface.Bricks,
                 glow = new Color(1f, 0.25f, 0f), glowAlt = new Color(1f, 0.6f, 0.05f),
-                scenery = new Color(0.25f, 0.1f, 0.08f), scenerySurface = Surface.Bricks, style = SceneryStyle.Inferno,
+                scenery = new Color(0.35f, 0.16f, 0.12f), scenerySurface = Surface.Stone, style = SceneryStyle.Inferno,
             },
             new Biome
             {
-                name = "VOID", sky = new Color(0.02f, 0.02f, 0.025f), fogStart = 60f, fogEnd = 480f,
-                ambientSky = new Color(0.35f, 0.35f, 0.38f), ambientEquator = new Color(0.2f, 0.2f, 0.22f), ambientGround = new Color(0.05f, 0.05f, 0.06f),
-                sunColor = Color.white, sunIntensity = 0.8f,
-                ramp = new Color(0.8f, 0.8f, 0.82f), slab = new Color(0.15f, 0.15f, 0.17f), rampSurface = Surface.Grid,
+                name = "VOID", sky = new Color(0.09f, 0.09f, 0.12f), skyTop = new Color(0f, 0f, 0f), skyBottom = new Color(0f, 0f, 0f),
+                fogStart = 60f, fogEnd = 480f,
+                ambientSky = new Color(0.38f, 0.38f, 0.42f), ambientEquator = new Color(0.22f, 0.22f, 0.24f), ambientGround = new Color(0.05f, 0.05f, 0.06f),
+                sunColor = Color.white, sunIntensity = 0.85f,
+                ramp = new Color(0.85f, 0.85f, 0.88f), slab = new Color(0.22f, 0.22f, 0.25f), rampSurface = Surface.Tiles,
                 glow = new Color(1f, 1f, 1f), glowAlt = new Color(0.7f, 0.7f, 0.75f),
-                scenery = new Color(0.04f, 0.04f, 0.05f), scenerySurface = Surface.Grid, style = SceneryStyle.Monoliths,
+                scenery = new Color(0.08f, 0.08f, 0.1f), scenerySurface = Surface.Metal, style = SceneryStyle.Monoliths,
             },
         };
     }

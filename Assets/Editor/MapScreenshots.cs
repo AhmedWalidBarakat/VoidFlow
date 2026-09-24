@@ -36,7 +36,10 @@ namespace VoidFlow.EditorTools
             {
                 cam.transform.SetPositionAndRotation(spawn.position + offset + Vector3.up * 1.63f, Quaternion.Euler(euler));
                 cam.targetTexture = rt;
-                cam.Render();
+                // The first headless render after changes can come out with mixed-up materials (the
+            // game itself is fine), so render a throwaway frame first
+            cam.Render();
+            cam.Render();
                 RenderTexture.active = rt;
                 tex.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0);
                 tex.Apply();

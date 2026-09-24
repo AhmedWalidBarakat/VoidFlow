@@ -43,6 +43,8 @@ namespace VoidFlow
         public Camera view;
         [Tooltip("Materials for each biome, in the same order as Biome.All")]
         public BiomeKit[] kits;
+        [Tooltip("Gradient sky dome; a copy is tinted per biome at runtime")]
+        public Material skybox;
 
         [Header("Streaming")]
         public int rampsAhead = 3;
@@ -81,6 +83,7 @@ namespace VoidFlow
         Vector3 hallOffset;
         Biome envFrom, envTo;
         float envBlend = 1f;
+        Material skyInstance;
 
         public int CurrentRamp => current;
         public int Level => Mathf.Min(current, rampsToMaxDifficulty);
@@ -611,6 +614,17 @@ namespace VoidFlow
                 sun.intensity = Mathf.Lerp(a.sunIntensity, b.sunIntensity, t);
             }
             if (view) view.backgroundColor = sky;
+
+            if (skybox)
+            {
+                if (!skyInstance) skyInstance = new Material(skybox) { name = "Sky (runtime)" };
+                RenderSettings.skybox = skyInstance;
+                skyInstance.SetColor("_Horizon", sky);
+                skyInstance.SetColor("_Top", Color.Lerp(a.skyTop, b.skyTop, t));
+                skyInstance.SetColor("_Bottom", Color.Lerp(a.skyBottom, b.skyBottom, t));
+                skyInstance.SetColor("_SunColor", Color.Lerp(a.sunColor, b.sunColor, t) * 0.9f);
+                if (sun) skyInstance.SetVector("_SunDir", -sun.transform.forward);
+            }
         }
     }
 }

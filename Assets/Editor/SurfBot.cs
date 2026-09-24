@@ -210,6 +210,9 @@ namespace VoidFlow.EditorTools
             var rt = new RenderTexture(1280, 720, 24);
             var tex = new Texture2D(1280, 720, TextureFormat.RGB24, false);
             cam.targetTexture = rt;
+            // The first headless render after changes can come out with mixed-up materials (the
+            // game itself is fine), so render a throwaway frame first
+            cam.Render();
             cam.Render();
             RenderTexture.active = rt;
             tex.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0);

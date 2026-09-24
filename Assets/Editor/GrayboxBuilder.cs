@@ -30,10 +30,18 @@ namespace VoidFlow.EditorTools
             Texture2D stripes = MakeStripeTexture();
             Texture2D hazard = MakeHazardTexture();
             Texture2D bricks = MakeBrickTexture();
+            tiles = MakeTilesTexture();
+            stone = MakeStoneTexture();
+            metal = MakeMetalTexture();
+            wood = MakeWoodTexture();
+            ice = MakeIceTexture();
             Material rampMat = MakeMaterial("Ramp", new Color(0.9f, 0.89f, 0.93f), grid);
+            var sky = new Material(Shader.Find("VoidFlow/GradientSky"));
+            AssetDatabase.CreateAsset(sky, $"{Root}/Sky.mat");
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             Light sun = MakeSun();
+            RenderSettings.skybox = sky;
             var map = new GameObject("World").transform;
 
             // The start hall sits on the ledge above the first ramp. Its middle lane lines up
@@ -50,6 +58,7 @@ namespace VoidFlow.EditorTools
             course.sun = sun;
             course.view = player.cameraPivot.GetComponent<Camera>();
             course.kits = MakeBiomeKits(rampMat, grid, stripes, hazard, bricks);
+            course.skybox = sky;
 
             var timer = new GameObject("RunTimer").AddComponent<RunTimer>();
             timer.player = player;
@@ -65,6 +74,9 @@ namespace VoidFlow.EditorTools
 
         static Vector3 WithY(this Vector3 v, float y) => new(v.x, y, v.z);
 
+        // Painted textures, made at the start of Build and used by the hall and biomes
+        static Texture2D tiles, stone, metal, wood, ice;
+
         // Every biome's materials, saved as assets under Graybox/Biomes
         static BiomeKit[] MakeBiomeKits(Material template, Texture2D grid, Texture2D stripes, Texture2D hazard, Texture2D bricks)
         {
@@ -74,6 +86,11 @@ namespace VoidFlow.EditorTools
                 Surface.Stripes => stripes,
                 Surface.Hazard => hazard,
                 Surface.Bricks => bricks,
+                Surface.Tiles => tiles,
+                Surface.Stone => stone,
+                Surface.Metal => metal,
+                Surface.Wood => wood,
+                Surface.Ice => ice,
                 _ => grid,
             };
 
@@ -130,7 +147,7 @@ namespace VoidFlow.EditorTools
             camera.fieldOfView = 74f; // ~90 horizontal at 16:9, like CS
             camera.nearClipPlane = 0.05f;
             camera.farClipPlane = 1000f;
-            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.clearFlags = CameraClearFlags.Skybox;
             camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;
             cam.AddComponent<AudioListener>();
 

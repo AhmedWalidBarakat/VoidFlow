@@ -36,10 +36,11 @@ namespace VoidFlow.EditorTools
             var hall = new GameObject("StartHall").transform;
             hall.SetParent(parent, false);
 
-            Material floor = MakeMaterial("HallFloor", new Color(0.18f, 0.19f, 0.23f), grid);
-            Material wall = MakeMaterial("HallWall", new Color(0.8f, 0.8f, 0.84f), grid);
-            Material dark = MakeMaterial("HallDark", new Color(0.08f, 0.08f, 0.1f), grid);
-            Material metal = MakeMaterial("HallMetal", new Color(0.35f, 0.36f, 0.4f), grid);
+            // Wood floor, stone walls, dark riveted metal overhead
+            Material floor = MakeMaterial("HallFloor", new Color(0.85f, 0.82f, 0.8f), wood);
+            Material wall = MakeMaterial("HallWall", new Color(0.72f, 0.7f, 0.74f), stone);
+            Material dark = MakeMaterial("HallDark", new Color(0.18f, 0.18f, 0.22f), GrayboxBuilder.metal);
+            Material metal = MakeMaterial("HallMetal", new Color(0.55f, 0.56f, 0.62f), GrayboxBuilder.metal);
             Material orange = MakeGlow("GlowOrange", new Color(1f, 0.33f, 0.02f), 1.1f);
             Material cyan = MakeGlow("GlowCyan", new Color(0.1f, 0.75f, 1f), 1.3f);
             Material blue = MakeGlow("GlowBlue", new Color(0.2f, 0.35f, 1f), 1.3f);
