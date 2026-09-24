@@ -16,6 +16,7 @@ namespace VoidFlow.EditorTools
             ("hall_case_and_ramp", new Vector3(0f, 0f, 20f), new Vector3(5f, 60f, 0f)),
             ("hall_looking_back", new Vector3(0f, 0f, 40f), new Vector3(10f, 180f, 0f)),
             ("drop_edge_view", new Vector3(0f, 0f, 43f), new Vector3(20f, 0f, 0f)),
+            ("viewmodel", new Vector3(0f, 0f, 8f), new Vector3(0f, 0f, 0f)),
         };
 
         [MenuItem("VoidFlow/Capture Map Screenshots")]
@@ -26,7 +27,11 @@ namespace VoidFlow.EditorTools
 
             // Set up the world exactly as it is when you press Play (biome lighting, fog, ramps)
             Object.FindAnyObjectByType<EndlessCourse>()?.ResetCourse();
-            var cam = Object.FindAnyObjectByType<Camera>();
+            var cam = Object.FindAnyObjectByType<PlayerMovement>().cameraPivot.GetComponent<Camera>();
+            // Show the knife: build it and let the main camera draw its layer for the photo
+            // (overlay cameras don't render on their own)
+            var viewModel = cam.GetComponent<ViewModel>();
+            if (viewModel) viewModel.BuildNow();
             var spawn = GameObject.Find("Spawn").transform;
             Directory.CreateDirectory("Logs");
 

@@ -50,7 +50,7 @@ namespace VoidFlow.EditorTools
             var (startZone, spawn, hall) = BuildStartHall(map, lane, grid, rampMat);
             AddGlowVolume(map);
 
-            PlayerMovement player = MakePlayer(spawn);
+            PlayerMovement player = MakePlayer(spawn, rampMat);
 
             var course = map.gameObject.AddComponent<EndlessCourse>();
             course.player = player;
@@ -128,7 +128,7 @@ namespace VoidFlow.EditorTools
             return sun;
         }
 
-        static PlayerMovement MakePlayer(Transform spawn)
+        static PlayerMovement MakePlayer(Transform spawn, Material viewModelTemplate)
         {
             var go = new GameObject("Player") { layer = 2 };
             go.transform.SetPositionAndRotation(spawn.position, spawn.rotation);
@@ -153,6 +153,11 @@ namespace VoidFlow.EditorTools
 
             var movement = go.AddComponent<PlayerMovement>();
             movement.cameraPivot = cam.transform;
+
+            // The gloved hand and knife, drawn by its own overlay camera
+            var viewModel = cam.AddComponent<ViewModel>();
+            viewModel.player = movement;
+            viewModel.template = viewModelTemplate;
             return movement;
         }
 
