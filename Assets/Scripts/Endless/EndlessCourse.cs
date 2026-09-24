@@ -95,6 +95,32 @@ namespace VoidFlow
         {
             QualitySettings.shadowDistance = 150f;
             if (rng == null) ResetCourse(); // unless the run timer already started it
+            if (Application.isEditor) LogRenderSetup();
+        }
+
+        // Editor-only diagnostic: what the renderer is actually using when you press Play
+        void LogRenderSetup()
+        {
+            var cam = view ? view : Camera.main;
+            var sb = new System.Text.StringBuilder("VOIDFLOW RENDER SETUP: ");
+            sb.Append($"quality={QualitySettings.names[QualitySettings.GetQualityLevel()]} pipeline={UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline?.name} ");
+            sb.Append($"fog={RenderSettings.fog} mode={RenderSettings.fogMode} start={RenderSettings.fogStartDistance} end={RenderSettings.fogEndDistance} density={RenderSettings.fogDensity} color={RenderSettings.fogColor} ");
+            sb.Append($"ambient={RenderSettings.ambientMode} sky={RenderSettings.ambientSkyColor} ");
+            if (cam) sb.Append($"camera={cam.name} pos={cam.transform.position} near={cam.nearClipPlane} far={cam.farClipPlane} clear={cam.clearFlags} bg={cam.backgroundColor} ");
+            if (sun) sb.Append($"sun={sun.intensity} ");
+            int renderers = 0, near = 0;
+            foreach (var r in FindObjectsByType<MeshRenderer>())
+            {
+                renderers++;
+                if (cam && (r.bounds.center - cam.transform.position).magnitude < 60f)
+                {
+                    near++;
+                    if (near <= 3 && r.TryGetComponent(out MeshFilter filter))
+                        sb.Append($"[{r.name}: mat={(r.sharedMaterial ? r.sharedMaterial.name : "none")} mesh={(filter.sharedMesh ? filter.sharedMesh.name : "none")} enabled={r.enabled}] ");
+                }
+            }
+            sb.Append($"renderers={renderers} within60m={near}");
+            Debug.Log(sb.ToString());
         }
 
         void Update() => Step(Time.deltaTime);

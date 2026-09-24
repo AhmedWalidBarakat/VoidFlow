@@ -24,6 +24,8 @@ namespace VoidFlow.EditorTools
             if (!Application.isBatchMode && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             EditorSceneManager.OpenScene(GrayboxBuilder.ScenePath);
 
+            // Set up the world exactly as it is when you press Play (biome lighting, fog, ramps)
+            Object.FindAnyObjectByType<EndlessCourse>()?.ResetCourse();
             var cam = Object.FindAnyObjectByType<Camera>();
             var spawn = GameObject.Find("Spawn").transform;
             Directory.CreateDirectory("Logs");
