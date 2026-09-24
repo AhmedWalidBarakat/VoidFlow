@@ -17,10 +17,15 @@ namespace VoidFlow.EditorTools
     //  - Air strafing: looking along its motion, it strafes toward the next ramp, which turns
     //    it without losing speed. Flying straight, it alternates A/D like a sync strafe.
     //
-    //  - Speed control: it knows the speed the next flight was designed for. Far faster than
-    //    that in the air, it would overshoot the landing, so it air-brakes with tiny strafe
-    //    taps angled a few degrees against its motion, alternating sides so its direction
-    //    doesn't change.
+    //  - Speed control: it predicts where its flight comes down (FlightCheck, the same
+    //    physics the course uses to prove every gap is possible). In the air, if it would
+    //    overshoot, it air-brakes with tiny strafe taps angled a few
+    //    degrees against its motion, alternating sides so its direction doesn't change.
+    //
+    // Falls are reported two ways: the course proves every gap possible before it appears,
+    // so "impossible ramps" must be 0 (a real failure otherwise). A bot fall on a proven
+    // gap is the bot's own skill limit, which is fine on hard ramps but must not happen in
+    // the easy early levels.
     //
     // It surfs TargetRamps ramps on a fixed seed, logging each ramp's move, biome and speed,
     // every fall, and memory and object counts (which must stay flat for the course to run
@@ -29,6 +34,7 @@ namespace VoidFlow.EditorTools
     {
         const int TargetRamps = 50;
         const int TestSeed = 777;
+        const int EasyRamps = 10; // the bot must never fall here: a new player needs a clean start
         const float TurnDeadZone = 2f;  // degrees
         const float SwingBand = 0.9f;   // metres above/below the line each swing reaches
         const int SyncStrafeTicks = 24; // air strafe switches sides this often flying straight
@@ -56,7 +62,7 @@ namespace VoidFlow.EditorTools
             float topSpeed = 0f, rampStartTime = 0f;
             Vector3 lastCheck = player.Position;
             var falls = new List<string>();
-            int fallCount = 0;
+            int fallCount = 0, earlyFalls = 0;
             var recent = new Queue<string>(); // flight recorder: the last few seconds, printed on a fall
             string phase = "walk";
             var log = new StringBuilder("time    ramp  move                       biome         speed  swings  active  objects\n");
@@ -106,15 +112,14 @@ namespace VoidFlow.EditorTools
                         // flying straight, sync strafe. Too fast for the landing ahead:
                         // air-brake with taps angled just against the motion, alternating
                         // sides every tick so the turning cancels out.
-                        // The landing hills handle flights well above their design speed;
-                        // only far above it would you fly clean over
-                        float needed = course.SpeedNeededAhead(p) * 1.3f;
-                        if (speed > needed && Mathf.Abs(error) < 20f)
+                        var next = course.TargetRamp(p);
+                        var outcome = next != null ? FlightCheck.Predict(p, v, next, next.Length) : FlightCheck.Outcome.Lands;
+                        if (outcome == FlightCheck.Outcome.Long && Mathf.Abs(error) < 20f)
                         {
                             float side = i % 2 == 0 ? 1f : -1f;
                             player.Yaw = heading + side * BrakeAngle;
                             input.move = new Vector2(side, 0f);
-                            phase = $"air brake {speed:0}->{needed:0}";
+                            phase = $"air brake (would overshoot at {speed:0})";
                         }
                         else
                         {
@@ -157,6 +162,7 @@ namespace VoidFlow.EditorTools
                 {
                     falls.Add($"ramp {course.CurrentRamp + 1} ({course.CurrentMove}, {course.CurrentBiome.name}) at {speed:0} u/s{(stuck ? " STUCK" : "")}{(time - rampStartTime > 60f ? " TIMEOUT" : "")}");
                     fallCount++;
+                    if (course.CurrentRamp < EasyRamps) earlyFalls++;
                     falls.AddRange(recent);
                     recent.Clear();
                     course.RespawnPlayer(player);
@@ -168,7 +174,11 @@ namespace VoidFlow.EditorTools
 
             long memoryEnd = Profiler.GetTotalAllocatedMemoryLong();
             var report = new StringBuilder();
-            report.AppendLine($"RESULT: {result}, top speed {topSpeed:0} u/s, {swings} swings, {fallCount} falls, {recenters} recenters");
+            var (acceptsNormal, rejectsAbsurd) = CheckTheChecker();
+            bool pass = course.ImpossibleRamps == 0 && earlyFalls == 0 && acceptsNormal && rejectsAbsurd;
+            report.AppendLine($"TEST {(pass ? "PASSED" : "FAILED")}: {course.ImpossibleRamps} impossible ramps (must be 0), {earlyFalls} bot falls in the first {EasyRamps} ramps (must be 0), " +
+                              $"flight check {(acceptsNormal ? "accepts" : "REJECTS")} a normal 35m gap and {(rejectsAbsurd ? "rejects" : "ACCEPTS")} an absurd 250m one");
+            report.AppendLine($"RESULT: {result}, top speed {topSpeed:0} u/s, {swings} swings, {fallCount} bot falls on proven-possible ramps, {course.RebuiltRamps} ramps rebuilt by the flight check, {recenters} recenters");
             report.AppendLine($"Streaming: at most {maxActive} ramps alive, at most {maxObjects} objects in the scene, memory {memoryStart / 1048576}MB -> {memoryEnd / 1048576}MB");
             foreach (var f in falls) report.AppendLine("  fell: " + f);
             report.AppendLine();
@@ -176,6 +186,19 @@ namespace VoidFlow.EditorTools
             Directory.CreateDirectory("Logs");
             File.WriteAllText("Logs/surfbot.txt", report.ToString() + log);
             Debug.Log("SurfBot:\n" + report);
+        }
+
+        // The flight check must actually discriminate: pass an ordinary gap, fail an absurd one
+        static (bool acceptsNormal, bool rejectsAbsurd) CheckTheChecker()
+        {
+            const float U = PlayerMovement.SourceUnit;
+            var from = RampShapes.Lay(RampShapes.Kind.Prism, 18f, -1f, Vector3.zero, Vector3.forward, new[] { (0f, 0f), (200f, 0f) }, null);
+            RampShapes.RampPath Next(float gap) => RampShapes.LandingRamp(from,
+                new RampShapes.Landing { speed = 2300f * U, gap = gap, length = 60f, clearStart = 6f, clearEnd = 0f, shift = 12f },
+                RampShapes.Kind.Prism, 7f, new[] { (100f, 0f), (140f, 0.08f) }, null);
+            bool normal = FlightCheck.Possible(from, Next(35f), 1800f * U, 80f);
+            bool absurd = FlightCheck.Possible(from, Next(250f), 1800f * U, 80f);
+            return (normal, !absurd);
         }
 
         // Renders what the player sees right now (looking along their yaw) to a PNG

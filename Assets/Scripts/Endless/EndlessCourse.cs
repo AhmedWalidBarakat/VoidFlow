@@ -28,6 +28,10 @@ namespace VoidFlow
     // Difficulty: over the first rampsToMaxDifficulty ramps the flights get longer, the
     // sideways shifts bigger, the landing hills shorter, and the ramps narrower.
     //
+    // Every flight is checked before its ramp appears (see FlightCheck): a player at the
+    // slowest speed a decent run has by then must be able to land it. If not, the ramp is
+    // rebuilt with a shorter gap and smaller shift, so the course never asks the impossible.
+    //
     // Floating origin: the whole world is shifted back near zero every recenterDistance
     // metres, so long runs never lose floating point precision.
     public class EndlessCourse : MonoBehaviour
@@ -54,6 +58,7 @@ namespace VoidFlow
         public float designSpeed = 2300f;
 
         const float BiomeBlendSeconds = 3f;
+        const int MaxRebuilds = 6;
         const float FallMargin = 40f;
 
         class Segment
@@ -82,6 +87,8 @@ namespace VoidFlow
         public Biome CurrentBiome => Biome.All[BiomeOf(current)];
         public float Progress { get; private set; }
         public int ActiveRamps => segments.Count;
+        public int RebuiltRamps { get; private set; }     // ramps rebuilt because the flight check failed
+        public int ImpossibleRamps { get; private set; }  // ramps still failing after every rebuild (should stay 0)
         public event Action<Biome> BiomeEntered;
 
         void Start()
@@ -110,6 +117,8 @@ namespace VoidFlow
             last = null;
             nextProgress = 0f;
             Progress = 0f;
+            RebuiltRamps = 0;
+            ImpossibleRamps = 0;
 
             if (!cube)
             {
@@ -180,16 +189,38 @@ namespace VoidFlow
         // the landing hill; the surf bot air-brakes down to it like a skilled player would.
         public float SpeedNeededAhead(Vector3 p)
         {
-            Segment target = null;
-            for (int k = current; k <= current + 1 && target == null; k++)
+            Segment target = TargetSegment(p);
+            return target != null ? target.flightSpeed / PlayerMovement.SourceUnit : float.MaxValue;
+        }
+
+        // How far (m) you are from the end of the ramp you're on
+        public float DistanceToEnd(Vector3 p)
+        {
+            Segment seg = Seg(current);
+            if (seg == null) return float.MaxValue;
+            DistanceToLine(seg, p, out int nearest);
+            return seg.path.Length - seg.path.distance[nearest];
+        }
+
+        // The ramp you're flying toward (or will fly to next): the first one whose start is
+        // still in front of you
+        public RampShapes.RampPath TargetRamp(Vector3 p) => TargetSegment(p)?.path;
+
+        Segment TargetSegment(Vector3 p)
+        {
+            for (int k = current; k <= current + 1; k++)
             {
                 Segment seg = Seg(k);
                 if (seg != null && seg.index > 0 && Vector3.Dot(seg.line[0] - p, seg.path.forward[0]) > 0f)
-                    target = seg;
+                    return seg;
             }
-            target ??= Seg(current + 1);
-            return target != null ? target.flightSpeed / PlayerMovement.SourceUnit : float.MaxValue;
+            return Seg(current + 1);
         }
+
+        // The slowest a decent run is likely to be going off a ramp whose flight is designed
+        // for `flightSpeed` (m/s): the flight check proves a player this slow can land it
+        static float SlowestLikelySpeed(float flightSpeed) =>
+            Mathf.Clamp(flightSpeed * 0.8f, 1300f * PlayerMovement.SourceUnit, 1900f * PlayerMovement.SourceUnit);
 
         float courseStartY;
 
@@ -228,7 +259,18 @@ namespace VoidFlow
                     clearEnd = 0f,
                     shift = Mathf.Lerp(10f, 22f, t) * Rand(0.85f, 1.1f) * (rng.Next(2) == 0 ? -1f : 1f),
                 };
+
+                // Prove the flight can be landed; if not, shorten the gap and shift and retry
+                float slowest = SlowestLikelySpeed(flightSpeed);
                 path = RampShapes.LandingRamp(last, landing, m.kind, m.width, m.shape, m.bend);
+                for (int attempt = 0; !FlightCheck.Possible(last, path, slowest, landing.length + 20f); attempt++)
+                {
+                    if (attempt == MaxRebuilds) { ImpossibleRamps++; break; }
+                    RebuiltRamps++;
+                    landing.gap *= 0.85f;
+                    landing.shift *= 0.8f;
+                    path = RampShapes.LandingRamp(last, landing, m.kind, m.width, m.shape, m.bend);
+                }
                 if (m.bigAir)
                 {
                     move += " + big air";
