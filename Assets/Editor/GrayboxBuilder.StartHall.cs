@@ -28,9 +28,10 @@ namespace VoidFlow.EditorTools
             ("Void Edge", "LEGENDARY", new Color(1f, 0.75f, 0.15f)),
         };
 
-        // Builds the hall around `lane`, the x you walk down to drop onto ramp 1. Returns
-        // the start zone (the whole hall floor) and the spawn point at the back.
-        static (BoxCollider zone, Transform spawn) BuildStartHall(Transform parent, float lane, Texture2D grid, Material rampMat)
+        // Builds the hall around `lane`, the x you walk down to drop onto the first ramp.
+        // Returns the start zone (the whole hall floor), the spawn point at the back, and the
+        // hall itself; all three move together when the world recenters.
+        static (BoxCollider zone, Transform spawn, Transform hall) BuildStartHall(Transform parent, float lane, Texture2D grid, Material rampMat)
         {
             var hall = new GameObject("StartHall").transform;
             hall.SetParent(parent, false);
@@ -135,9 +136,9 @@ namespace VoidFlow.EditorTools
             Label("VOID CASE\nearn cases by finishing maps", hall, new Vector3(caseX - 1.02f, 0.65f, caseZ), 90f, 0.24f, new Color(1f, 0.6f, 0.25f));
 
             // Practice ramp along the right wall, to warm up your strafes before dropping in
-            var practice = LayRamp(Kind.Prism, 4f, -1f, new Vector3(right - 4f, 5.3f, HallBack + 3f), Vector3.forward,
+            var practice = RampShapes.Lay(RampShapes.Kind.Prism, 4f, -1f, new Vector3(right - 4f, 5.3f, HallBack + 3f), Vector3.forward,
                 new[] { (0f, 0f), (22f, 0f) }, null);
-            RidgeRamp("PracticeRamp", practice, rampMat, hall);
+            SpawnMesh("PracticeRamp", practice.ridge[0], RampShapes.BuildMesh(practice, "PracticeRamp"), rampMat, hall, convex: false);
             Label("PRACTICE RAMP", hall, new Vector3(right - 0.15f, 8.5f, HallBack + 14f), 90f, 0.9f, new Color(0.5f, 0.85f, 1f));
 
             // Title over the opening, on a dark banner so it reads against the sky
@@ -168,9 +169,10 @@ namespace VoidFlow.EditorTools
             PointLight("OrangeLight", hall, new Vector3(lane + 8f, 8f, midZ - 8f), new Color(1f, 0.5f, 0.15f));
 
             var spawn = new GameObject("Spawn").transform;
+            spawn.SetParent(hall, false);
             spawn.SetPositionAndRotation(spawnPos, Quaternion.identity);
-            BoxCollider zone = Zone("StartZone", new Vector3(lane, 2f, midZ), new Vector3(width, 4f, HallDepth));
-            return (zone, spawn);
+            BoxCollider zone = Zone("StartZone", new Vector3(lane, 2f, midZ), new Vector3(width, 4f, HallDepth), hall);
+            return (zone, spawn, hall);
         }
 
         // A simple knife from boxes: glowing blade with a diamond tip, guard, grip, pommel

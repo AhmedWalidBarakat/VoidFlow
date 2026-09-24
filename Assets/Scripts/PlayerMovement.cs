@@ -89,6 +89,21 @@ namespace VoidFlow
             transform.position = pos;
         }
 
+        // Teleport keeping a given velocity, e.g. a respawn that should keep you moving
+        public void Teleport(Vector3 pos, float newYaw, Vector3 newVelocity)
+        {
+            Teleport(pos, newYaw);
+            velocity = newVelocity;
+        }
+
+        // Moves the player with the world when it's recentered, keeping all motion
+        public void ShiftOrigin(Vector3 delta)
+        {
+            position += delta;
+            prevPosition += delta;
+            transform.position += delta;
+        }
+
         public void LimitHorizontalSpeed(float max)
         {
             var h = new Vector3(velocity.x, 0f, velocity.z);

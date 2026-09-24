@@ -5,12 +5,10 @@ using UnityEngine;
 
 namespace VoidFlow.EditorTools
 {
-    // Renders a few views of the map from the player's camera to Logs/*.png, so the map
-    // can be checked without playing.
+    // Renders a few views of the start hall from the player's camera to Logs/*.png, so it
+    // can be checked without playing. (The surf bot photographs each biome of the course.)
     public static class MapScreenshots
     {
-        const string ScenePath = "Assets/Scenes/Surf_Graybox.unity";
-
         static readonly (string name, Vector3 offset, Vector3 euler)[] Views =
         {
             ("hall_from_spawn", new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 0f)),
@@ -24,7 +22,7 @@ namespace VoidFlow.EditorTools
         public static void Capture()
         {
             if (!Application.isBatchMode && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
-            EditorSceneManager.OpenScene(ScenePath);
+            EditorSceneManager.OpenScene(GrayboxBuilder.ScenePath);
 
             var cam = Object.FindAnyObjectByType<Camera>();
             var spawn = GameObject.Find("Spawn").transform;

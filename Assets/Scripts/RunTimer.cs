@@ -1,78 +1,82 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
 
 namespace VoidFlow
 {
-    // Start zone -> end zone timer with a best time saved per map, plus the HUD.
+    // Runs the endless mode and draws the HUD. The run starts when you leave the start
+    // hall. Fall off and you're put back on the ramp you were on (it counts as a fall);
+    // R restarts from the hall with a fresh course. Tracks distance, time, and your best
+    // distance, and announces each biome as you enter it.
     public class RunTimer : MonoBehaviour
     {
         public PlayerMovement player;
+        public EndlessCourse course;
         public BoxCollider startZone;
-        public BoxCollider endZone;
         public Transform spawnPoint;
-        public float killHeight = -200f;
         [Tooltip("Stops players building speed inside the start zone (Source units per second).")]
         public float startZoneSpeedCap = 350f;
 
-        enum State { InStart, Running, Finished }
+        const string BestKey = "VoidFlow.bestDistance";
+        const float BannerSeconds = 3f;
 
-        State state;
-        float startTime, finalTime, best;
-        bool newBest;
-        string bestKey;
-        GUIStyle bigStyle, smallStyle;
+        bool running;
+        float startTime, best;
+        int falls;
+        string banner;
+        float bannerTime = -99f;
+        GUIStyle bigStyle, smallStyle, centeredStyle, bannerStyle;
 
         void Start()
         {
-            bestKey = "VoidFlow.best." + SceneManager.GetActiveScene().name;
-            best = PlayerPrefs.GetFloat(bestKey, 0f);
-            Respawn();
+            best = PlayerPrefs.GetFloat(BestKey, 0f);
+            course.BiomeEntered += b => { banner = b.name; bannerTime = Time.time; };
+            Restart();
         }
 
-        void Respawn()
+        void Restart()
         {
+            course.ResetCourse();
             player.Teleport(spawnPoint.position, spawnPoint.eulerAngles.y);
-            state = State.InStart;
+            running = false;
+            falls = 0;
         }
 
         void Update()
         {
             var kb = Keyboard.current;
-            if (kb != null && kb.rKey.wasPressedThisFrame) { Respawn(); return; }
+            if (kb != null && kb.rKey.wasPressedThisFrame) { Restart(); return; }
 
             Vector3 p = player.Position;
-            if (p.y < killHeight) { Respawn(); return; }
-
-            Vector3 body = p + Vector3.up * 0.9f;
-            bool inStart = startZone.bounds.Contains(body);
-
-            if (inStart)
+            if (!running)
             {
-                state = State.InStart;
-                player.LimitHorizontalSpeed(startZoneSpeedCap * PlayerMovement.SourceUnit);
-            }
-            else if (state == State.InStart)
-            {
-                state = State.Running;
-                startTime = Time.time;
-                newBest = false;
-            }
-            else if (state == State.Running && endZone.bounds.Contains(body))
-            {
-                state = State.Finished;
-                finalTime = Time.time - startTime;
-                if (best <= 0f || finalTime < best)
+                if (startZone.bounds.Contains(p + Vector3.up * 0.9f))
+                    player.LimitHorizontalSpeed(startZoneSpeedCap * PlayerMovement.SourceUnit);
+                else
                 {
-                    best = finalTime;
-                    newBest = true;
-                    PlayerPrefs.SetFloat(bestKey, best);
-                    PlayerPrefs.Save();
+                    running = true;
+                    startTime = Time.time;
+                    banner = course.CurrentBiome.name;
+                    bannerTime = Time.time;
                 }
+            }
+
+            if (course.IsFallen(p))
+            {
+                falls++;
+                course.RespawnPlayer(player);
+            }
+
+            if (running && course.Progress > best)
+            {
+                best = course.Progress;
+                PlayerPrefs.SetFloat(BestKey, best);
             }
         }
 
-        static string Format(float t) => $"{(int)(t / 60f)}:{t % 60f:00.000}";
+        void OnApplicationQuit() => PlayerPrefs.Save();
+
+        static string Distance(float metres) => metres < 1000f ? $"{metres:0} m" : $"{metres / 1000f:0.00} km";
+        static string Format(float t) => $"{(int)(t / 60f)}:{t % 60f:00.0}";
 
         void OnGUI()
         {
@@ -80,22 +84,36 @@ namespace VoidFlow
             {
                 bigStyle = new GUIStyle(GUI.skin.label) { fontSize = 28, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
                 smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 14 };
+                centeredStyle = new GUIStyle(smallStyle) { alignment = TextAnchor.MiddleCenter };
+                bannerStyle = new GUIStyle(GUI.skin.label) { fontSize = 54, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             }
-
             float w = Screen.width, h = Screen.height;
 
-            string timer = state switch
+            if (running)
             {
-                State.Running => Format(Time.time - startTime),
-                State.Finished => Format(finalTime) + (newBest ? "  NEW BEST" : ""),
-                _ => "Leave the start zone to begin",
-            };
-            GUI.Label(new Rect(0, 20, w, 40), timer, bigStyle);
+                GUI.Label(new Rect(0, 16, w, 40), Distance(course.Progress), bigStyle);
+                GUI.Label(new Rect(0, 52, w, 24),
+                    $"ramp {course.CurrentRamp + 1}   ·   level {course.Level + 1}   ·   {course.CurrentBiome.name}   ·   {Format(Time.time - startTime)}   ·   falls {falls}",
+                    centeredStyle);
+            }
+            else
+            {
+                GUI.Label(new Rect(0, 20, w, 40), "Drop in to start", bigStyle);
+            }
+
+            float age = Time.time - bannerTime;
+            if (banner != null && age < BannerSeconds)
+            {
+                var old = GUI.color;
+                GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01(Mathf.Min(age * 3f, (BannerSeconds - age) * 1.5f)));
+                GUI.Label(new Rect(0, h * 0.28f, w, 70), banner, bannerStyle);
+                GUI.color = old;
+            }
 
             float speed = player.HorizontalSpeed / PlayerMovement.SourceUnit;
             GUI.Label(new Rect(0, h - 90, w, 40), $"{speed:0} u/s", bigStyle);
 
-            if (best > 0f) GUI.Label(new Rect(w - 200, 20, 190, 24), "Best  " + Format(best), smallStyle);
+            if (best > 0f) GUI.Label(new Rect(w - 200, 20, 190, 24), "Best  " + Distance(best), smallStyle);
 
             string help = Cursor.lockState == CursorLockMode.Locked
                 ? "WASD move · Space jump (hold to bhop) · R restart · Esc release mouse\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
