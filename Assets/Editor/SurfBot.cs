@@ -7,7 +7,7 @@ using UnityEngine;
 namespace VoidFlow.EditorTools
 {
     // Headless movement test: walks off the start platform, then faces straight down the
-    // map (yaw 0) and only holds the strafe key toward the ramp, the way you surf in CS.
+    // map (yaw 0) holding only W, relying on surf assist to stay on the ramps.
     // Writes a trace to Logs/surfbot.txt so movement changes can be checked without playing.
     public static class SurfBot
     {
@@ -39,10 +39,10 @@ namespace VoidFlow.EditorTools
                     input.move = new Vector2(0f, 1f);
                     dropped = !player.Grounded && player.Position.y < -0.5f;
                 }
-                else if (Mathf.Abs(player.Position.x) > 4f)
+                else
                 {
-                    // Low on the face: hold the key toward the ramp to climb back up
-                    input.move = new Vector2(player.Position.x < 0f ? 1f : -1f, 0f);
+                    // After the drop: face forward and just hold W, letting surf assist hold us on
+                    input.move = new Vector2(0f, 1f);
                 }
 
                 player.Simulate(input, dt);

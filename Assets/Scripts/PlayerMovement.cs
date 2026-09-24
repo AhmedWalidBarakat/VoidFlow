@@ -26,6 +26,10 @@ namespace VoidFlow
         public float stopSpeed = 80f * SourceUnit;
         public float maxVelocity = 3500f * SourceUnit;
         public bool autoHop = true;
+        [Tooltip("Keeps you on surf ramps without holding a key, so you can just look where you want to go.")]
+        public bool surfAssist = true;
+        [Tooltip("Sideways speed toward the ramp that surf assist holds you at. Higher drifts you up the ramp.")]
+        public float surfAssistClimb = 0.3f;
 
         [Header("Collision")]
         [Tooltip("Surfaces whose normal.y is below this are too steep to stand on, so they become surf ramps.")]
@@ -41,6 +45,8 @@ namespace VoidFlow
         CapsuleCollider capsule;
         Vector3 position, prevPosition, velocity;
         bool grounded, jumpQueued;
+        Vector3 surfNormal;
+        int ticksSinceSurf = int.MaxValue;
         float yaw, pitch, accumulator;
         readonly Collider[] overlaps = new Collider[16];
         readonly Vector3[] planes = new Vector3[MaxSlides];
@@ -179,8 +185,10 @@ namespace VoidFlow
             else
             {
                 AirAccelerate(wishDir, wishSpeed, dt);
+                if (surfAssist) ApplySurfAssist(wishDir);
                 velocity.y -= gravity * dt;
             }
+            if (ticksSinceSurf < int.MaxValue) ticksSinceSurf++;
 
             velocity = Vector3.ClampMagnitude(velocity, maxVelocity);
 
@@ -227,6 +235,35 @@ namespace VoidFlow
             velocity += wishDir * Mathf.Min(airAccelerate * wishSpeed * dt, add);
         }
 
+        // Auto-strafe: does what holding A/D toward the ramp does in CS, so you can look
+        // forward (or hold W) and stay on. It only works along your sideways axis, so it
+        // never touches forward speed. Looking at the ramp, or pressing away from it, hands
+        // control back to you.
+        void ApplySurfAssist(Vector3 wishDir)
+        {
+            if (ticksSinceSurf > 2) return;
+            Vector3 into = new Vector3(-surfNormal.x, 0f, -surfNormal.z);
+            if (into.sqrMagnitude < 1e-4f) return;
+            into.Normalize();
+
+            Vector3 side = Quaternion.Euler(0f, yaw, 0f) * Vector3.right;
+            if (Vector3.Dot(side, into) < 0f) side = -side;
+            if (Vector3.Dot(side, into) < 0.3f) return;
+            if (Vector3.Dot(wishDir, into) < -0.3f) return;
+
+            float away = surfAssistClimb - Vector3.Dot(velocity, side);
+            if (away > 0f) velocity += side * away;
+        }
+
+        void NoteContact(Vector3 normal)
+        {
+            if (normal.y > 0.05f && normal.y < groundNormalY)
+            {
+                surfNormal = normal;
+                ticksSinceSurf = 0;
+            }
+        }
+
         void CategorizePosition()
         {
             grounded = false;
@@ -263,6 +300,7 @@ namespace VoidFlow
                 timeLeft -= timeLeft * (travel / dist);
 
                 Vector3 n = hit.normal;
+                NoteContact(n);
                 if (planeCount < planes.Length) planes[planeCount++] = n;
                 velocity = Clip(velocity, n);
 
@@ -298,6 +336,7 @@ namespace VoidFlow
                         out Vector3 dir, out float depth))
                 {
                     position += dir * (depth + Skin * 0.5f);
+                    NoteContact(dir);
                     velocity = Clip(velocity, dir);
                 }
             }

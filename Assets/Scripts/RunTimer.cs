@@ -98,7 +98,7 @@ namespace VoidFlow
             if (best > 0f) GUI.Label(new Rect(w - 200, 20, 190, 24), "Best  " + Format(best), smallStyle);
 
             string help = Cursor.lockState == CursorLockMode.Locked
-                ? "WASD move · Space jump (hold to bhop) · R restart · Esc release mouse\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
+                ? "WASD move · Space jump (hold to bhop) · R restart · Esc release mouse\nOn ramps: just look where you want to go. A/D toward the ramp climbs it, away from it drops you off"
                 : "Click to capture the mouse";
             GUI.Label(new Rect(12, h - 48, w - 24, 44), help, smallStyle);
         }
