@@ -172,7 +172,7 @@ namespace VoidFlow
         }
 
         [Header("Crosshair")]
-        public Color crosshairColor = Color.white;
+        public Color crosshairDotColor = Color.white;
         public float crosshairSize = 5f; // dot diameter in pixels at 1080p
 
         Texture2D dot;
@@ -198,7 +198,7 @@ namespace VoidFlow
             var old = GUI.color;
             GUI.color = new Color(0f, 0f, 0f, 0.6f);
             GUI.DrawTexture(new Rect(center.x - d * 0.5f - 1f, center.y - d * 0.5f - 1f, d + 2f, d + 2f), dot);
-            GUI.color = crosshairColor;
+            GUI.color = crosshairDotColor;
             GUI.DrawTexture(new Rect(center.x - d * 0.5f, center.y - d * 0.5f, d, d), dot);
             GUI.color = old;
         }
