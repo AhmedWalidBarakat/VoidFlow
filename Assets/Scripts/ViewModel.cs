@@ -147,6 +147,7 @@ namespace VoidFlow
             if (weapons == null) return;
             GUI.depth = 10;
             DrawScope();
+            if (zoom == 0) DrawCrosshair();
             if (!panel)
             {
                 panel = new Texture2D(1, 1);
@@ -167,6 +168,31 @@ namespace VoidFlow
             detailStyle.normal.textColor = weapon.color;
             string detail = current == SniperSlot ? SniperStatus() : "F inspect";
             GUI.Label(new Rect(box.x, box.y + 30f, w - 14f, 20f), $"{weapon.rarity}   ·   {detail}", detailStyle);
+        }
+
+        [Header("Crosshair")]
+        public Color crosshairColor = new(0.2f, 1f, 0.2f);
+        public float crosshairLength = 7f, crosshairThickness = 2f, crosshairGap = 4f; // pixels at 1080p
+
+        // Classic CS crosshair: four lines around a gap, with a thin black outline so it
+        // reads on any background. Hidden while scoped (the scope has its own lines).
+        void DrawCrosshair()
+        {
+            float scale = Mathf.Max(1f, Screen.height / 1080f);
+            float len = Mathf.Round(crosshairLength * scale), thick = Mathf.Max(1f, Mathf.Round(crosshairThickness * scale));
+            float gap = Mathf.Round(crosshairGap * scale);
+            float cx = Mathf.Round(Screen.width * 0.5f - thick * 0.5f), cy = Mathf.Round(Screen.height * 0.5f - thick * 0.5f);
+            var bars = new[]
+            {
+                new Rect(cx - gap - len, cy, len, thick), new Rect(cx + thick + gap, cy, len, thick),
+                new Rect(cx, cy - gap - len, thick, len), new Rect(cx, cy + thick + gap, thick, len),
+            };
+            var old = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.8f);
+            foreach (var r in bars) GUI.DrawTexture(new Rect(r.x - 1f, r.y - 1f, r.width + 2f, r.height + 2f), Texture2D.whiteTexture);
+            GUI.color = crosshairColor;
+            foreach (var r in bars) GUI.DrawTexture(r, Texture2D.whiteTexture);
+            GUI.color = old;
         }
 
         void Update()
