@@ -25,13 +25,29 @@ namespace VoidFlow
         public float InspectLength => model switch
         {
             KnifeModel.Karambit => 2.4f,
-            KnifeModel.Butterfly => 2.3f,
+            KnifeModel.Butterfly => 2.6f,
             _ => 2.9f,
         };
 
         // Keeps the model alive: aura motes drift, glow pulses, inspect moves parts.
         // `inspect` is seconds into the inspect, or negative when not inspecting.
-        public void Animate(float time, float inspect)
+        // Butterfly flips, Counter Blox style: the loose handle fans out into an X while the
+        // blade whips once around the pin, then everything snaps shut, with the blade now
+        // pointing the other way
+        public const float FlipPeriod = 0.45f, DrawFlipPeriod = 0.32f;
+        const float FlipsFrom = 0.35f, FlipsUntil = FlipsFrom + 4f * FlipPeriod; // four whole flips: the blade ends up
+
+        static (float open, float blade) Flips(float t, float from, float until, float period)
+        {
+            if (t < from || t >= until) return (0f, 0f);
+            float p = (t - from) / period;
+            int n = Mathf.FloorToInt(p);
+            float f = p - n;
+            return (Mathf.Sin(f * Mathf.PI) * 150f, (n + Mathf.SmoothStep(0f, 1f, f)) * 180f);
+        }
+
+        // `draw` is seconds since the weapon was drawn (large when it's long out)
+        public void Animate(float time, float inspect, float draw = 99f)
         {
             float burst = inspect >= 0f ? (IsSword ? Bump(inspect, 0.35f, 1.5f, 2.4f) : Bump(inspect, 0.5f, 1f, 2f)) : 0f;
             for (int i = 0; i < glowMaterials.Count; i++)
@@ -77,11 +93,11 @@ namespace VoidFlow
             }
             if (model == KnifeModel.Butterfly && blade && swingHandle)
             {
-                // The loose handle swings open, the blade flips around the pivot three times,
-                // and the handle snaps shut again
-                float open = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.5f, inspect)) - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.65f, 1.9f, inspect)) : 0f;
-                float flip = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.45f, 1.65f, inspect)) * 1080f : 0f;
-                swingHandle.localRotation = Quaternion.Euler(0f, 0f, open * 180f);
+                // Inspect: a run of flips in rhythm. Draw: two quick flips as it comes up.
+                // Flips always come in pairs so the blade ends pointing up again.
+                var (open, flip) = inspect >= 0f ? Flips(inspect, FlipsFrom, FlipsUntil, FlipPeriod)
+                    : Flips(draw, 0.05f, 0.05f + 2f * DrawFlipPeriod, DrawFlipPeriod);
+                swingHandle.localRotation = Quaternion.Euler(0f, 0f, open);
                 blade.localRotation = Quaternion.Euler(0f, 0f, flip);
             }
         }

@@ -63,7 +63,10 @@ namespace VoidFlow
                 KnifeModel.Butterfly => Vector3.zero,
                 _ => new Vector3(0f, -0.055f, 0f),
             };
-            return (PalmPoint - pivot, Quaternion.identity);
+            // A butterfly knife's hinge sits just above the fist (the held handle runs down the
+            // palm), so its flips happen above the hand where you can see them
+            Vector3 point = knife.model == KnifeModel.Butterfly ? PalmPoint + new Vector3(0f, 0.07f, 0f) : PalmPoint;
+            return (point - pivot, Quaternion.identity);
         }
 
         // Put a knife in the glove: its handle (knife space y -0.11 to 0) runs across the front

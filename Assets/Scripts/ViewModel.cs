@@ -370,7 +370,7 @@ namespace VoidFlow
             bool sword = knife.IsSword;
             float w = inspect >= 0f ? Plateau(inspect, 0f, sword ? 0.35f : 0.3f, length - (sword ? 0.5f : 0.35f), length) : 0f;
             Quaternion show = PalmRotation * InspectMove(inspect);
-            hand.localPosition = Vector3.Lerp(RightIdle, sword ? SwordInspectSpot : TrickSpot, w) + pos;
+            hand.localPosition = Vector3.Lerp(RightIdle, sword ? SwordInspectSpot : TrickSpot, w) + pos + InspectBob(inspect);
             hand.localRotation = Quaternion.Euler(rot) * Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, show, w);
             // The knife moves from its normal hold onto the palm side for the show
             SetGrip(rightHand, reverse);
@@ -385,7 +385,7 @@ namespace VoidFlow
             leftHand.root.localPosition = LeftIdle + LeftHandAway * Mathf.Max(w, slashAway);
             // During a sword inspect the left arm disappears so it never blocks the show
             leftHand.root.gameObject.SetActive(!(knife.IsSword && inspect >= 0f));
-            knife.Animate(Application.isPlaying ? Time.time : 0f, inspect);
+            knife.Animate(Application.isPlaying ? Time.time : 0f, inspect, current == KnifeSlot ? drawTime : 99f);
         }
 
         // Each kind of knife shows itself off its own way, on top of the raised hand (hand
@@ -401,9 +401,9 @@ namespace VoidFlow
                     float twirl = Plateau(t, 0.45f, 0.6f, 1.55f, 1.8f);
                     return Quaternion.Euler(0f, 0f, Mathf.Sin(t * 12f) * 4f * twirl);
                 case KnifeModel.Butterfly:
-                    // Flip tricks: the wrist snaps with every flip of the blade
-                    float flips = Plateau(t, 0.4f, 0.5f, 1.55f, 1.75f);
-                    return Quaternion.Euler(0f, 0f, Mathf.Sin((t - 0.45f) * Mathf.PI * 2f / 0.4f) * 6f * flips);
+                    // Counter Blox style flips: the wrist rocks with every flip
+                    float flips = Plateau(t, 0.3f, 0.45f, 2f, 2.2f);
+                    return Quaternion.Euler(0f, 0f, Mathf.Sin((t - 0.35f) * Mathf.PI / WeaponParts.FlipPeriod) * 9f * flips);
                 default:
                     // Swords: a blade-up salute in the middle of the screen with the flat toward
                     // you, one slow even sway left and right while the edge flares, then two
@@ -412,6 +412,15 @@ namespace VoidFlow
                     float sway = Mathf.Sin(Ease(t, 0.35f, 0.95f) * Mathf.PI * 2f) * 7f;
                     return Quaternion.Euler(0f, 0f, sway);
             }
+        }
+
+        // The butterfly arm sways side to side and dips with each flip while it shows off
+        Vector3 InspectBob(float t)
+        {
+            if (t < 0f || knife.model != KnifeModel.Butterfly) return Vector3.zero;
+            float active = Plateau(t, 0.3f, 0.45f, 2f, 2.2f);
+            float beat = (t - 0.35f) * Mathf.PI / WeaponParts.FlipPeriod;
+            return new Vector3(Mathf.Sin(beat * 0.5f) * 0.02f, -Mathf.Abs(Mathf.Sin(beat)) * 0.01f, 0f) * active;
         }
 
         static float Ease(float t, float a, float b) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t));
