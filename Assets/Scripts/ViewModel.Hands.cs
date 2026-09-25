@@ -15,8 +15,8 @@ namespace VoidFlow
             public Transform root, grip;
         }
 
-        const float ArmLength = 0.42f;
-        static readonly Vector3 GloveSize = new(0.088f, 0.095f, 0.082f);
+        const float ArmLength = 0.4f;
+        static readonly Vector3 GloveSize = new(0.076f, 0.082f, 0.071f);
         // Where a held handle sits: just in front of the glove's front face
         static readonly Vector3 GripFront = new(0f, GloveSize.y * 0.5f + 0.011f, 0f);
 
@@ -31,10 +31,10 @@ namespace VoidFlow
             var t = arm.root;
             t.SetParent(parent, false);
             Part(t, PrimitiveType.Cube, glove, Vector3.zero, GloveSize);
-            Part(t, PrimitiveType.Cube, gloveRubber, new Vector3(0f, 0.018f, GloveSize.z * 0.5f + 0.002f), new Vector3(0.07f, 0.042f, 0.006f));
-            Part(t, PrimitiveType.Cube, gloveTrim, new Vector3(0f, -0.022f, 0f), new Vector3(GloveSize.x + 0.003f, 0.008f, GloveSize.z + 0.003f));
-            Part(t, PrimitiveType.Cube, cuff, new Vector3(0f, -0.058f, 0f), new Vector3(0.096f, 0.024f, 0.09f));
-            Part(t, PrimitiveType.Cube, sleeve, new Vector3(0f, -0.07f - ArmLength * 0.5f, 0f), new Vector3(0.08f, ArmLength, 0.074f));
+            Part(t, PrimitiveType.Cube, gloveRubber, new Vector3(0f, 0.016f, GloveSize.z * 0.5f + 0.002f), new Vector3(0.06f, 0.036f, 0.006f));
+            Part(t, PrimitiveType.Cube, gloveTrim, new Vector3(0f, -0.019f, 0f), new Vector3(GloveSize.x + 0.003f, 0.007f, GloveSize.z + 0.003f));
+            Part(t, PrimitiveType.Cube, cuff, new Vector3(0f, -0.05f, 0f), new Vector3(0.083f, 0.021f, 0.078f));
+            Part(t, PrimitiveType.Cube, sleeve, new Vector3(0f, -0.06f - ArmLength * 0.5f, 0f), new Vector3(0.069f, ArmLength, 0.064f));
             arm.grip = new GameObject("Grip").transform;
             arm.grip.SetParent(t, false);
             return arm;

@@ -133,6 +133,7 @@ namespace VoidFlow
         {
             if (weapons == null || slot == current) return;
             SetZoom(0, false);
+            if (current == KnifeSlot) ResetKnifeRig();
             inspectTime = slashTime = sniperInspect = -1f;
             previous = current;
             current = slot;

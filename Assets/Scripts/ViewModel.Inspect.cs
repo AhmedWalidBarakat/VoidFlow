@@ -81,88 +81,91 @@ namespace VoidFlow
             aq = Quaternion.identity,
         };
 
-        // Talon knife: up to the top right spinning on the ring, over to the left hand, a spin
-        // up there, tossed high and caught by the right, spun off the end of a level arm, home
+        // Arms thrown wide apart for a throw, and raised to catch
+        static readonly Vector3 RightWide = new(0.175f, -0.03f, 0.3f), LeftWide = new(-0.175f, -0.035f, 0.31f);
+        static readonly Quaternion RightUp = FB(-0.3f, 0.8f, 0.6f, 0.3f, 0.3f, -1f), LeftUp = FB(0.3f, 0.8f, 0.6f, -0.3f, 0.3f, -1f);
+
+        // Talon knife: up to the right spinning on the ring, thrown across to the left hand
+        // with the arms flung wide, spun up there, thrown high and caught by the right, spun
+        // off the end of a level arm, home
         static Routine TalonRoutine()
         {
             var ks = new List<Key>();
             var k = IdleKey(true); ks.Add(k);
             k = k.At(0.3f); k.rp = new(0.09f, -0.03f, 0.34f); k.rq = FB(-0.2f, 0.9f, 0.4f, 0.1f, 0.2f, -1f); k.spin = new(0f, 0f, -180f); ks.Add(k);
-            k = k.At(0.75f); k.rp = new(0.12f, -0.035f, 0.33f); k.spin = new(0f, 0f, -900f); ks.Add(k);
-            k = k.At(1.05f); k.rp = new(0.04f, -0.04f, 0.32f); k.rq = FB(-0.6f, 0.5f, 0.6f, 0f, 0.5f, -0.9f);
-            k.lp = new(-0.04f, -0.045f, 0.32f); k.lq = FB(0.6f, 0.5f, 0.6f, 0f, 0.5f, -0.9f); k.spin = new(0f, 0f, -1080f); ks.Add(k);
-            k = k.At(1.18f); k.hold = Hold.Left; ks.Add(k);
-            k = k.At(1.5f); k.lp = new(-0.07f, 0.03f, 0.33f); k.lq = FB(0.3f, 0.9f, 0.4f, -0.1f, 0.2f, -1f);
-            k.rp = RightIdle + new Vector3(0f, -0.03f, 0f); k.rq = ReverseIdle; k.spin = new(0f, 0f, -1800f); ks.Add(k);
-            k = k.At(1.8f); k.hold = Hold.Air; k.ap = new(-0.01f, 0.13f, 0.43f); k.aq = Quaternion.Euler(0f, 0f, 30f); k.spin = new(-540f, 0f, -1800f); ks.Add(k);
-            k = k.At(2.05f); k.ap = new(0.03f, 0.06f, 0.39f); k.spin = new(-900f, 0f, -1800f); k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
-            k = k.At(2.25f); k.hold = Hold.Right; k.rp = new(0.06f, -0.01f, 0.33f); k.rq = FB(-0.3f, 0.8f, 0.6f, 0.3f, 0.3f, -1f); k.spin = new(-1080f, 0f, -1800f); ks.Add(k);
-            k = k.At(2.7f); k.rp = new(0.06f, -0.05f, 0.35f); k.rq = FB(-1f, 0.15f, 0.35f, 0f, 1f, -0.2f); k.spin = new(-1080f, 0f, -2520f); ks.Add(k);
-            k = k.At(3.1f); k.rp = new(0.1f, -0.07f, 0.31f); k.spin = new(-1080f, 0f, -2880f); ks.Add(k);
-            k = k.At(3.5f); k.rp = RightIdle; k.rq = ReverseIdle; ks.Add(k);
+            k = k.At(0.75f); k.rp = new(0.12f, -0.035f, 0.33f); k.spin = new(0f, 0f, -1080f); ks.Add(k);
+            k = k.At(1.0f); k.hold = Hold.Air; k.ap = new(0f, 0.06f, 0.4f); k.aq = Quaternion.Euler(0f, 0f, 20f); k.spin = new(-360f, 0f, -1260f);
+            k.rp = RightWide; k.rq = RightUp; k.lp = LeftWide; k.lq = LeftUp; ks.Add(k);
+            k = k.At(1.25f); k.hold = Hold.Left; k.lp = new(-0.13f, -0.01f, 0.33f); k.spin = new(-720f, 0f, -1440f); ks.Add(k);
+            k = k.At(1.55f); k.lp = new(-0.1f, 0.01f, 0.33f); k.lq = FB(0.3f, 0.9f, 0.4f, -0.1f, 0.2f, -1f);
+            k.rp = RightWide; k.spin = new(-720f, 0f, -2160f); ks.Add(k);
+            k = k.At(1.85f); k.hold = Hold.Air; k.ap = new(-0.01f, 0.12f, 0.43f); k.aq = Quaternion.Euler(0f, 0f, 30f); k.spin = new(-1260f, 0f, -2160f);
+            k.lp = LeftWide; k.lq = LeftUp; ks.Add(k);
+            k = k.At(2.1f); k.ap = new(0.05f, 0.06f, 0.39f); k.spin = new(-1620f, 0f, -2160f); ks.Add(k);
+            k = k.At(2.3f); k.hold = Hold.Right; k.rp = new(0.12f, -0.01f, 0.33f); k.rq = RightUp; k.spin = new(-1800f, 0f, -2160f);
+            k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(2.75f); k.rp = new(0.06f, -0.05f, 0.35f); k.rq = FB(-1f, 0.15f, 0.35f, 0f, 1f, -0.2f); k.spin = new(-1800f, 0f, -2880f); ks.Add(k);
+            k = k.At(3.15f); k.rp = new(0.1f, -0.07f, 0.31f); k.spin = new(-1800f, 0f, -3240f); ks.Add(k);
+            k = k.At(3.55f); k.rp = RightIdle; k.rq = ReverseIdle; ks.Add(k);
             return new Routine
             {
                 keys = ks.ToArray(), sustainAt = 0.55f, sustainAxis = 1, sustainSpeed = -1080f,
-                sounds = new[] { (1.8f, WeaponSounds.Slash, 0.35f), (2.4f, WeaponSounds.Slash, 0.35f) },
+                sounds = new[] { (0.85f, WeaponSounds.Slash, 0.35f), (1.75f, WeaponSounds.Slash, 0.35f), (2.5f, WeaponSounds.Slash, 0.35f) },
             };
         }
 
-        // Butterfly knife: flipped up high, tossed across to the left hand, flipped there,
-        // tossed high and caught by the right, carried in circles around the right arm while
-        // flipping, a little toss, home
+        // Butterfly knife: flipped up, thrown across to the left hand with the arms flung wide,
+        // flipped there, thrown high and caught by the right, carried in circles around the
+        // right arm while flipping, a last throw, home
         static Routine ButterflyRoutine()
         {
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
-            k = k.At(0.3f); k.rp = new(0.07f, -0.02f, 0.33f); k.rq = FB(-0.2f, 0.8f, 0.6f, 0.3f, 0.2f, -1f); k.flips = 2f; ks.Add(k);
-            k = k.At(0.55f); k.hold = Hold.Air; k.ap = new(0.01f, 0.08f, 0.4f); k.aq = Quaternion.identity; k.spin = new(0f, 0f, 300f);
-            k.rp = new(0.1f, -0.07f, 0.32f); ks.Add(k);
-            k = k.At(0.8f); k.hold = Hold.Left; k.lp = new(-0.06f, -0.02f, 0.33f); k.lq = FB(0.3f, 0.8f, 0.6f, -0.3f, 0.2f, -1f); k.spin = new(0f, 0f, 720f); ks.Add(k);
-            k = k.At(1.1f); k.lp = new(-0.09f, 0f, 0.34f); k.flips = 4f; ks.Add(k);
-            k = k.At(1.4f); k.hold = Hold.Air; k.ap = new(0f, 0.12f, 0.44f); k.spin = new(360f, 0f, 720f); ks.Add(k);
-            k = k.At(1.75f); k.hold = Hold.Right; k.rp = new(0.06f, -0.01f, 0.33f); k.rq = FB(-0.3f, 0.8f, 0.6f, 0.3f, 0.3f, -1f);
-            k.spin = new(720f, 0f, 720f); k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
-            k = k.At(2.1f); k.rp = new(0.05f, -0.03f, 0.34f); ks.Add(k);
-            k = k.At(2.9f); k.orbit = 720f; k.flips = 6f; k.rp = new(0.07f, -0.02f, 0.34f); ks.Add(k);
-            k = k.At(3.15f); k.hold = Hold.Air; k.ap = new(0.05f, 0.07f, 0.38f); k.aq = Quaternion.Euler(0f, 0f, -20f); k.spin = new(900f, 0f, 720f); ks.Add(k);
-            k = k.At(3.4f); k.hold = Hold.Right; k.spin = new(1080f, 0f, 720f); k.flips = 8f; ks.Add(k);
-            k = k.At(3.85f); k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
+            k = k.At(0.3f); k.rp = new(0.08f, -0.02f, 0.33f); k.rq = FB(-0.2f, 0.8f, 0.6f, 0.3f, 0.2f, -1f); k.flips = 2f; ks.Add(k);
+            k = k.At(0.55f); k.hold = Hold.Air; k.ap = new(0f, 0.08f, 0.4f); k.aq = Quaternion.identity; k.spin = new(0f, 0f, 300f);
+            k.rp = RightWide; k.rq = RightUp; k.lp = LeftWide; k.lq = LeftUp; ks.Add(k);
+            k = k.At(0.8f); k.hold = Hold.Left; k.lp = new(-0.13f, -0.01f, 0.33f); k.spin = new(0f, 0f, 720f); ks.Add(k);
+            k = k.At(1.1f); k.lp = new(-0.12f, 0f, 0.34f); k.flips = 4f; ks.Add(k);
+            k = k.At(1.4f); k.hold = Hold.Air; k.ap = new(0f, 0.12f, 0.44f); k.spin = new(360f, 0f, 720f); k.lp = LeftWide; ks.Add(k);
+            k = k.At(1.75f); k.hold = Hold.Right; k.rp = new(0.12f, -0.01f, 0.33f); k.spin = new(720f, 0f, 720f); k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(2.1f); k.rp = new(0.07f, -0.03f, 0.34f); ks.Add(k);
+            k = k.At(2.9f); k.orbit = 720f; k.flips = 6f; k.rp = new(0.08f, -0.02f, 0.34f); ks.Add(k);
+            k = k.At(3.15f); k.hold = Hold.Air; k.ap = new(0.03f, 0.08f, 0.39f); k.aq = Quaternion.Euler(0f, 0f, -20f); k.spin = new(900f, 0f, 720f);
+            k.rp = RightWide; k.lp = LeftWide; k.lq = LeftUp; ks.Add(k);
+            k = k.At(3.45f); k.hold = Hold.Right; k.rp = new(0.12f, -0.02f, 0.33f); k.spin = new(1080f, 0f, 720f); k.flips = 8f; k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(3.9f); k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
             return new Routine
             {
                 keys = ks.ToArray(), sustainAt = 2.5f, sustainAxis = 2, sustainSpeed = 900f,
-                sounds = new[] { (0.5f, WeaponSounds.Slash, 0.35f), (1.35f, WeaponSounds.Slash, 0.35f), (3.1f, WeaponSounds.Slash, 0.3f) },
+                sounds = new[] { (0.45f, WeaponSounds.Slash, 0.35f), (1.3f, WeaponSounds.Slash, 0.35f), (3.05f, WeaponSounds.Slash, 0.3f) },
             };
         }
 
-        // Sword: laid across the view and slid into its sheath (held there while F is held),
-        // drawn out along the sheath, three cuts, back across and sheathed, drawn, home
+        // Sword: two cuts in opposite directions, then it's slid into the sheath laid across the
+        // view and held there, right hand on the hilt and left hand on the scabbard, like a
+        // samurai waiting to draw, for as long as F is held; then it's drawn back out
         static Routine SwordRoutine()
         {
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
-            k = k.At(0.3f); k.hold = Hold.Sheath; k.across = 1f; k.slide = 0.3f; k.rightOnHilt = true; k.leftOnSheath = true; ks.Add(k);
-            k = k.At(0.6f); k.slide = 0f; ks.Add(k);
+            k = k.At(0.14f); k.lp = LeftIdle + LeftHandAway; k.rp = new(0.16f, 0.04f, 0.3f); k.rq = FB(-0.3f, 0.9f, 0.3f, 0.4f, 0f, -1f); ks.Add(k);
+            k = k.At(0.36f); k.rp = new(-0.07f, -0.12f, 0.34f); k.rq = FB(-0.9f, -0.4f, 0.5f, 0f, 0.6f, -0.8f); ks.Add(k);
+            k = k.At(0.46f); ks.Add(k);
+            k = k.At(0.7f); k.rp = new(0.16f, 0.05f, 0.31f); k.rq = FB(0.35f, 0.85f, 0.4f, 0.5f, -0.2f, -0.8f); ks.Add(k);
             k = k.At(0.8f); ks.Add(k);
-            k = k.At(1.2f); k.slide = 0.3f; ks.Add(k);
-            k = k.At(1.4f); k.hold = Hold.Right; k.rightOnHilt = false; k.leftOnSheath = false; k.across = 0f;
-            k.rp = new(0.15f, 0.05f, 0.3f); k.rq = FB(-0.3f, 0.9f, 0.3f, 0.4f, 0f, -1f); k.lp = LeftIdle + LeftHandAway; k.lq = LeftIdleRotation; ks.Add(k);
-            k = k.At(1.62f); k.rp = new(-0.06f, -0.12f, 0.34f); k.rq = FB(-0.9f, -0.4f, 0.5f, 0f, 0.6f, -0.8f); ks.Add(k);
-            k = k.At(1.86f); k.rp = new(0.14f, 0.03f, 0.31f); k.rq = FB(0.3f, 0.8f, 0.5f, 0.5f, -0.2f, -0.8f); ks.Add(k);
-            k = k.At(2.1f); k.rp = new(-0.02f, -0.1f, 0.33f); k.rq = FB(-0.5f, -0.7f, 0.6f, 0.2f, 0.6f, -0.8f); ks.Add(k);
-            k = k.At(2.5f); k.hold = Hold.Sheath; k.across = 1f; k.slide = 0.3f; k.rightOnHilt = true; k.leftOnSheath = true; ks.Add(k);
-            k = k.At(2.85f); k.slide = 0f; ks.Add(k);
-            k = k.At(3.1f); ks.Add(k);
-            k = k.At(3.45f); k.slide = 0.3f; ks.Add(k);
-            k = k.At(3.9f); k.hold = Hold.Right; k.rightOnHilt = false; k.leftOnSheath = false; k.across = 0f;
-            k.rp = RightIdle; k.rq = ForwardIdle; k.lp = LeftIdle; ks.Add(k);
+            k = k.At(1.1f); k.hold = Hold.Sheath; k.across = 1f; k.slide = 0.3f; k.rightOnHilt = true; k.leftOnSheath = true; ks.Add(k);
+            k = k.At(1.4f); k.slide = 0f; ks.Add(k);
+            k = k.At(1.6f); ks.Add(k);
+            k = k.At(1.95f); k.slide = 0.3f; ks.Add(k);
+            k = k.At(2.35f); k.hold = Hold.Right; k.rightOnHilt = false; k.leftOnSheath = false; k.across = 0f;
+            k.rp = RightIdle; k.rq = ForwardIdle; k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
             return new Routine
             {
-                keys = ks.ToArray(), sustainAt = 0.7f,
+                keys = ks.ToArray(), sustainAt = 1.5f,
                 sounds = new[]
                 {
-                    (0.58f, WeaponSounds.Sheathe, 0.8f), (0.95f, WeaponSounds.Unsheathe, 0.8f),
-                    (1.45f, WeaponSounds.Slash, 0.75f), (1.7f, WeaponSounds.Slash, 0.75f), (1.95f, WeaponSounds.Slash, 0.75f),
-                    (2.83f, WeaponSounds.Sheathe, 0.8f), (3.2f, WeaponSounds.Unsheathe, 0.8f),
+                    (0.16f, WeaponSounds.Slash, 0.75f), (0.52f, WeaponSounds.Slash, 0.75f),
+                    (1.38f, WeaponSounds.Sheathe, 0.8f), (1.7f, WeaponSounds.Unsheathe, 0.8f),
                 },
             };
         }
@@ -246,6 +249,17 @@ namespace VoidFlow
             inspectTime = -1f;
             sustaining = false;
             sustainExtra = 0f;
+        }
+
+        // Puts the knife, sheath and arms straight back to rest (when switching weapons)
+        void ResetKnifeRig()
+        {
+            if (knife == null || rightHand == null) return;
+            StopInspect();
+            slashTime = -1f;
+            PoseKnife(Vector3.zero, Vector3.zero, -1f);
+            trailPoints.Clear();
+            if (trail) trail.enabled = false;
         }
 
         // ------------------------------------------------------------------ posing
