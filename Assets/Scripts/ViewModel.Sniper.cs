@@ -6,8 +6,8 @@ namespace VoidFlow
 {
     // The sniper: a heavy bolt-action rifle with a big scope, held in fingerless gloves. It
     // plays by the AWP's rules from CS: a 1.46 s bolt cycle between shots, a 5 round magazine
-    // with a 3.67 s reload, right click toggles a single 30 degree scope, firing kicks you out of
-    // the scope (right click again to scope back in), and you move at 200 (100 scoped).
+    // with a 3.67 s reload, hold right click for a single 30 degree scope, firing kicks you out of
+    // the scope (press again to scope back in), and you move at 200 (100 scoped).
     // Unlike CS every shot goes exactly where the center of the screen points: no spread,
     // no movement or unscoped inaccuracy, no drop and no falloff.
     public partial class ViewModel
@@ -26,6 +26,7 @@ namespace VoidFlow
         Texture2D scopeTexture;
 
         int mag = MagSize, zoom;
+        bool waitForRelease;
         float boltTime = -1f, reloadTime = -1f, sniperInspect = -1f, flashTime = 99f;
         float baseFov, baseSens;
 
@@ -42,14 +43,15 @@ namespace VoidFlow
             baseSens = player ? player.sensitivity : 0f;
             ApplyFov();
 
-            // Scope overlay: see-through circle with a soft dark rim, black outside
+            // Scope overlay: just a thin dark ring, fully see-through inside and out, so the
+            // world stays exactly as bright as it is unscoped
             const int size = 512;
             scopeTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);
             for (int y = 0; y < size; y++)
             for (int x = 0; x < size; x++)
             {
                 float r = new Vector2(x + 0.5f - size / 2f, y + 0.5f - size / 2f).magnitude / (size / 2f);
-                float alpha = Mathf.Max(Mathf.SmoothStep(0.8f, 0.985f, r) * 0.85f, Mathf.InverseLerp(0.985f, 1f, r));
+                float alpha = Mathf.Clamp01(1f - Mathf.Abs(r - 0.96f) / 0.008f) * 0.85f;
                 scopeTexture.SetPixel(x, y, new Color(0f, 0f, 0f, alpha));
             }
             scopeTexture.Apply();
@@ -87,13 +89,14 @@ namespace VoidFlow
         void DrawScope()
         {
             if (zoom == 0 || !scopeTexture) return;
-            float s = Screen.height, x0 = (Screen.width - s) * 0.5f;
+            // Thin crosshair lines across the ring, with a small gap in the middle
+            float s = Screen.height, x0 = (Screen.width - s) * 0.5f, cx = Screen.width * 0.5f, cy = s * 0.5f, gap = 6f;
             var old = GUI.color;
-            GUI.color = Color.black;
-            GUI.DrawTexture(new Rect(0f, 0f, x0 + 1f, s), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(x0 + s - 1f, 0f, Screen.width - x0 - s + 1f, s), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(0f, s * 0.5f - 0.5f, Screen.width, 1f), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(Screen.width * 0.5f - 0.5f, 0f, 1f, s), Texture2D.whiteTexture);
+            GUI.color = new Color(0f, 0f, 0f, 0.85f);
+            GUI.DrawTexture(new Rect(x0, cy - 0.5f, s * 0.5f - gap, 1f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(cx + gap, cy - 0.5f, s * 0.5f - gap, 1f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(cx - 0.5f, 0f, 1f, cy - gap), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(cx - 0.5f, cy + gap, 1f, cy - gap), Texture2D.whiteTexture);
             GUI.color = old;
             GUI.DrawTexture(new Rect(x0, 0f, s, s), scopeTexture);
         }
@@ -127,13 +130,15 @@ namespace VoidFlow
             }
 
             bool idle = boltTime < 0f && reloadTime < 0f;
+            if ((!locked || mouse == null) && zoom > 0) SetZoom(0);
             if (locked && ready && mouse != null)
             {
-                if (mouse.rightButton.wasPressedThisFrame && reloadTime < 0f)
-                {
-                    sniperInspect = -1f;
-                    SetZoom(zoom == 0 ? 1 : 0);
-                }
+                // Scoped only while right click is held. Firing kicks you out; hold it again
+                // (release and press) to scope back in.
+                if (!mouse.rightButton.isPressed) waitForRelease = false;
+                bool wantScope = mouse.rightButton.isPressed && !waitForRelease && reloadTime < 0f;
+                if (wantScope && zoom == 0) sniperInspect = -1f;
+                SetZoom(wantScope ? 1 : 0);
                 if (mouse.leftButton.wasPressedThisFrame && idle)
                 {
                     if (mag > 0) Fire();
@@ -164,6 +169,7 @@ namespace VoidFlow
         {
             mag--;
             SetZoom(0, false); // firing always kicks you out of the scope
+            waitForRelease = true;
             boltTime = 0f;
             sniperInspect = -1f;
             flashTime = 0f;
