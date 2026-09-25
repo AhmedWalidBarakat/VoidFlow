@@ -161,6 +161,7 @@ namespace VoidFlow
             Kill(panel);
             Kill(dot);
             Kill(gloveTexture);
+            Kill(sleeveTexture);
             Kill(scopeTexture);
         }
 
@@ -326,19 +327,19 @@ namespace VoidFlow
             PoseKnife(pos, rot, inspectTime);
         }
 
-        // Knife hands, CS2 style, in camera space: both hands low in the middle of the
-        // screen, the left one open and palm-down, the right one a palm-down fist holding
-        // the knife (a karambit comes out under the pinky and curls up to the right)
-        static readonly Vector3 RightIdle = new(0.078f, -0.058f, 0.33f);
-        static readonly Vector3 LeftIdle = new(-0.105f, -0.06f, 0.34f);
-        static readonly Quaternion ReverseIdle = FingersBack(new Vector3(-0.12f, -0.4f, 1f), new Vector3(0.05f, 1f, 0.4f));
-        static readonly Quaternion ForwardIdle = FingersBack(new Vector3(0.05f, -0.35f, 1f), new Vector3(0.7f, 0.7f, 0.25f));
-        static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.12f, -0.4f, 1f), new Vector3(-0.15f, 1f, 0.4f));
+        // Knife arms in camera space: two block arms coming in from the bottom corners, the
+        // left glove empty, the right one holding the knife (a karambit comes out the far
+        // side and curls up to the right)
+        static readonly Vector3 RightIdle = new(0.11f, -0.1f, 0.3f);
+        static readonly Vector3 LeftIdle = new(-0.125f, -0.105f, 0.31f);
+        static readonly Quaternion ReverseIdle = FingersBack(new Vector3(-0.3f, 0.5f, 1f), new Vector3(0.1f, 0.6f, -0.7f));
+        static readonly Quaternion ForwardIdle = FingersBack(new Vector3(-0.3f, 0.5f, 1f), new Vector3(0.6f, 0.5f, -0.6f));
+        static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.3f, 0.5f, 1f), new Vector3(-0.1f, 0.6f, -0.7f));
         // Inspect, like CS2: the hand comes up to the middle and turns upright with the palm
         // toward you, turns slowly to show the knife off, then goes back down, while the left
         // hand drops away. A forward-grip blade stands up out of the fist; the karambit rolls
         // in the fingers so it hangs below, curling out to the left.
-        static readonly Vector3 InspectSpot = new(0.035f, -0.015f, 0.31f);
+        static readonly Vector3 InspectSpot = new(0.06f, -0.035f, 0.33f);
         static readonly Quaternion InspectRotation = FingersBack(new Vector3(-1f, 0f, 0.3f), new Vector3(0.3f, 0f, 1f));
         static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
 
@@ -390,8 +391,24 @@ namespace VoidFlow
             return (keys[^1].pos, keys[^1].rot);
         }
 
-        Material glove, leather, strap, cuff, sleeve;
-        Texture2D gloveTexture;
+        Material glove, cuff, sleeve;
+        Texture2D gloveTexture, sleeveTexture;
+
+        // Sleeve fabric: soft light-and-dark mottling with a faint weave
+        Texture2D SleeveTexture()
+        {
+            const int size = 64;
+            sleeveTexture = new Texture2D(size, size, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat };
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float n = Mathf.PerlinNoise(x * 0.12f, y * 0.12f) * 0.25f + ((x + y) % 4 == 0 ? 0.06f : 0f);
+                float v = 0.85f + n;
+                sleeveTexture.SetPixel(x, y, new Color(v, v, v));
+            }
+            sleeveTexture.Apply();
+            return sleeveTexture;
+        }
 
         // Black glove fabric with a faint lighter web of stitched seams and a little mottling
         Texture2D GloveTexture()
@@ -416,24 +433,21 @@ namespace VoidFlow
         {
             glove = Make(Color.white, 0.35f, 0f);
             glove.SetTexture("_BaseMap", GloveTexture());
-            leather = Make(new Color(0.02f, 0.02f, 0.022f), 0.7f, 0f);
-            strap = Make(new Color(0.22f, 0.22f, 0.24f), 0.5f, 0.3f);
             cuff = Make(new Color(0.05f, 0.05f, 0.055f), 0.35f, 0f);
-            sleeve = Make(new Color(0.72f, 0.5f, 0.38f), 0.25f, 0f); // bare forearm
+            sleeve = Make(new Color(0.17f, 0.17f, 0.2f), 0.2f, 0f); // dark fabric sleeve
+            sleeve.SetTexture("_BaseMap", SleeveTexture());
 
             var root = new GameObject("Knife Rig").transform;
             root.SetParent(anchor, false);
-            rightHand = BuildGloveHand(root, "Right Hand", false);
-            leftHand = BuildGloveHand(root, "Left Hand", true);
+            rightHand = BuildBlockArm(root, "Right Arm");
+            leftHand = BuildBlockArm(root, "Left Arm");
             hand = rightHand.root;
-            PoseHand(rightHand, 1f, 1f, 0f);
-            PoseHand(leftHand, 0.22f, 0.1f, 0.6f);
             leftHand.root.SetLocalPositionAndRotation(LeftIdle, LeftIdleRotation);
             BuildKnifeModel();
             return root;
         }
 
-        GloveHand rightHand, leftHand;
+        BlockArm rightHand, leftHand;
 
         void BuildKnifeModel()
         {
@@ -443,34 +457,6 @@ namespace VoidFlow
             SetGrip(rightHand, Skins.Knives[knifeSkin].model == KnifeModel.Karambit);
             knife = new WeaponBuilder(template, Layer, false, knifeMaterials).Knife(Skins.Knives[knifeSkin], rightHand.grip);
             PoseKnife(Vector3.zero, Vector3.zero, -1f);
-        }
-
-        // A gloved fist around a handle that runs along +Y (from -0.11 to 0): palm on the +X
-        // side, four fingers wrapped around with black leather joints, thumb over the top, a
-        // leather knuckle pad, then the cuff with its strap and the bare forearm. With
-        // `armAcross` the wrist runs out from the palm side across the handle (a real fist,
-        // used for the karambit's reverse grip); otherwise it runs down along the handle.
-        void Fist(Transform parent, bool armAcross = false)
-        {
-            Part(parent, PrimitiveType.Cube, glove, new Vector3(0.03f, -0.055f, 0.004f), new Vector3(0.034f, 0.1f, 0.075f), Quaternion.Euler(0f, 0f, -4f));
-            Part(parent, PrimitiveType.Cube, leather, new Vector3(0.012f, -0.055f, 0.03f), new Vector3(0.03f, 0.098f, 0.014f));
-            for (int f = 0; f < 4; f++)
-            {
-                float y = -0.018f - f * 0.024f;
-                Part(parent, PrimitiveType.Capsule, glove, new Vector3(-0.004f, y, 0.02f), new Vector3(0.024f, 0.028f, 0.024f), Quaternion.Euler(0f, 0f, 90f));
-                Part(parent, PrimitiveType.Capsule, leather, new Vector3(-0.016f, y, -0.004f), new Vector3(0.022f, 0.022f, 0.022f), Quaternion.Euler(90f, 0f, 0f));
-            }
-            Part(parent, PrimitiveType.Capsule, glove, new Vector3(0.012f, 0.004f, -0.024f), new Vector3(0.022f, 0.03f, 0.022f), Quaternion.Euler(20f, 0f, -35f));
-            if (armAcross)
-            {
-                Part(parent, PrimitiveType.Cylinder, cuff, new Vector3(0.062f, -0.06f, 0.004f), new Vector3(0.072f, 0.02f, 0.076f), Quaternion.Euler(0f, 0f, 90f));
-                Part(parent, PrimitiveType.Cylinder, strap, new Vector3(0.062f, -0.06f, 0.004f), new Vector3(0.075f, 0.006f, 0.079f), Quaternion.Euler(0f, 0f, 90f));
-                Part(parent, PrimitiveType.Cylinder, sleeve, new Vector3(0.24f, -0.062f, 0.004f), new Vector3(0.062f, 0.16f, 0.066f), Quaternion.Euler(0f, 0f, 90f));
-                return;
-            }
-            Part(parent, PrimitiveType.Cylinder, cuff, new Vector3(0.04f, -0.13f, 0.004f), new Vector3(0.07f, 0.03f, 0.074f), Quaternion.Euler(0f, 0f, -8f));
-            Part(parent, PrimitiveType.Cylinder, strap, new Vector3(0.04f, -0.13f, 0.004f), new Vector3(0.073f, 0.008f, 0.077f), Quaternion.Euler(0f, 0f, -8f));
-            Part(parent, PrimitiveType.Cylinder, sleeve, new Vector3(0.058f, -0.32f, 0.004f), new Vector3(0.062f, 0.17f, 0.066f), Quaternion.Euler(0f, 0f, -8f));
         }
 
         void Part(Transform parent, PrimitiveType shape, Material mat, Vector3 position, Vector3 scale) =>

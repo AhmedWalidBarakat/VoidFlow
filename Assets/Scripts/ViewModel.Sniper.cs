@@ -371,8 +371,8 @@ namespace VoidFlow
 
             // The right hand leaves the grip to work the bolt
             Vector3 knob = bolt.localPosition + bolt.localRotation * new Vector3(0.05f, -0.014f, 0f);
-            Quaternion atBolt = Quaternion.Euler(0f, 0f, -70f) * fistRestRotation;
-            Vector3 onKnob = knob - atBolt * new Vector3(0f, -0.02f, 0f) * 1.15f + new Vector3(0.012f, 0f, 0f);
+            Quaternion atBolt = fistRestRotation * Quaternion.Euler(0f, 0f, 25f);
+            Vector3 onKnob = knob + new Vector3(0.045f, -0.01f, -0.02f);
             rightFist.SetLocalPositionAndRotation(Vector3.Lerp(fistRest, onKnob, toBolt), Quaternion.Slerp(fistRestRotation, atBolt, toBolt));
         }
 
@@ -434,28 +434,15 @@ namespace VoidFlow
             Part(flash, PrimitiveType.Cube, fire, Vector3.zero, new Vector3(0.01f, 0.14f, 0.01f));
             flash.gameObject.SetActive(false);
 
-            // Right hand around the pistol grip
-            rightFist = new GameObject("Right Hand").transform;
-            rightFist.SetParent(t, false);
-            fistRest = new Vector3(0f, -0.028f, -0.022f);
-            fistRestRotation = Quaternion.Euler(20f, 0f, 0f) * Quaternion.Euler(0f, 90f, 0f);
+            // Block arms: the right glove on the pistol grip, the left one under the forend,
+            // sleeves running back to the bottom corners
+            var right = BuildBlockArm(t, "Right Arm");
+            rightFist = right.root;
+            fistRest = new Vector3(0f, -0.058f, -0.035f);
+            fistRestRotation = FingersBack(new Vector3(-0.3f, 0.35f, 1f), new Vector3(1f, 0f, 0.3f));
             rightFist.SetLocalPositionAndRotation(fistRest, fistRestRotation);
-            rightFist.localScale = Vector3.one * 1.15f;
-            Fist(rightFist);
-
-            // Left hand cupping the forend from below: palm under, fingers up the left side,
-            // thumb on the right, forearm back toward the lower left
-            Part(t, PrimitiveType.Cube, glove, new Vector3(0.004f, -0.042f, 0.3f), new Vector3(0.062f, 0.024f, 0.09f), Quaternion.Euler(0f, 0f, 10f));
-            for (int f = 0; f < 4; f++)
-            {
-                float z = 0.268f + f * 0.022f;
-                Part(t, PrimitiveType.Capsule, glove, new Vector3(-0.034f, -0.03f, z), new Vector3(0.02f, 0.018f, 0.02f));
-                Part(t, PrimitiveType.Capsule, leather, new Vector3(-0.031f, -0.008f, z), new Vector3(0.018f, 0.013f, 0.018f));
-            }
-            Part(t, PrimitiveType.Capsule, leather, new Vector3(0.034f, -0.026f, 0.285f), new Vector3(0.02f, 0.025f, 0.02f), Quaternion.Euler(0f, 0f, -20f));
-            Part(t, PrimitiveType.Cube, strap, new Vector3(0.004f, -0.055f, 0.28f), new Vector3(0.05f, 0.004f, 0.03f), Quaternion.Euler(0f, 0f, 10f));
-            Rod(t, glove, new Vector3(-0.005f, -0.05f, 0.27f), new Vector3(-0.04f, -0.12f, 0.17f), 0.06f);
-            Rod(t, sleeve, new Vector3(-0.04f, -0.12f, 0.17f), new Vector3(-0.2f, -0.32f, -0.06f), 0.09f);
+            var left = BuildBlockArm(t, "Left Arm");
+            left.root.SetLocalPositionAndRotation(new Vector3(0f, -0.07f, 0.29f), FingersBack(new Vector3(0.25f, 0.75f, 0.6f), new Vector3(-1f, 0f, 0.3f)));
             return root;
         }
     }
