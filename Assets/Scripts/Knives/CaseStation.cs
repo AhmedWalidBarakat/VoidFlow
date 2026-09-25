@@ -700,6 +700,11 @@ namespace VoidFlow
                 KnifeModel.Talon => "TALON KNIFE",
                 KnifeModel.Butterfly => "BUTTERFLY",
                 KnifeModel.Rifle => "LONGREACH",
+                KnifeModel.Reaper => "VOID SCYTHE",
+                KnifeModel.Saber => "PLASMA SABER",
+                KnifeModel.Shardfang => "CRYSTAL DAGGER",
+                KnifeModel.Railgun => "VOID RAILGUN",
+                KnifeModel.Hellfire => "VOID RIFLE",
                 _ => "VOID BLADE",
             };
             tileTop.normal.textColor = Color.white;

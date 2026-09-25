@@ -170,7 +170,54 @@ namespace VoidFlow
 
         // A sniper round's wake: a line of glowing embers and wispy smoke left hanging in the
         // air along its path, a ring of pressure at the muzzle, and a bright spark at the hit
-        public static void BulletTrail(Vector3 from, Vector3 to, bool hit)
+        public enum ShotStyle { Normal, Glow, Beam, Fire }
+
+        public static void BulletTrail(Vector3 from, Vector3 to, bool hit) => BulletTrail(from, to, hit, ShotStyle.Normal, Color.white);
+
+        // Void rounds: Glow leaves colored embers, Beam leaves a crackling energy line with
+        // rings along it, Fire leaves a trail of flame puffs and embers
+        public static void BulletTrail(Vector3 from, Vector3 to, bool hit, ShotStyle style, Color tint)
+        {
+            if (style == ShotStyle.Normal) { NormalTrail(from, to, hit); return; }
+            var fx = Instance;
+            if (!fx) return;
+            Vector3 d = to - from;
+            float length = d.magnitude;
+            if (length < 0.1f) return;
+            Vector3 dir = d / length;
+            int steps = Mathf.Min(70, Mathf.CeilToInt(length / 1f));
+            for (int i = 1; i <= steps; i++)
+            {
+                Vector3 p = from + dir * (length * i / steps);
+                float near = 1f - (float)i / steps;
+                switch (style)
+                {
+                    case ShotStyle.Beam:
+                        Emit(fx.sparks, p, Random.insideUnitSphere * 1.5f, Random.Range(0.03f, 0.06f), Color.Lerp(tint, Color.white, 0.4f), Random.Range(0.25f, 0.5f));
+                        if (i % 4 == 0) Emit(fx.rings, p, Vector3.zero, 0.35f, new Color(tint.r, tint.g, tint.b, 0.6f), 0.35f);
+                        if (i % 2 == 0) Emit(fx.flares, p, Vector3.zero, 0.5f + near * 0.4f, tint, 0.2f);
+                        break;
+                    case ShotStyle.Fire:
+                        Emit(fx.flares, p, Random.insideUnitSphere * 0.4f + Vector3.up * 0.6f, Random.Range(0.3f, 0.6f), Color.Lerp(tint, new Color(1f, 0.85f, 0.3f), Random.value), Random.Range(0.3f, 0.6f));
+                        Emit(fx.sparks, p, Random.insideUnitSphere * 2f + Vector3.up * 1.5f, Random.Range(0.03f, 0.05f), new Color(1f, Random.Range(0.4f, 0.8f), 0.1f), Random.Range(0.4f, 0.8f));
+                        if (i % 2 == 0) Emit(fx.smokes, p, Vector3.up * 0.5f, Random.Range(0.3f, 0.5f), new Color(0.2f, 0.18f, 0.18f, 0.35f), Random.Range(0.8f, 1.3f), Random.Range(-40f, 40f));
+                        break;
+                    default:
+                        Emit(fx.sparks, p, Random.insideUnitSphere * 1f, Random.Range(0.03f, 0.05f), tint, Random.Range(0.25f, 0.45f));
+                        if (i % 3 == 0) Emit(fx.stars, p, Random.insideUnitSphere * 0.3f, 0.2f, Color.Lerp(tint, Color.white, 0.5f), 0.5f, Random.Range(-200f, 200f));
+                        break;
+                }
+            }
+            Emit(fx.rings, from + dir * 0.3f, dir * 3f, 0.3f, new Color(tint.r, tint.g, tint.b, 0.8f), 0.22f);
+            if (hit)
+            {
+                Emit(fx.flares, to, Vector3.zero, 2f, tint, 0.15f);
+                for (int i = 0; i < 12; i++)
+                    Emit(fx.sparks, to, Random.onUnitSphere * Random.Range(3f, 8f), Random.Range(0.04f, 0.07f), Color.Lerp(tint, Color.white, 0.3f), Random.Range(0.25f, 0.5f));
+            }
+        }
+
+        static void NormalTrail(Vector3 from, Vector3 to, bool hit)
         {
             var fx = Instance;
             if (!fx) return;

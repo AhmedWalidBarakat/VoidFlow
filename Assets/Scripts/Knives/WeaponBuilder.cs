@@ -20,6 +20,8 @@ namespace VoidFlow
         public readonly List<(Transform t, float size, float phase, float speed)> sparkles = new();
 
         public bool IsSword => model is KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus;
+        public WeaponFlames flames;
+        public Color hue = Color.white; // Void weapons: the color they burn in
 
         // The hand raises every knife to show it off (see ViewModel); on top of that the
         // talon knife spins on its finger ring, the butterfly knife does flip tricks, and Void
@@ -28,6 +30,7 @@ namespace VoidFlow
         {
             KnifeModel.Talon => 2.4f,
             KnifeModel.Butterfly => 2.8f,
+            KnifeModel.Reaper or KnifeModel.Saber or KnifeModel.Shardfang => 3.2f,
             _ => 2.9f,
         };
 
@@ -64,6 +67,7 @@ namespace VoidFlow
         // `draw` is seconds since the weapon was drawn (large when it's long out)
         public void Animate(float time, float inspect, float draw = 99f)
         {
+            if (flames) flames.boost = inspect >= 0f ? 1f : 0f;
             float burst = inspect >= 0f ? (IsSword ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.7f, 1.1f, inspect)) : Bump(inspect, 0.5f, 1f, 2f)) : 0f;
             for (int i = 0; i < glowMaterials.Count; i++)
             {
@@ -145,7 +149,7 @@ namespace VoidFlow
         {
             var root = new GameObject(skin.name).transform;
             root.SetParent(parent, false);
-            var parts = new WeaponParts { root = root, model = skin.model, rarity = skin.rarity };
+            var parts = new WeaponParts { root = root, model = skin.model, rarity = skin.rarity, hue = HueOf(skin.finish) };
             Material finish = FinishMaterial(skin.finish, parts);
             // Blades are long and thin: show a matching strip of a photo texture
             if (KnifeFinishes.Get(skin.finish).photo) finish.SetTextureScale("_BaseMap", new Vector2(0.2f, 1f));
@@ -155,9 +159,22 @@ namespace VoidFlow
                 case KnifeModel.HollowMoon: HollowMoon(parts, finish); break;
                 case KnifeModel.Tidebreaker: Tidebreaker(parts, finish); break;
                 case KnifeModel.Colossus: Colossus(parts, finish); break;
+                case KnifeModel.Reaper: Reaper(parts, finish); break;
+                case KnifeModel.Saber: Saber(parts, finish); break;
+                case KnifeModel.Shardfang: Shard(parts, finish); break;
                 default: Talon(parts, finish); break;
             }
-            if (skin.rarity == SkinRarity.Void) Aura(parts, skin.finish);
+            if (skin.rarity == SkinRarity.Void)
+            {
+                Aura(parts, skin.finish);
+                // Flames along the blade, from its base to its point
+                var at = new List<Vector3>();
+                Vector3 from = parts.model == KnifeModel.Talon ? new Vector3(-0.02f, -0.14f, 0f) : new Vector3(0f, 0.03f, 0f);
+                Vector3 to = parts.tip ? parts.root.InverseTransformPoint(parts.tip.position) : new Vector3(0f, 0.22f, 0f);
+                if (parts.model == KnifeModel.Reaper) from = new Vector3(0f, 0.14f, 0f);
+                for (int k = 0; k < 5; k++) at.Add(Vector3.Lerp(from, to, (k + 0.5f) / 5f));
+                AddFlames(parts, at, 0.085f, 0.09f);
+            }
             if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, finish, 6);
             parts.Animate(0f, -1f);
             return parts;
@@ -373,6 +390,163 @@ namespace VoidFlow
             }
         }
 
+        // Living flames at the given points (weapon space), in the weapon's burning color
+        void AddFlames(WeaponParts parts, List<Vector3> at, float size, float rise)
+        {
+            var holder = new GameObject("Flames");
+            holder.layer = layer;
+            holder.transform.SetParent(parts.root, false);
+            parts.flames = holder.AddComponent<WeaponFlames>();
+            parts.flames.Setup(template, at, parts.hue, size, rise);
+        }
+
+        static Color HueOf(KnifeFinish finish)
+        {
+            var glow = KnifeFinishes.Get(finish).glow;
+            return glow.maxColorComponent > 0f ? glow / glow.maxColorComponent : new Color(0.7f, 0.35f, 1f);
+        }
+
+        // A see-through glowing material (plasma halos)
+        Material SeeThroughGlow(Color color, float alpha, float intensity)
+        {
+            var m = ViewModel.MakeTransparent(new Material(template));
+            m.SetTexture("_BaseMap", null);
+            m.SetColor("_BaseColor", new Color(color.r, color.g, color.b, alpha));
+            m.EnableKeyword("_EMISSION");
+            m.SetColor("_EmissionColor", color * intensity);
+            materials.Add(m);
+            keep.Add(m);
+            return m;
+        }
+
+        // A faceted crystal: a bipyramid with `sides` flat faces, widest a third of the way up,
+        // flat-shaded so every facet catches the light on its own
+        static Mesh CrystalMesh(float height, float radius, int sides, float twist)
+        {
+            var verts = new List<Vector3>();
+            var tris = new List<int>();
+            float wide = height * 0.3f;
+            Vector3 bottom = Vector3.zero, top = Vector3.up * height;
+            for (int i = 0; i < sides; i++)
+            {
+                float a0 = (i + twist) * Mathf.PI * 2f / sides, a1 = (i + 1 + twist) * Mathf.PI * 2f / sides;
+                Vector3 p0 = new Vector3(Mathf.Cos(a0) * radius, wide, Mathf.Sin(a0) * radius * 0.45f);
+                Vector3 p1 = new Vector3(Mathf.Cos(a1) * radius, wide, Mathf.Sin(a1) * radius * 0.45f);
+                foreach (var (a, b, c) in new[] { (bottom, p1, p0), (p0, p1, top) })
+                {
+                    int s = verts.Count;
+                    verts.Add(a); verts.Add(b); verts.Add(c);
+                    tris.Add(s); tris.Add(s + 1); tris.Add(s + 2);
+                }
+            }
+            var mesh = new Mesh { name = "Crystal" };
+            mesh.SetVertices(verts);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            // Make every face point outward
+            var t = mesh.triangles;
+            var n = mesh.normals;
+            for (int i = 0; i < t.Length; i += 3)
+            {
+                Vector3 centroid = (verts[t[i]] + verts[t[i + 1]] + verts[t[i + 2]]) / 3f;
+                Vector3 outward = centroid - new Vector3(0f, centroid.y, 0f);
+                Vector3 normal = Vector3.Cross(verts[t[i + 1]] - verts[t[i]], verts[t[i + 2]] - verts[t[i]]);
+                if (Vector3.Dot(normal, outward) < 0f) (t[i + 1], t[i + 2]) = (t[i + 2], t[i + 1]);
+            }
+            mesh.triangles = t;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        // A reaper's scythe in miniature: a long black haft with glowing bands and a spiked
+        // pommel, a skull-and-collar head, and a big crescent blade sweeping out and down with a
+        // back spike, its edge burning
+        void Reaper(WeaponParts parts, Material finish)
+        {
+            // Held a third of the way up the haft, so the head sits in view
+            var t = new GameObject("Scythe").transform;
+            t.SetParent(parts.root, false);
+            t.localPosition = new Vector3(0f, -0.11f, 0f);
+            Material haft = Mat(new Color(0.04f, 0.035f, 0.035f), 0.75f, 0.3f);
+            Material bone = Mat(new Color(0.85f, 0.82f, 0.74f), 0.6f, 0.1f);
+            Material metal = Mat(new Color(0.12f, 0.12f, 0.13f), 0.9f, 0.95f);
+            Material band = Glow(parts.hue, 2.4f, parts);
+            Rod(t, haft, new Vector3(0f, -0.14f, 0f), new Vector3(0f, 0.25f, 0f), 0.016f);
+            foreach (float y in new[] { -0.06f, 0.06f, 0.17f })
+                Rod(t, band, new Vector3(0f, y - 0.004f, 0f), new Vector3(0f, y + 0.004f, 0f), 0.019f);
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.155f, 0f), new Vector3(0.012f, 0.03f, 0.012f), Quaternion.Euler(0f, 45f, 45f));
+            // Head: a collar and a small skull with glowing eyes
+            Rod(t, metal, new Vector3(0f, 0.245f, 0f), new Vector3(0f, 0.275f, 0f), 0.026f);
+            Part(t, PrimitiveType.Sphere, bone, new Vector3(0.012f, 0.29f, 0f), new Vector3(0.03f, 0.032f, 0.028f));
+            Part(t, PrimitiveType.Cube, bone, new Vector3(0.015f, 0.274f, 0f), new Vector3(0.02f, 0.012f, 0.02f));
+            foreach (float z in new[] { -0.006f, 0.006f })
+                Part(t, PrimitiveType.Sphere, band, new Vector3(0.024f, 0.293f, z), Vector3.one * 0.006f);
+            // Crescent blade: an arc out to the edge side and down
+            const int n = 28;
+            var spine = new Vector2[n + 1];
+            var edge = new Vector2[n + 1];
+            Vector2 center = new(-0.02f, 0.075f);
+            const float radius = 0.2f;
+            for (int i = 0; i <= n; i++)
+            {
+                float s = (float)i / n, a = Mathf.Lerp(80f, 178f, s) * Mathf.Deg2Rad;
+                var dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                float w = 0.056f * (1f - Mathf.Pow(s, 1.6f)) + 0.004f * Mathf.Sin(s * Mathf.PI);
+                spine[i] = center + dir * (radius + w * 0.45f);
+                edge[i] = center + dir * (radius - w * 0.55f);
+            }
+            MeshPart(t, finish, RailBlade(spine, edge, 0.0034f, 0.0004f), Vector3.zero, Quaternion.identity);
+            parts.tip = Tip(t, spine[^1]);
+            // Back spike on the other side of the head
+            var bs = new[] { new Vector2(0.02f, 0.285f), new Vector2(0.05f, 0.29f), new Vector2(0.075f, 0.3f), new Vector2(0.09f, 0.315f) };
+            var be = new[] { new Vector2(0.02f, 0.26f), new Vector2(0.05f, 0.272f), new Vector2(0.075f, 0.29f), new Vector2(0.09f, 0.315f) };
+            MeshPart(t, finish, RailBlade(bs, be, 0.003f, 0.0005f), Vector3.zero, Quaternion.identity);
+        }
+
+        // A plasma saber: a machined hilt with grip rings and an emitter, and a blade of light
+        // (a white-hot core inside soft glowing halos)
+        void Saber(WeaponParts parts, Material finish)
+        {
+            var t = parts.root;
+            Material metal = Mat(new Color(0.75f, 0.77f, 0.8f), 0.95f, 1f);
+            Material dark = Mat(new Color(0.05f, 0.05f, 0.06f), 0.7f, 0.5f);
+            Material band = Glow(parts.hue, 2.2f, parts);
+            Rod(t, metal, new Vector3(0f, -0.12f, 0f), new Vector3(0f, 0.0f, 0f), 0.022f);
+            for (int k = 0; k < 5; k++)
+                Rod(t, dark, new Vector3(0f, -0.1f + k * 0.018f, 0f), new Vector3(0f, -0.092f + k * 0.018f, 0f), 0.025f);
+            Rod(t, dark, new Vector3(0f, -0.128f, 0f), new Vector3(0f, -0.12f, 0f), 0.02f);
+            MeshPart(t, metal, Torus(0.015f, 0.004f, 24, 8), new Vector3(0f, 0.004f, 0f), Quaternion.Euler(90f, 0f, 0f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0.016f, -0.01f, 0f), new Vector3(0.008f, 0.024f, 0.006f));
+            Part(t, PrimitiveType.Cube, band, new Vector3(-0.012f, -0.04f, 0f), new Vector3(0.004f, 0.012f, 0.004f));
+            // The blade
+            Rod(t, finish, new Vector3(0f, 0.006f, 0f), new Vector3(0f, 0.3f, 0f), 0.011f);
+            Part(t, PrimitiveType.Sphere, finish, new Vector3(0f, 0.3f, 0f), Vector3.one * 0.011f);
+            Rod(t, SeeThroughGlow(parts.hue, 0.35f, 2.5f), new Vector3(0f, 0.004f, 0f), new Vector3(0f, 0.306f, 0f), 0.02f);
+            Rod(t, SeeThroughGlow(parts.hue, 0.14f, 2f), new Vector3(0f, 0.002f, 0f), new Vector3(0f, 0.312f, 0f), 0.034f);
+            parts.tip = Tip(t, new Vector2(0f, 0.3f));
+        }
+
+        // A crystal dagger: a long faceted shard for a blade, a guard of smaller shards, a
+        // wrapped grip and a crystal pommel, all glowing along their seams
+        void Shard(WeaponParts parts, Material finish)
+        {
+            var t = parts.root;
+            Material wrap = Mat(new Color(0.08f, 0.05f, 0.1f), 0.5f, 0.2f);
+            Material metal = Mat(new Color(0.2f, 0.18f, 0.24f), 0.9f, 0.9f);
+            Rod(t, wrap, new Vector3(0f, -0.11f, 0f), new Vector3(0f, -0.005f, 0f), 0.02f);
+            for (int k = 0; k < 4; k++)
+                Rod(t, metal, new Vector3(0f, -0.1f + k * 0.026f, 0f), new Vector3(0f, -0.096f + k * 0.026f, 0f), 0.022f);
+            MeshPart(t, finish, CrystalMesh(0.05f, 0.012f, 5, 0.2f), new Vector3(0f, -0.155f, 0f), Quaternion.identity);
+            MeshPart(t, finish, CrystalMesh(0.26f, 0.024f, 6, 0f), new Vector3(0f, -0.004f, 0f), Quaternion.identity);
+            foreach (float side in new[] { -1f, 1f })
+            {
+                MeshPart(t, finish, CrystalMesh(0.07f, 0.01f, 5, 0.3f), new Vector3(side * 0.012f, 0f, 0f), Quaternion.Euler(0f, 0f, -side * 62f));
+                MeshPart(t, finish, CrystalMesh(0.045f, 0.008f, 5, 0.1f), new Vector3(side * 0.008f, 0.01f, 0f), Quaternion.Euler(0f, 0f, -side * 28f));
+            }
+            parts.tip = Tip(t, new Vector2(0f, 0.256f));
+        }
+
         // Void knives: little glowing motes circling the blade
         void Aura(WeaponParts parts, KnifeFinish finish)
         {
@@ -398,7 +572,8 @@ namespace VoidFlow
         {
             var t = new GameObject(skin.name).transform;
             t.SetParent(parent, false);
-            var parts = new WeaponParts { root = t, model = KnifeModel.Rifle, rarity = skin.rarity };
+            var parts = new WeaponParts { root = t, model = skin.model, rarity = skin.rarity, hue = HueOf(skin.finish) };
+            bool rail = skin.model == KnifeModel.Railgun, hell = skin.model == KnifeModel.Hellfire;
             Material metal = Mat(new Color(0.1f, 0.1f, 0.11f), 0.5f, 0.6f);
             Material metalLight = Mat(new Color(0.28f, 0.28f, 0.3f), 0.45f, 0.6f);
             Material chassis = skin.finish == KnifeFinish.Polished ? Mat(new Color(0.24f, 0.25f, 0.21f), 0.2f, 0.1f) : FinishMaterial(skin.finish, parts);
@@ -431,13 +606,60 @@ namespace VoidFlow
             Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.004f, 0.33f), new Vector3(0.044f, 0.04f, 0.24f));
             Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.004f, 0.47f), new Vector3(0.038f, 0.034f, 0.05f));
             Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.026f, 0.33f), new Vector3(0.046f, 0.006f, 0.2f));
-            // Barrel: long and thin, with flutes, a gas-block collar and a muzzle brake
-            Rod(t, metalLight, new Vector3(0f, 0.018f, 0.2f), new Vector3(0f, 0.018f, 1.02f), 0.017f);
-            for (int k = 0; k < 6; k++)
-                Rod(t, metal, new Vector3(0f, 0.018f, 0.55f + k * 0.065f), new Vector3(0f, 0.018f, 0.57f + k * 0.065f), 0.0195f);
-            Rod(t, metal, new Vector3(0f, 0.018f, 1.02f), new Vector3(0f, 0.018f, 1.09f), 0.03f);
-            foreach (float z in new[] { 1.035f, 1.06f })
-                Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, z), new Vector3(0.033f, 0.01f, 0.01f));
+            var burn = new List<Vector3>();
+            if (rail)
+            {
+                // Railgun: two long rails with a glowing energy core between them, wrapped in
+                // coil rings, ending in forked emitter prongs
+                Material coil = Glow(parts.hue, 2.6f, parts);
+                foreach (float y in new[] { 0.036f, 0.0f })
+                    Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, y, 0.62f), new Vector3(0.02f, 0.012f, 0.84f));
+                Rod(t, coil, new Vector3(0f, 0.018f, 0.2f), new Vector3(0f, 0.018f, 1.02f), 0.007f);
+                Rod(t, SeeThroughGlow(parts.hue, 0.25f, 2f), new Vector3(0f, 0.018f, 0.2f), new Vector3(0f, 0.018f, 1.02f), 0.02f);
+                for (int k = 0; k < 8; k++)
+                {
+                    float z = 0.3f + k * 0.09f;
+                    MeshPart(t, k % 2 == 0 ? coil : metal, Torus(0.024f, 0.0045f, 24, 8), new Vector3(0f, 0.018f, z), Quaternion.identity);
+                }
+                foreach (float s in new[] { -1f, 1f })
+                    Rod(t, metal, new Vector3(s * 0.012f, 0.018f, 1.0f), new Vector3(s * 0.022f, 0.018f, 1.1f), 0.008f);
+                for (int k = 0; k < 5; k++) burn.Add(new Vector3(0f, 0.03f, 0.3f + k * 0.18f));
+            }
+            else
+            {
+                // Barrel: long and thin, with flutes, a gas-block collar and a muzzle brake
+                Rod(t, metalLight, new Vector3(0f, 0.018f, 0.2f), new Vector3(0f, 0.018f, 1.02f), 0.017f);
+                for (int k = 0; k < 6; k++)
+                    Rod(t, hell ? Glow(parts.hue, 2.2f, parts) : metal, new Vector3(0f, 0.018f, 0.55f + k * 0.065f), new Vector3(0f, 0.018f, 0.57f + k * 0.065f), 0.0195f);
+                if (hell)
+                {
+                    // Hellfire: a flared dragon-mouth muzzle with fangs, gold trim and horns
+                    Material gold = Mat(new Color(1f, 0.72f, 0.25f), 0.95f, 1f);
+                    Rod(t, gold, new Vector3(0f, 0.018f, 1.0f), new Vector3(0f, 0.018f, 1.04f), 0.03f);
+                    Rod(t, metal, new Vector3(0f, 0.018f, 1.04f), new Vector3(0f, 0.018f, 1.1f), 0.042f);
+                    for (int k = 0; k < 6; k++)
+                    {
+                        float a = k * 60f;
+                        var dir = Quaternion.Euler(0f, 0f, a) * Vector3.up;
+                        Part(t, PrimitiveType.Cube, gold, new Vector3(0f, 0.018f, 1.105f) + dir * 0.02f, new Vector3(0.006f, 0.014f, 0.02f), Quaternion.Euler(0f, 0f, a) * Quaternion.Euler(30f, 0f, 0f));
+                    }
+                    Part(t, PrimitiveType.Cube, gold, new Vector3(0f, 0.022f, 0.07f), new Vector3(0.05f, 0.004f, 0.3f));
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        Rod(t, gold, new Vector3(s * 0.018f, 0.05f, -0.34f), new Vector3(s * 0.03f, 0.085f, -0.4f), 0.01f);
+                        Rod(t, gold, new Vector3(s * 0.03f, 0.085f, -0.4f), new Vector3(s * 0.028f, 0.11f, -0.44f), 0.006f);
+                    }
+                    for (int k = 0; k < 6; k++) burn.Add(new Vector3(0f, 0.03f, 0.55f + k * 0.065f));
+                    burn.Add(new Vector3(0f, 0.03f, 1.1f));
+                }
+                else
+                {
+                    Rod(t, metal, new Vector3(0f, 0.018f, 1.02f), new Vector3(0f, 0.018f, 1.09f), 0.03f);
+                    foreach (float z in new[] { 1.035f, 1.06f })
+                        Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, z), new Vector3(0.033f, 0.01f, 0.01f));
+                    if (skin.rarity == SkinRarity.Void) for (int k = 0; k < 4; k++) burn.Add(new Vector3(0f, 0.03f, 0.35f + k * 0.2f));
+                }
+            }
             // Magazine just ahead of the trigger
             parts.magazine = new GameObject("Magazine").transform;
             parts.magazine.SetParent(t, false);
@@ -460,11 +682,11 @@ namespace VoidFlow
                 Rod(t, metal, new Vector3(0f, sy, z - 0.01f), new Vector3(0f, sy, z + 0.01f), 0.04f);
             }
             Rod(t, chassis, new Vector3(0f, sy, -0.09f), new Vector3(0f, sy, 0.22f), 0.032f);
-            Rod(t, metal, new Vector3(0f, sy, 0.22f), new Vector3(0f, sy, 0.27f), 0.046f);
-            Rod(t, metal, new Vector3(0f, sy, 0.27f), new Vector3(0f, sy, 0.34f), 0.066f);
+            Rod(t, chassis, new Vector3(0f, sy, 0.22f), new Vector3(0f, sy, 0.27f), 0.046f);
+            Rod(t, chassis, new Vector3(0f, sy, 0.27f), new Vector3(0f, sy, 0.34f), 0.066f);
             Rod(t, rubber, new Vector3(0f, sy, 0.335f), new Vector3(0f, sy, 0.345f), 0.069f);
             Rod(t, lens, new Vector3(0f, sy, 0.344f), new Vector3(0f, sy, 0.346f), 0.058f);
-            Rod(t, metal, new Vector3(0f, sy, -0.09f), new Vector3(0f, sy, -0.15f), 0.044f);
+            Rod(t, chassis, new Vector3(0f, sy, -0.09f), new Vector3(0f, sy, -0.15f), 0.044f);
             Rod(t, rubber, new Vector3(0f, sy, -0.15f), new Vector3(0f, sy, -0.17f), 0.046f);
             Rod(t, lens, new Vector3(0f, sy, -0.17f), new Vector3(0f, sy, -0.171f), 0.036f);
             Rod(t, metal, new Vector3(0f, sy + 0.016f, 0.06f), new Vector3(0f, sy + 0.04f, 0.06f), 0.03f);
@@ -473,7 +695,8 @@ namespace VoidFlow
             Rod(t, metal, new Vector3(-0.016f, sy, 0.06f), new Vector3(-0.034f, sy, 0.06f), 0.03f);
             keep.Add(lens);
             keep.Add(red);
-            if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, chassis, 14, cover: false); // the barrel, scope ends and metal stay dark
+            if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, chassis, 14);
+            if (burn.Count > 0) AddFlames(parts, burn, 0.1f, 0.1f);
             parts.Animate(0f, -1f);
             return parts;
         }

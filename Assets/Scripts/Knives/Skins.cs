@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace VoidFlow
 {
-    public enum KnifeModel { Talon, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle }
+    public enum KnifeModel { Talon, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle, Reaper, Saber, Shardfang, Railgun, Hellfire }
 
     // Finishes. Most are painted in code (our own takes on the classic flashy knife finishes,
     // and the glowing Void ones); the stone, carbon and metal ones use CC0 photo textures from
@@ -12,6 +12,7 @@ namespace VoidFlow
         Polished, Tempered, Nebula, SunsetFade, CandySwirl, AmberStripe, RedWeb, EmeraldNebula, HollowMoon, Tidebreaker, Colossus,
         TidewaterOnyx, SmokeOnyx, PearlOnyx, GreyMarble, BlackMarble, WhiteMarble, Carbon, Gunmetal, DiamondPlate, Saddle,
         DesertOnyx, CaramelSwirl, GlacierOnyx, AmberOnyx, CrimsonOnyx, StormOnyx, VioletOnyx, Obsidian, Confetti, MagmaVein, Molten, LavaFlow, Plasma, Toxic, VoidFlare, Frostbite, ShatteredIce, Sapphire, Amethyst, Ruby, Chrome, Gold, Copper, AntiqueGold, Holographic,
+        SoulReaper, FrostReaper, NovaSaber, CrimsonSaber, Shardfang, Singularity, FrostRail, Hellfire,
     }
 
     public enum SkinRarity { Default, Mythic, Void }
@@ -52,6 +53,11 @@ namespace VoidFlow
             new("Hollow Moon", KnifeModel.HollowMoon, KnifeFinish.HollowMoon, SkinRarity.Void),
             new("Tidebreaker", KnifeModel.Tidebreaker, KnifeFinish.Tidebreaker, SkinRarity.Void),
             new("Colossus", KnifeModel.Colossus, KnifeFinish.Colossus, SkinRarity.Void),
+            new("Soul Reaper", KnifeModel.Reaper, KnifeFinish.SoulReaper, SkinRarity.Void),
+            new("Frost Reaper", KnifeModel.Reaper, KnifeFinish.FrostReaper, SkinRarity.Void),
+            new("Nova Saber", KnifeModel.Saber, KnifeFinish.NovaSaber, SkinRarity.Void),
+            new("Crimson Saber", KnifeModel.Saber, KnifeFinish.CrimsonSaber, SkinRarity.Void),
+            new("Shardfang", KnifeModel.Shardfang, KnifeFinish.Shardfang, SkinRarity.Void),
             new("Talon Knife | Tidewater Onyx", KnifeModel.Talon, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
             new("Talon Knife | Carbon", KnifeModel.Talon, KnifeFinish.Carbon, SkinRarity.Mythic),
             new("Butterfly | Black Marble", KnifeModel.Butterfly, KnifeFinish.BlackMarble, SkinRarity.Mythic),
@@ -109,6 +115,9 @@ namespace VoidFlow
             new("Longreach | Red Web", KnifeModel.Rifle, KnifeFinish.RedWeb, SkinRarity.Mythic),
             new("Longreach | Hollow Moon", KnifeModel.Rifle, KnifeFinish.HollowMoon, SkinRarity.Void),
             new("Longreach | Tidebreaker", KnifeModel.Rifle, KnifeFinish.Tidebreaker, SkinRarity.Void),
+            new("Singularity", KnifeModel.Railgun, KnifeFinish.Singularity, SkinRarity.Void),
+            new("Frostbite Railgun", KnifeModel.Railgun, KnifeFinish.FrostRail, SkinRarity.Void),
+            new("Hellfire", KnifeModel.Hellfire, KnifeFinish.Hellfire, SkinRarity.Void),
             new("Longreach | Tidewater Onyx", KnifeModel.Rifle, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
             new("Longreach | Carbon", KnifeModel.Rifle, KnifeFinish.Carbon, SkinRarity.Mythic),
             new("Longreach | Diamond Plate", KnifeModel.Rifle, KnifeFinish.DiamondPlate, SkinRarity.Mythic),

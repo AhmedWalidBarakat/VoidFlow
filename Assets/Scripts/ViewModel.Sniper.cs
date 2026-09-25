@@ -12,8 +12,8 @@ namespace VoidFlow
     // no movement or unscoped inaccuracy, no drop and no falloff.
     public partial class ViewModel
     {
-        static readonly Vector3 SniperRest = new(0.23f, -0.1f, 0.58f);
-        static readonly Quaternion SniperRestRotation = Quaternion.Euler(-4f, -24f, -5f);
+        static readonly Vector3 SniperRest = new(0.25f, -0.1f, 0.47f);
+        static readonly Quaternion SniperRestRotation = Quaternion.Euler(-3f, -15f, -4f);
 
         const int MagSize = 5;
         const float CycleTime = 1.463f, ReloadTime = 3.67f, Range = 5000f;
@@ -35,6 +35,7 @@ namespace VoidFlow
         readonly Queue<GameObject> holes = new();
         LineRenderer tracer;
         float tracerTime = 99f;
+        bool tracerBeam;
 
         string SniperStatus() => "∞   ·   RMB scope"; // unlimited ammo, never reloads
 
@@ -208,7 +209,20 @@ namespace VoidFlow
             Transform v = view.transform;
             Vector3 muzzle = v.position + v.right * 0.1f - v.up * 0.07f + v.forward * 0.8f;
             ShowTracer(muzzle, end);
-            FxLibrary.BulletTrail(muzzle, end, disc || bestDistance < float.MaxValue);
+            // Void rifles fire their own kind of round: a railgun beam or a trail of fire
+            var skin = Skins.Snipers[sniperSkin];
+            var style = skin.model == KnifeModel.Railgun ? FxLibrary.ShotStyle.Beam
+                : skin.model == KnifeModel.Hellfire ? FxLibrary.ShotStyle.Fire
+                : skin.rarity == SkinRarity.Void ? FxLibrary.ShotStyle.Glow : FxLibrary.ShotStyle.Normal;
+            Color tint = rifle != null ? rifle.hue : Color.white;
+            if (tracerMat)
+            {
+                Color tc = style == FxLibrary.ShotStyle.Normal ? new Color(1f, 0.85f, 0.55f) : tint;
+                tracerMat.SetColor("_BaseColor", tc);
+                tracerMat.SetColor("_EmissionColor", tc * (style == FxLibrary.ShotStyle.Beam ? 6f : 3f));
+            }
+            tracerBeam = style == FxLibrary.ShotStyle.Beam;
+            FxLibrary.BulletTrail(muzzle, end, disc || bestDistance < float.MaxValue, style, tint);
             FxLibrary.MuzzleSmoke(v.position + v.right * 0.12f - v.up * 0.08f + v.forward * 1.1f, v.forward);
         }
 
@@ -291,7 +305,8 @@ namespace VoidFlow
             if (tracer)
             {
                 tracer.enabled = tracerTime < 0.3f;
-                tracer.widthMultiplier = Mathf.Lerp(1.6f, 0f, Mathf.Clamp01(tracerTime / 0.3f));
+                tracer.widthMultiplier = Mathf.Lerp(tracerBeam ? 3.5f : 1.6f, 0f, Mathf.Clamp01(tracerTime / (tracerBeam ? 0.45f : 0.3f)));
+                tracer.enabled = tracerTime < (tracerBeam ? 0.45f : 0.3f);
             }
             if (flash) flash.gameObject.SetActive(flashTime < 0.05f);
         }

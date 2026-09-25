@@ -47,6 +47,14 @@ namespace VoidFlow
                 emission = Paint(f, Waves),
                 tint = Color.white, glow = new Color(0.2f, 0.6f, 1f) * 1.6f, metallic = 0.7f, smoothness = 0.9f,
             },
+            KnifeFinish.SoulReaper => VoidEdge(f, new Color(0.95f, 0.08f, 0.1f), 0.05f),
+            KnifeFinish.FrostReaper => VoidEdge(f, new Color(0.3f, 0.75f, 1f), 0.08f),
+            KnifeFinish.NovaSaber => Plasma(f, new Color(0.3f, 0.85f, 1f)),
+            KnifeFinish.CrimsonSaber => Plasma(f, new Color(1f, 0.12f, 0.2f)),
+            KnifeFinish.Shardfang => Crystal(f, new Color(0.7f, 0.3f, 1f)),
+            KnifeFinish.Singularity => VoidEdge(f, new Color(0.65f, 0.25f, 1f), 0.1f),
+            KnifeFinish.FrostRail => VoidEdge(f, new Color(0.35f, 0.8f, 1f), 0.14f),
+            KnifeFinish.Hellfire => VoidEdge(f, new Color(1f, 0.42f, 0.08f), 0.06f),
             KnifeFinish.Colossus => new Look
             {
                 albedo = Paint(f, (u, y) => Grey((u > 0.55f && u < 0.75f ? 0.36f : 0.58f) + (Noise(u * 3f, y * 40f, 7) - 0.5f) * 0.08f)),
@@ -155,6 +163,30 @@ namespace VoidFlow
             look.glow = Color.white * 0.45f;
             return look;
         }
+
+        // Dark polished metal whose edge (and a few veins) burn in the given color
+        static Look VoidEdge(KnifeFinish f, Color hue, float body) => new()
+        {
+            albedo = Paint(f, (u, y) => Grey(body + Noise(u * 6f, y * 6f, 3) * 0.04f)),
+            emission = Paint(f, (u, y) => Grey(Mathf.Max(1f - Edge(0.01f, 0.1f, u), Vein(u, y, 11) * 0.45f))),
+            tint = Color.white, glow = hue * 2.2f, metallic = 0.9f, smoothness = 0.95f,
+        };
+
+        // A plasma blade: a white-hot core glowing out into its color
+        static Look Plasma(KnifeFinish f, Color hue) => new()
+        {
+            albedo = Paint(f, (u, y) => Color.Lerp(Color.white, hue, Edge(0.3f, 1f, Mathf.Abs(u - 0.5f) * 2f))),
+            emission = Paint(f, (u, y) => Grey(1f - 0.4f * Edge(0.3f, 1f, Mathf.Abs(u - 0.5f) * 2f))),
+            tint = Color.white, glow = hue * 3f, metallic = 0f, smoothness = 0.95f,
+        };
+
+        // Crystal: pale facets with glowing seams
+        static Look Crystal(KnifeFinish f, Color hue) => new()
+        {
+            albedo = Paint(f, (u, y) => Color.Lerp(hue * 0.5f, Color.white, Noise(u * 4f, y * 3f, 17) * 0.6f)),
+            emission = Paint(f, (u, y) => Grey(0.25f + Vein(u, y, 23) * 0.75f)),
+            tint = Color.white, glow = hue * 1.8f, metallic = 0.3f, smoothness = 1f,
+        };
 
         static Look Candy(Texture2D albedo) => new() { albedo = albedo, tint = Color.white, metallic = 0.7f, smoothness = 0.92f };
 

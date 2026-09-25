@@ -169,8 +169,90 @@ namespace VoidFlow
         float sustainExtra;
         bool sustaining, sustainDone;
 
-        Routine RoutineFor(WeaponParts parts) =>
-            parts.model == KnifeModel.Talon ? TalonRoutine() : parts.model == KnifeModel.Butterfly ? ButterflyRoutine() : SwordRoutine();
+        Routine RoutineFor(WeaponParts parts) => parts.model switch
+        {
+            KnifeModel.Talon => TalonRoutine(),
+            KnifeModel.Butterfly => ButterflyRoutine(),
+            KnifeModel.Reaper => ReaperRoutine(),
+            KnifeModel.Saber => SaberRoutine(),
+            KnifeModel.Shardfang => ShardRoutine(),
+            _ => SwordRoutine(),
+        };
+
+        // The Void specials all start the same way: the arm comes up and the weapon starts to
+        // whirl in front of you, faster and faster, the flames roaring (hold F to keep it going)
+        static Key RaiseKey(Key k, float t)
+        {
+            k = k.At(t);
+            k.rp = new(0.09f, -0.035f, 0.35f);
+            k.rq = FB(-0.2f, 0.9f, 0.4f, 0.1f, 0.2f, -1f);
+            k.lp = LeftIdle + LeftHandAway;
+            return k;
+        }
+
+        // Scythe: a slow propeller whirl, then flung high end over end and caught with the arms
+        // spread wide, a last sweep, home
+        static Routine ReaperRoutine()
+        {
+            var ks = new List<Key>();
+            var k = IdleKey(false); ks.Add(k);
+            k = RaiseKey(k, 0.35f); k.spin = new(0f, 0f, 180f); ks.Add(k);
+            k = k.At(1.0f); k.spin = new(0f, 0f, 900f); ks.Add(k);
+            k = k.At(1.4f); k.hold = Hold.Air; k.ap = new(0.01f, 0.1f, 0.5f); k.aq = Quaternion.identity; k.spin = new(-360f, 0f, 1080f);
+            k.rp = RightWide; k.rq = RightUp; k.lp = LeftWide; k.lq = LeftUp; ks.Add(k);
+            k = k.At(1.9f); k.ap = new(0.03f, 0.03f, 0.42f); k.spin = new(-720f, 0f, 1080f); ks.Add(k);
+            k = k.At(2.15f); k.hold = Hold.Right; k.rp = new(0.1f, -0.03f, 0.34f); k.rq = RightUp; k.spin = new(-720f, 0f, 1080f); k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(2.7f); k.rp = new(0.04f, -0.06f, 0.36f); k.rq = FB(-1f, 0.2f, 0.4f, 0f, 1f, -0.2f); k.spin = new(-720f, 0f, 1440f); ks.Add(k);
+            k = k.At(3.2f); k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
+            return new Routine
+            {
+                keys = ks.ToArray(), sustainAt = 0.9f, sustainAxis = 1, sustainSpeed = 720f,
+                sounds = new[] { (0.5f, WeaponSounds.Slash, 0.5f), (1.35f, WeaponSounds.Slash, 0.6f), (2.4f, WeaponSounds.Slash, 0.5f) },
+            };
+        }
+
+        // Saber: a humming spin, then flipped end over end up into the air, caught, and a
+        // flourish of two quick twirls before it settles
+        static Routine SaberRoutine()
+        {
+            var ks = new List<Key>();
+            var k = IdleKey(false); ks.Add(k);
+            k = RaiseKey(k, 0.3f); k.spin = new(0f, 0f, 360f); ks.Add(k);
+            k = k.At(0.9f); k.spin = new(0f, 0f, 1440f); ks.Add(k);
+            k = k.At(1.25f); k.hold = Hold.Air; k.ap = new(0.02f, 0.09f, 0.45f); k.aq = Quaternion.identity; k.spin = new(540f, 0f, 1440f);
+            k.rp = RightWide; k.rq = RightUp; k.lp = LeftWide; k.lq = LeftUp; ks.Add(k);
+            k = k.At(1.7f); k.ap = new(0.05f, 0.02f, 0.4f); k.spin = new(1080f, 0f, 1440f); ks.Add(k);
+            k = k.At(1.9f); k.hold = Hold.Right; k.rp = new(0.1f, -0.03f, 0.34f); k.rq = RightUp; k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(2.6f); k.spin = new(1080f, 0f, 2160f); ks.Add(k);
+            k = k.At(3.1f); k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
+            return new Routine
+            {
+                keys = ks.ToArray(), sustainAt = 0.8f, sustainAxis = 1, sustainSpeed = 1260f,
+                sounds = new[] { (0.35f, WeaponSounds.Slash, 0.45f), (1.2f, WeaponSounds.Slash, 0.5f), (2.2f, WeaponSounds.Slash, 0.45f) },
+            };
+        }
+
+        // Crystal dagger: a spin, then tossed across between the hands, arms flung wide, and
+        // back again, glittering
+        static Routine ShardRoutine()
+        {
+            var ks = new List<Key>();
+            var k = IdleKey(false); ks.Add(k);
+            k = RaiseKey(k, 0.3f); k.spin = new(0f, 0f, 270f); ks.Add(k);
+            k = k.At(0.85f); k.spin = new(0f, 0f, 1080f); ks.Add(k);
+            k = k.At(1.1f); k.hold = Hold.Air; k.ap = new(-0.01f, 0.07f, 0.42f); k.aq = Quaternion.identity; k.spin = new(360f, 0f, 1260f);
+            k.rp = RightWide; k.rq = RightUp; k.lp = LeftWide; k.lq = LeftUp; ks.Add(k);
+            k = k.At(1.35f); k.hold = Hold.Left; k.lp = new(-0.12f, -0.01f, 0.33f); k.spin = new(720f, 0f, 1440f); ks.Add(k);
+            k = k.At(1.75f); k.lp = new(-0.1f, 0.01f, 0.34f); k.lq = FB(0.3f, 0.9f, 0.4f, -0.1f, 0.2f, -1f); k.spin = new(720f, 0f, 2160f); ks.Add(k);
+            k = k.At(2.0f); k.hold = Hold.Air; k.ap = new(0.01f, 0.08f, 0.42f); k.aq = Quaternion.identity; k.spin = new(1080f, 0f, 2340f); k.lp = LeftWide; ks.Add(k);
+            k = k.At(2.25f); k.hold = Hold.Right; k.rp = new(0.12f, -0.01f, 0.33f); k.rq = RightUp; k.spin = new(1080f, 0f, 2520f); k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(2.8f); k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
+            return new Routine
+            {
+                keys = ks.ToArray(), sustainAt = 0.75f, sustainAxis = 1, sustainSpeed = 900f,
+                sounds = new[] { (1.0f, WeaponSounds.Slash, 0.4f), (1.9f, WeaponSounds.Slash, 0.4f) },
+            };
+        }
 
         // ------------------------------------------------------------------ update
 
@@ -316,6 +398,8 @@ namespace VoidFlow
         {
             KnifeModel.Talon => knife.ringCenter,
             KnifeModel.Butterfly => Vector3.zero,
+            KnifeModel.Reaper => new Vector3(0f, -0.03f, 0f),
+            KnifeModel.Saber => new Vector3(0f, 0.02f, 0f),
             _ => new Vector3(0f, -0.055f, 0f),
         };
 
