@@ -31,8 +31,8 @@ namespace VoidFlow
         static readonly Quaternion TalonIdle = FingersBack(new Vector3(-0.05f, 0.85f, 0.5f), new Vector3(0f, -0.5f, 0.85f));
         // Talon inspect: the knife hangs from the finger ring in front of the raised glove, flat
         // side on, and spins round the finger there
-        static readonly Vector3 TalonShowPos = new(0.053f, 0.029f, 0.326f);
-        static readonly Quaternion TalonShowArm = FingersBack(new Vector3(-0.45f, 0.6f, 0.65f), new Vector3(0.2f, -0.3f, 0.9f));
+        static readonly Vector3 TalonShowPos = new(0.095f, -0.005f, 0.33f);
+        static readonly Quaternion TalonShowArm = FingersBack(new Vector3(-0.28f, 0.75f, 0.6f), new Vector3(0.15f, -0.3f, 0.95f));
         static readonly Quaternion TalonShow = Quaternion.Euler(0f, 0f, -18f);
         static readonly Quaternion ForwardIdle = FingersBack(new Vector3(-0.3f, 0.5f, 1f), new Vector3(0.6f, 0.5f, -0.6f));
         static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.3f, 0.5f, 1f), new Vector3(-0.1f, 0.6f, -0.7f));
@@ -106,13 +106,15 @@ namespace VoidFlow
             var ks = new List<Key>();
             var k = IdleKey(true); ks.Add(k);
             k = k.At(0.35f); k.rp = TalonShowPos; k.rq = TalonShowArm; k.show = 1f; ks.Add(k);
-            k = k.At(0.55f); ks.Add(k);
-            k = k.At(1.45f); k.spin = new(0f, 0f, 720f); ks.Add(k);
-            k = k.At(2.05f); ks.Add(k);
+            k = k.At(0.55f); k.spin = new(0f, 0f, -25f); ks.Add(k);
+            k = k.At(1.35f); k.spin = new(0f, 0f, 745f); ks.Add(k);
+            k = k.At(1.55f); k.spin = new(0f, 0f, 712f); ks.Add(k);
+            k = k.At(1.7f); k.spin = new(0f, 0f, 720f); ks.Add(k);
+            k = k.At(2.1f); ks.Add(k);
             k = k.At(2.45f); k.rp = TalonIdlePos; k.rq = TalonIdle; k.show = 0f; ks.Add(k);
             return new Routine
             {
-                keys = ks.ToArray(), sustainAt = 1.45f, sustainAxis = 1, sustainSpeed = 720f,
+                keys = ks.ToArray(), sustainAt = 1.35f, sustainAxis = 1, sustainSpeed = 720f,
                 sounds = new[] { (0.75f, WeaponSounds.Slash, 0.3f), (1.15f, WeaponSounds.Slash, 0.3f) },
             };
         }
@@ -403,6 +405,7 @@ namespace VoidFlow
             float slashAway = slashTime >= 0f && slashSide < 0f ? Plateau(slashTime, 0f, 0.1f, 0.3f, 0.45f) : 0f;
             leftHand.root.SetLocalPositionAndRotation(LeftIdle + LeftHandAway * slashAway, LeftIdleRotation);
             knife.ringSpin = 0f;
+            knife.root.localScale = Vector3.one;
             knife.Animate(time, -1f, current == KnifeSlot ? drawTime : 99f);
         }
 
@@ -478,7 +481,9 @@ namespace VoidFlow
             }
             var right = Pose.Blend(RightArm(a), RightArm(b), s);
             var left = Pose.Blend(LeftArm(a), LeftArm(b), s);
-            Vector3 pivot = KnifePivot;
+            float show = Mathf.Lerp(a.show, b.show, s);
+            float size = Mathf.Lerp(1f, 0.8f, show); // a little smaller while it's up on show
+            Vector3 pivot = KnifePivot * size;
             Pose Knife(Key k) => k.hold switch
             {
                 Hold.Right => right.Then(rightGrip.p, rightGrip.q),
@@ -489,12 +494,12 @@ namespace VoidFlow
             var knifePose = Pose.Blend(Knife(a), Knife(b), s);
 
             // Talon show: the knife hangs from the finger ring just in front of the glove
-            float show = Mathf.Lerp(a.show, b.show, s);
             if (show > 0f)
             {
                 Vector3 ringAt = right.p + right.q * GripFront + new Vector3(0f, 0f, -0.06f); // in front of the glove
                 knifePose = Pose.Blend(knifePose, new Pose(ringAt - TalonShow * pivot, TalonShow), show);
             }
+            knife.root.localScale = Vector3.one * size;
 
             // Spins about the knife's pivot, and orbits around the right arm
             Vector3 spin = Vector3.Lerp(a.spin, b.spin, s);
