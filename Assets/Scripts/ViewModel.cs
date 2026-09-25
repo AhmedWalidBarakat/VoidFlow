@@ -289,10 +289,10 @@ namespace VoidFlow
                 Vector3 local = transform.InverseTransformDirection(player.Velocity);
                 sideways = Mathf.Clamp(local.x / 10f, -1f, 1f);
             }
-            tilt = Vector3.Lerp(tilt, new Vector3(0f, 0f, -sideways * 6f + look.x * 0.05f), dt * 8f);
+            tilt = Vector3.Lerp(tilt, new Vector3(0f, 0f, -sideways * 6f + Mathf.Clamp(look.x * 0.05f, -4f, 4f)), dt * 8f);
 
             anchor.localPosition = sway + bob + Vector3.up * breathe;
-            anchor.localRotation = Quaternion.Euler(tilt + new Vector3(look.y * 0.04f, 0f, 0f));
+            anchor.localRotation = Quaternion.Euler(tilt + new Vector3(Mathf.Clamp(look.y * 0.04f, -3f, 3f), 0f, 0f)); // mouse tilt capped so fast flicks never throw the weapon around
 
             // Draw: the new weapon comes up from below the screen
             var weapon = Current;

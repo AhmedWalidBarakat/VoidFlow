@@ -12,8 +12,8 @@ namespace VoidFlow
     // no movement or unscoped inaccuracy, no drop and no falloff.
     public partial class ViewModel
     {
-        static readonly Vector3 SniperRest = new(0.17f, -0.115f, 0.44f);
-        static readonly Quaternion SniperRestRotation = Quaternion.Euler(-3f, -20f, -5f);
+        static readonly Vector3 SniperRest = new(0.2f, -0.085f, 0.47f);
+        static readonly Quaternion SniperRestRotation = Quaternion.Euler(-4f, -24f, -5f);
 
         const int MagSize = 5;
         const float CycleTime = 1.463f, ReloadTime = 3.67f, Range = 5000f;
