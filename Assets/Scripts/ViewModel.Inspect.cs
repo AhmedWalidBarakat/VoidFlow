@@ -32,9 +32,9 @@ namespace VoidFlow
         // The sheath still on the left hip but brought up a little into view for the sword
         // routine (its +Y runs from the mouth back into the scabbard), and how the left hand
         // holds it at the mouth
-        static readonly Vector3 AcrossMouth = new(-0.1f, -0.105f, 0.36f);
+        static readonly Vector3 AcrossMouth = new(-0.09f, -0.075f, 0.37f);
         static readonly Quaternion AcrossSheath = FingersBack(new Vector3(-0.35f, -0.3f, -0.9f), new Vector3(1f, 0f, -0.35f));
-        static readonly Vector3 FromTopRight = new Vector3(-0.5f, -0.7f, 0.5f).normalized;
+        static readonly Vector3 FromTopRight = new Vector3(-0.4f, 0.3f, 0.87f).normalized;
         static readonly Quaternion LeftOnSheath = FingersBack(new Vector3(0.25f, 0.6f, 0.8f), new Vector3(-0.2f, 0.7f, -0.6f));
 
         static float Ease(float t, float a, float b) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t));
