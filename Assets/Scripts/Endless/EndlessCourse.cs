@@ -15,6 +15,12 @@ namespace VoidFlow
     // Biomes: every rampsPerBiome ramps the world changes (sky, fog, light, ramp colors,
     // scenery), blending over as you cross into it.
     //
+    // Stages: each biome's stretch is also a stage with a theme, the way a surf map's stages
+    // each have their own character (all original designs): Classic zig-zag blades, Winding
+    // S-bends, Spiral turns that keep going the same way, Rollercoaster waves and dives,
+    // Canyon holes and corners, Big Air flights, Twin Peaks (ramps side by side, pick your
+    // line). A glowing gate marks where each stage starts.
+    //
     // Moves: each ramp is one of
     //  - catch:  a wide prism that catches you and dives to rebuild speed (every 4th-5th ramp)
     //  - blade:  a thin, straight prism
@@ -22,6 +28,10 @@ namespace VoidFlow
     //  - climb:  you land, then ride up a rising ramp that throws you high off the top
     //  - corner: a slab sweeping around a big banked turn
     //  - hole:   a slab with a second wall facing it across a gap, like surfing a canyon
+    //  - wave:   a wide prism that rolls up and down, dip after dip
+    //  - winding: a prism that sweeps one way then back the other in a long S
+    //  - spiral: a long slab that keeps turning into its face as it descends
+    //  - twin:   a blade with an identical one alongside
     // and any flight can be big air: extra long, with a glowing ring at the top to fly
     // through. Harder moves unlock as you go.
     //
@@ -94,6 +104,34 @@ namespace VoidFlow
         public int ImpossibleRamps { get; private set; }  // ramps still failing after every rebuild (should stay 0)
         public event Action<Biome> BiomeEntered;
 
+        public static readonly string[] Themes = { "CLASSIC", "WINDING", "SPIRAL", "ROLLERCOASTER", "CANYON", "BIG AIR", "TWIN PEAKS" };
+        readonly Dictionary<int, string> stageThemes = new();
+        readonly Dictionary<int, float> stageTurn = new();
+        public int CurrentStage => current / rampsPerBiome;
+        public string CurrentStageName => ThemeOf(CurrentStage);
+
+        // Each stage's theme: the first is always Classic; later ones are picked from those the
+        // difficulty has unlocked, never the same twice in a row
+        string ThemeOf(int stage)
+        {
+            if (stageThemes.TryGetValue(stage, out var name)) return name;
+            if (stage == 0) name = "CLASSIC";
+            else
+            {
+                float t = Difficulty(stage * rampsPerBiome);
+                var open = new List<string> { "CLASSIC", "ROLLERCOASTER", "TWIN PEAKS" };
+                if (t >= 0.28f) open.Add("WINDING");
+                if (t >= 0.28f) open.Add("CANYON");
+                if (t >= 0.42f) open.Add("BIG AIR");
+                if (t >= 0.42f) open.Add("SPIRAL");
+                if (stageThemes.TryGetValue(stage - 1, out var before) && open.Count > 1) open.Remove(before);
+                name = open[rng.Next(open.Count)];
+            }
+            stageThemes[stage] = name;
+            stageTurn[stage] = rng.Next(2) == 0 ? -1f : 1f;
+            return name;
+        }
+
         void Start()
         {
             QualitySettings.shadowDistance = 150f;
@@ -146,6 +184,8 @@ namespace VoidFlow
             last = null;
             nextProgress = 0f;
             Progress = 0f;
+            stageThemes.Clear();
+            stageTurn.Clear();
             RebuiltRamps = 0;
             ImpossibleRamps = 0;
 
@@ -262,7 +302,10 @@ namespace VoidFlow
             float t = Difficulty(i);
             float flightSpeed = 0f;
             string move = "opening drop";
-            RampShapes.RampPath holeWall = null;
+            RampShapes.RampPath holeWall = null, twin = null;
+            int stage = i / rampsPerBiome;
+            string theme = ThemeOf(stage);
+            bool stageStart = i > 0 && i % rampsPerBiome == 0;
             Vector3? ringCenter = null;
             Vector3 ringFacing = Vector3.forward;
 
@@ -272,11 +315,12 @@ namespace VoidFlow
                 // The opening drop off the start hall's ledge: wide, dives, levels, rises to launch
                 path = RampShapes.Lay(RampShapes.Kind.Prism, 18f, -1f, new Vector3(0f, -1f, 2f), Vector3.forward,
                     new[] { (0f, 0f), (40f, -0.45f), (90f, -0.45f), (180f, 0f), (230f, 0.08f) }, null);
+                path.taper = false; // you drop straight onto its start from the hall
                 courseStartY = 0f;
             }
             else
             {
-                var m = ChooseMove(i, t);
+                var m = ChooseMove(i, t, theme);
                 move = m.name;
                 flightSpeed = FlightSpeed(last, courseStartY);
                 var landing = new RampShapes.Landing
@@ -286,8 +330,17 @@ namespace VoidFlow
                     length = Mathf.Lerp(70f, 45f, t) * (m.bigAir ? 1.3f : 1f),
                     clearStart = Mathf.Lerp(7f, 5f, t) * (m.bigAir ? 1.3f : 1f),
                     clearEnd = 0f,
-                    shift = Mathf.Lerp(10f, 22f, t) * Rand(0.85f, 1.1f) * (rng.Next(2) == 0 ? -1f : 1f),
+                    shift = Mathf.Lerp(10f, 22f, t) * Rand(0.85f, 1.1f) * ShiftSign(i, theme, stage),
                 };
+
+                // Each stage opens gently, like a map's stage start: a shorter hop onto a long,
+                // forgiving landing hill
+                if (stageStart)
+                {
+                    landing.gap *= 0.8f;
+                    landing.length *= 1.4f;
+                    landing.shift *= 0.7f;
+                }
 
                 // Prove the flight can be landed; if not, shorten the gap and shift and retry
                 float slowest = SlowestLikelySpeed(flightSpeed);
@@ -312,6 +365,9 @@ namespace VoidFlow
                     ringFacing = fwd;
                 }
                 if (m.hole) holeWall = RampShapes.HoleWall(path, 3f, landing.length + 15f, 25f);
+                // The twin stands behind the ramp you land on (seen from the flight), so it
+                // never blocks the way in
+                if (m.twin) twin = RampShapes.Offset(path, -path.side * (2f * path.width + 7f), 2f, landing.length + 10f, 55f);
                 nextProgress += landing.gap;
             }
             last = path;
@@ -334,7 +390,7 @@ namespace VoidFlow
             }
             nextProgress += path.Length;
 
-            seg.root = new GameObject($"Ramp {i}: {move} ({biome.name}, {path.width:0}m)");
+            seg.root = new GameObject($"Ramp {i}: {move} ({theme}, {biome.name}, {path.width:0}m)");
             seg.root.transform.SetParent(transform, false);
 
             Material surface = path.kind == RampShapes.Kind.Slab ? kit.slab : kit.ramp;
@@ -344,6 +400,17 @@ namespace VoidFlow
             {
                 AddPart(seg, "HoleWall", holeWall.ridge[0], RampShapes.BuildMesh(holeWall, $"Hole {i}"), kit.slab, solid: true);
                 AddPart(seg, "HoleTrim", holeWall.ridge[0], RampShapes.TrimMesh(holeWall, $"HoleTrim {i}"), kit.trim, solid: false);
+            }
+            if (twin != null)
+            {
+                AddPart(seg, "Twin", twin.ridge[0], RampShapes.BuildMesh(twin, $"Twin {i}"), kit.ramp, solid: true);
+                AddPart(seg, "TwinTrim", twin.ridge[0], RampShapes.TrimMesh(twin, $"TwinTrim {i}"), kit.trim, solid: false);
+            }
+            if (stageStart)
+            {
+                // A gate over the start of the landing hill, marking the new stage
+                Vector3 foot = seg.line[0] + Vector3.down * 3f;
+                AddPart(seg, "StageGate", foot, RampShapes.GateMesh(foot, path.forward[0], 22f, 16f, $"Gate {i}"), kit.glow, solid: false);
             }
             if (ringCenter is Vector3 ring)
                 AddPart(seg, "Ring", ring, RampShapes.RingMesh(ring, ringFacing, 6f, $"Ring {i}"), kit.glowAlt, solid: false);
@@ -378,32 +445,50 @@ namespace VoidFlow
             public RampShapes.Kind kind;
             public float width;
             public (float, float)[] shape, bend;
-            public bool hole, bigAir;
+            public bool hole, bigAir, twin;
         }
 
-        // Picks the next ramp's move. Every 4th ramp (5th once it gets hard) is a catch ramp;
-        // the rest are a weighted pick of the moves unlocked so far.
-        Move ChooseMove(int i, float t)
+        // Which way the next flight shifts sideways: Classic stages zig-zag left and right, Spiral
+        // stages keep turning the same way, the rest are random
+        float ShiftSign(int i, string theme, int stage) => theme switch
+        {
+            "CLASSIC" => i % 2 == 0 ? 1f : -1f,
+            "SPIRAL" => stageTurn[stage],
+            _ => rng.Next(2) == 0 ? -1f : 1f,
+        };
+
+        // Picks the next ramp's move. Every 4th ramp (5th once it gets hard) is a catch ramp to
+        // rebuild speed; the rest are a weighted pick of the moves this stage's theme favours.
+        Move ChooseMove(int i, float t, string theme)
         {
             float flat = Mathf.Lerp(120f, 80f, t);
             var blade = new[] { (flat, 0f), (flat + 40f, 0.08f) };
             if (i % (t < 0.5f ? 4 : 5) == 0)
-                return new Move { name = "catch", kind = RampShapes.Kind.Prism, width = 18f, shape = new[] { (80f, -0.35f), (200f, 0f), (250f, 0.08f) } };
+                return new Move { name = "catch", kind = RampShapes.Kind.Prism, width = 18f, shape = new[] { (70f, -0.26f), (180f, 0f), (230f, 0.08f) } };
 
-            var options = new List<(string name, float weight)> { ("blade", 3f), ("plunge", 2f), ("climb", 2f) };
-            if (t >= 0.1f) options.Add(("corner", 2.5f));
-            if (t >= 0.2f) options.Add(("hole", 2f));
+            var options = theme switch
+            {
+                "WINDING" => new List<(string, float)> { ("winding", 5f), ("blade", 1f) },
+                "SPIRAL" => new List<(string, float)> { ("spiral", 5f), ("corner", 1f) },
+                "ROLLERCOASTER" => new List<(string, float)> { ("wave", 4f), ("plunge", 2f), ("climb", 2f) },
+                "CANYON" => new List<(string, float)> { ("hole", 4f), ("corner", 2f) },
+                "TWIN PEAKS" => new List<(string, float)> { ("twin", 5f), ("blade", 1f) },
+                "BIG AIR" => new List<(string, float)> { ("blade", 3f), ("plunge", 2f), ("climb", 2f) },
+                _ => new List<(string, float)> { ("blade", 4f), ("plunge", 1f), ("climb", 1f) },
+            };
             float total = 0f;
-            foreach (var o in options) total += o.weight;
+            foreach (var o in options) total += o.Item2;
             float pick = Rand(0f, total);
-            string name = options[^1].name;
+            string name = options[^1].Item1;
             foreach (var o in options)
             {
-                if (pick < o.weight) { name = o.name; break; }
-                pick -= o.weight;
+                if (pick < o.Item2) { name = o.Item1; break; }
+                pick -= o.Item2;
             }
 
-            var m = new Move { name = name, bigAir = t >= 0.08f && name != "hole" && rng.NextDouble() < 0.25 };
+            bool calm = name is "hole" or "spiral" or "winding";
+            double airChance = theme == "BIG AIR" ? 0.7 : 0.2;
+            var m = new Move { name = name, bigAir = t >= 0.08f && !calm && rng.NextDouble() < airChance };
             switch (name)
             {
                 case "plunge": // dive at ~31 degrees, level out over a long 150m bend, launch
@@ -416,6 +501,29 @@ namespace VoidFlow
                     m.width = Mathf.Lerp(10f, 6f, t);
                     m.shape = new[] { (50f, 0f), (130f, 0.2f), (150f, 0.2f) };
                     break;
+                case "wave": // rolling dips: down, up, down, up, launch
+                    m.kind = RampShapes.Kind.Prism;
+                    m.width = Mathf.Lerp(13f, 9f, t);
+                    m.shape = new[] { (45f, -0.32f), (100f, 0.04f), (155f, -0.32f), (210f, 0.04f), (245f, -0.1f), (275f, 0.08f) };
+                    break;
+                case "winding": // a long S: sweeps one way, then back past straight
+                {
+                    m.kind = RampShapes.Kind.Prism;
+                    m.width = Mathf.Lerp(11f, 7f, t);
+                    float a = Mathf.Lerp(18f, 30f, t) * Rand(0.85f, 1f);
+                    m.shape = new[] { (40f, -0.12f), (300f, -0.12f), (330f, 0.07f) };
+                    m.bend = new[] { (20f, 0f), (130f, a), (250f, -a * 0.6f), (330f, -a * 0.6f) };
+                    break;
+                }
+                case "spiral": // a long slab that keeps turning into its face while it descends
+                {
+                    m.kind = RampShapes.Kind.Slab;
+                    m.width = Mathf.Lerp(16f, 13f, t);
+                    float degrees = Mathf.Lerp(55f, 85f, t) * Rand(0.9f, 1f);
+                    m.shape = new[] { (40f, -0.08f), (360f, -0.08f), (400f, 0.06f) };
+                    m.bend = new[] { (20f, 0f), (380f, degrees), (400f, degrees) };
+                    break;
+                }
                 case "corner": // a slab sweeping 40-65 degrees around, banked into the turn
                 {
                     m.kind = RampShapes.Kind.Slab;
@@ -435,6 +543,12 @@ namespace VoidFlow
                     m.bend = new[] { (30f, 0f), (flat + 30f, degrees), (flat + 40f, degrees) };
                     break;
                 }
+                case "twin": // a blade with an identical one alongside
+                    m.kind = RampShapes.Kind.Prism;
+                    m.width = Mathf.Lerp(8f, 6f, t);
+                    m.shape = blade;
+                    m.twin = true;
+                    break;
                 default: // blade
                     m.kind = RampShapes.Kind.Prism;
                     m.width = Mathf.Lerp(7f, 5f, t);

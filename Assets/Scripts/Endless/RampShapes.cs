@@ -30,13 +30,24 @@ namespace VoidFlow
         // steeper to BottomAngle. All steeper than ~45.6 degrees (normal.y < 0.7), so all
         // of it is surfable.
         public const float TopAngle = 50f, BottomAngle = 60f;
-        const float ProfileStepWidth = 1.5f;
+        const float ProfileStepWidth = 1f;
 
         // Slabs: flat face tilted SlabBank degrees, SlabThickness thick
         public const float SlabBank = 55f;
         const float SlabThickness = 0.6f;
 
-        const float PathStep = 2f; // mesh resolution along a ramp
+        // Every ramp starts as a sharp wedge, growing to full size over its first TaperLength
+        // metres, so arriving a little low slides you onto it instead of into a blunt wall
+        const float TaperLength = 10f;
+
+        static float Taper(RampPath path, int i)
+        {
+            if (!path.taper) return 1f;
+            float t = Mathf.Clamp01(path.distance[i] / TaperLength);
+            return Mathf.Max(0.06f, t * t * (3f - 2f * t));
+        }
+
+        const float PathStep = 1.25f; // mesh resolution along a ramp (fine, so curves stay smooth)
         public const float UvMeters = 2f;
 
         // Where you'd ride, as a fraction of the way down the face. Over the last SwingLength
@@ -51,6 +62,7 @@ namespace VoidFlow
             public Kind kind;
             public float width;       // prism: how far each face reaches out; slab: face width
             public float side = -1f;  // which way the face you ride points: -1 left, +1 right
+            public bool taper = true; // start as a wedge (landing hills), or full size (drop-ins)
             public readonly List<Vector3> ridge = new();    // prism ridge / slab top edge
             public readonly List<Vector3> forward = new();  // horizontal travel direction
             public readonly List<Vector3> right = new();    // horizontal right of travel
@@ -93,11 +105,12 @@ namespace VoidFlow
 
         // Lays a ramp starting at `start`, heading along `startForward`. Its slope (rise per
         // metre) is given at control points (distance, slope), and optionally its bend
-        // (degrees turned so far, positive = right) at (distance, bend) points. Both blend
-        // linearly between points, so a steady change makes a smooth curve, and matching a
-        // flight arc is exact.
+        // (degrees turned so far, positive = right) at (distance, bend) points. Before
+        // `smoothFrom` metres they blend linearly (so a landing hill matches its flight arc
+        // exactly); after it each change eases in and out, so dives, climbs and turns flow
+        // into each other with no sudden kinks.
         public static RampPath Lay(Kind kind, float width, float side, Vector3 start, Vector3 startForward,
-            (float s, float v)[] slopes, (float s, float v)[] bends)
+            (float s, float v)[] slopes, (float s, float v)[] bends, float smoothFrom = 0f)
         {
             var path = new RampPath { kind = kind, width = width, side = side };
             float baseHeading = Mathf.Atan2(startForward.x, startForward.z) * Mathf.Rad2Deg;
@@ -109,27 +122,31 @@ namespace VoidFlow
             for (int i = 0; i <= steps; i++)
             {
                 float d = i * ds;
-                float h = (baseHeading + Interpolate(bends, d)) * Mathf.Deg2Rad;
+                float h = (baseHeading + Interpolate(bends, d, smoothFrom)) * Mathf.Deg2Rad;
                 path.ridge.Add(new Vector3(flat.x, y, flat.z));
                 path.forward.Add(new Vector3(Mathf.Sin(h), 0f, Mathf.Cos(h)));
                 path.right.Add(new Vector3(Mathf.Cos(h), 0f, -Mathf.Sin(h)));
                 path.distance.Add(d);
 
                 float mid = d + ds * 0.5f;
-                float hMid = (baseHeading + Interpolate(bends, mid)) * Mathf.Deg2Rad;
+                float hMid = (baseHeading + Interpolate(bends, mid, smoothFrom)) * Mathf.Deg2Rad;
                 flat += new Vector3(Mathf.Sin(hMid), 0f, Mathf.Cos(hMid)) * ds;
-                y += Interpolate(slopes, mid) * ds;
+                y += Interpolate(slopes, mid, smoothFrom) * ds;
             }
             return path;
         }
 
-        public static float Interpolate((float s, float v)[] points, float d)
+        public static float Interpolate((float s, float v)[] points, float d, float smoothFrom = float.MaxValue)
         {
             if (points == null) return 0f;
             if (d <= points[0].s) return points[0].v;
             for (int i = 1; i < points.Length; i++)
                 if (d <= points[i].s)
-                    return Mathf.Lerp(points[i - 1].v, points[i].v, Mathf.InverseLerp(points[i - 1].s, points[i].s, d));
+                {
+                    float t = Mathf.InverseLerp(points[i - 1].s, points[i].s, d);
+                    if (points[i - 1].s >= smoothFrom) t = t * t * (3f - 2f * t);
+                    return Mathf.Lerp(points[i - 1].v, points[i].v, t);
+                }
             return points[^1].v;
         }
 
@@ -193,7 +210,49 @@ namespace VoidFlow
                 foreach (var (d, degrees) in bend) list.Add((landing.length + d, degrees * side));
                 bends = list.ToArray();
             }
-            return Lay(kind, width, side, start, fwd, slopes.ToArray(), bends);
+            return Lay(kind, width, side, start, fwd, slopes.ToArray(), bends, landing.length);
+        }
+
+        // A twin of a ramp: moved sideways by `offset` metres and down by `drop`, covering only
+        // the middle of it, from `startAt` metres to `endBefore` short of the end, so it's
+        // never in the way of the flight in or the launch out
+        public static RampPath Offset(RampPath main, float offset, float drop, float startAt, float endBefore)
+        {
+            var copy = new RampPath { kind = main.kind, width = main.width, side = main.side };
+            for (int i = 0; i < main.ridge.Count; i++)
+            {
+                float d = main.distance[i];
+                if (d < startAt || d > main.Length - endBefore) continue;
+                copy.ridge.Add(main.ridge[i] + main.right[i] * offset + Vector3.down * drop);
+                copy.forward.Add(main.forward[i]);
+                copy.right.Add(main.right[i]);
+                copy.distance.Add(d - startAt);
+            }
+            return copy.ridge.Count >= 2 ? copy : null;
+        }
+
+        // A glowing gate (visual only) standing over a point on a ramp: two posts and a beam,
+        // `width` apart, `height` tall, facing along `facing`. Marks the start of a stage.
+        public static Mesh GateMesh(Vector3 foot, Vector3 facing, float width, float height, string name)
+        {
+            const float post = 0.8f;
+            var mesh = new MeshBuilder(foot);
+            Vector3 f = new Vector3(facing.x, 0f, facing.z).normalized, r = Vector3.Cross(Vector3.up, f).normalized;
+            void Box(Vector3 center, Vector3 half)
+            {
+                Vector3 X = r * half.x, Y = Vector3.up * half.y, Z = f * half.z;
+                Vector3 c = center;
+                mesh.FlatQuad(c - X - Y - Z, c + X - Y - Z, c + X + Y - Z, c - X + Y - Z, -f, r);
+                mesh.FlatQuad(c - X - Y + Z, c + X - Y + Z, c + X + Y + Z, c - X + Y + Z, f, r);
+                mesh.FlatQuad(c - X - Y - Z, c - X - Y + Z, c - X + Y + Z, c - X + Y - Z, -r, f);
+                mesh.FlatQuad(c + X - Y - Z, c + X - Y + Z, c + X + Y + Z, c + X + Y - Z, r, f);
+                mesh.FlatQuad(c - X + Y - Z, c + X + Y - Z, c + X + Y + Z, c - X + Y + Z, Vector3.up, r);
+                mesh.FlatQuad(c - X - Y - Z, c + X - Y - Z, c + X - Y + Z, c - X - Y + Z, Vector3.down, r);
+            }
+            foreach (float s in new[] { -1f, 1f })
+                Box(foot + r * (s * width * 0.5f) + Vector3.up * (height * 0.5f), new Vector3(post * 0.5f, height * 0.5f, post * 0.5f));
+            Box(foot + Vector3.up * height, new Vector3(width * 0.5f + post * 0.5f, post * 0.5f, post * 0.5f));
+            return mesh.ToMesh(name);
         }
 
         // The far wall of a "hole": a slab facing back across a gap at the bottom, so you surf
@@ -332,7 +391,7 @@ namespace VoidFlow
             int n = path.ridge.Count, kCount = profile.Count, bottom = kCount - 1;
 
             Vector3 Point(int i, float side, int k) =>
-                path.ridge[i] + path.right[i] * (side * profile[k].x) + Vector3.down * profile[k].y;
+                path.ridge[i] + (path.right[i] * (side * profile[k].x) + Vector3.down * profile[k].y) * Taper(path, i);
 
             // Faces: vertices shared within a face so it shades smoothly, but not across the
             // ridge, which stays sharp
@@ -428,7 +487,7 @@ namespace VoidFlow
             {
                 Vector3 down = path.right[i] * (path.side * Mathf.Cos(bank)) + Vector3.down * Mathf.Sin(bank);
                 top[i] = path.ridge[i];
-                bottom[i] = top[i] + down * path.width;
+                bottom[i] = top[i] + down * (path.width * Taper(path, i));
                 normal[i] = path.right[i] * (path.side * Mathf.Sin(bank)) + Vector3.up * Mathf.Cos(bank);
             }
         }
@@ -457,7 +516,7 @@ namespace VoidFlow
                 var profile = Profile(path.width);
                 Vector2 last = profile[^1];
                 foreach (float side in new[] { -1f, 1f })
-                    Strip(i => path.ridge[i] + path.right[i] * (side * last.x) + Vector3.down * last.y, new Vector3(side, 0f, 0f));
+                    Strip(i => path.ridge[i] + (path.right[i] * (side * last.x) + Vector3.down * last.y) * Taper(path, i), new Vector3(side, 0f, 0f));
             }
             else
             {
