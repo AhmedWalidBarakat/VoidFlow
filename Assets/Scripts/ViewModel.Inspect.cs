@@ -394,7 +394,8 @@ namespace VoidFlow
             if (knife.root.parent != rightHand.grip)
             {
                 knife.root.SetParent(rightHand.grip, false);
-                knife.root.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                knife.root.SetLocalPositionAndRotation((1f - knifeScale) * KnifeHandle, Quaternion.identity);
+                knife.root.localScale = Vector3.one * knifeScale;
                 UpdateSheath();
             }
             if (sheath) sheath.SetLocalPositionAndRotation(SheathMouth, SheathRotation);
@@ -414,7 +415,8 @@ namespace VoidFlow
             float slashAway = slashTime >= 0f && slashSide < 0f ? Plateau(slashTime, 0f, 0.1f, 0.3f, 0.45f) : 0f;
             leftHand.root.SetLocalPositionAndRotation(LeftIdle + LeftHandAway * slashAway, LeftIdleRotation);
             knife.ringSpin = 0f;
-            knife.root.localScale = Vector3.one;
+            knife.root.localScale = Vector3.one * knifeScale;
+            if (knife.model != KnifeModel.Talon) knife.root.localPosition = (1f - knifeScale) * KnifeHandle;
             knife.Animate(time, -1f, current == KnifeSlot ? drawTime : 99f);
         }
 
@@ -490,15 +492,19 @@ namespace VoidFlow
             }
             var right = Pose.Blend(RightArm(a), RightArm(b), s);
             var left = Pose.Blend(LeftArm(a), LeftArm(b), s);
+            // Knife tricks stay low on the screen so you can still see the run: anything above
+            // the resting height is pulled down (the swords' sheath moves are low already)
+            bool keepLow = !knife.IsSword;
+            if (keepLow) { right.p = Low(right.p); left.p = Low(left.p); }
             float show = Mathf.Lerp(a.show, b.show, s);
-            float size = Mathf.Lerp(1f, 0.8f, show); // a little smaller while it's up on show
+            float size = Mathf.Lerp(1f, 0.8f, show) * knifeScale; // a little smaller while it's up on show
             Vector3 pivot = KnifePivot * size;
             Pose Knife(Key k) => k.hold switch
             {
-                Hold.Right => right.Then(rightGrip.p, rightGrip.q),
-                Hold.Left => left.Then(leftGrip.p, leftGrip.q),
-                Hold.Air => new Pose(k.ap - k.aq * pivot, k.aq),
-                _ => InSheath(k),
+                Hold.Right => AboutHandle(right.Then(rightGrip.p, rightGrip.q), size),
+                Hold.Left => AboutHandle(left.Then(leftGrip.p, leftGrip.q), size),
+                Hold.Air => new Pose((keepLow ? Low(k.ap) : k.ap) - k.aq * pivot, k.aq),
+                _ => AboutHandle(InSheath(k), size),
             };
             var knifePose = Pose.Blend(Knife(a), Knife(b), s);
 
@@ -557,6 +563,12 @@ namespace VoidFlow
             // Dark flames wreathe the hilt while it's held at the sheath
             UpdateFlames(knifePose.p + knifePose.q * new Vector3(0f, -0.055f, 0f), knifePose.q, onHilt, time);
         }
+
+        // A knife scaled about its handle: its root moves toward the handle
+        static Pose AboutHandle(Pose p, float size) => new(p.p + p.q * ((1f - size) * KnifeHandle), p.q);
+
+        // Heights above the resting line are more than halved
+        static Vector3 Low(Vector3 p) => new(p.x, p.y < -0.1f ? p.y : -0.1f + (p.y + 0.1f) * 0.45f, p.z);
 
         // How solid an arm can stay: see-through where any of the knife's points sit behind it
         // on screen

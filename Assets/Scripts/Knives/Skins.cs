@@ -3,6 +3,7 @@ using UnityEngine;
 namespace VoidFlow
 {
     public enum KnifeModel { Talon, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle, Reaper, Saber, Shardfang, Railgun, Hellfire, Kukri, Claws, Axe, Sai, Spear, Kris, Prism, Bone, Lance, Seraph,
+        Crescent, Leviathan, Storm, Clockwork, Orbit, Serpent, ScytheRifle, BlackHole, Glitch,
         Glove, GloveArmor, GloveClaws, GloveRunes, GloveScales, GloveKnuckles, GloveBone, GloveCrystal, GloveWings, GloveStorm, GloveWraps }
 
     // Finishes. Most are painted in code (our own takes on the classic flashy knife finishes,
@@ -48,7 +49,8 @@ namespace VoidFlow
         }
 
         public static bool IsRifle(KnifeModel m) => m is KnifeModel.Rifle or KnifeModel.Railgun or KnifeModel.Hellfire
-            or KnifeModel.Prism or KnifeModel.Bone or KnifeModel.Lance or KnifeModel.Seraph;
+            or KnifeModel.Prism or KnifeModel.Bone or KnifeModel.Lance or KnifeModel.Seraph
+            || (m >= KnifeModel.Crescent && m <= KnifeModel.Glitch);
 
         public static bool IsGlove(KnifeModel m) => m >= KnifeModel.Glove;
 
@@ -69,6 +71,15 @@ namespace VoidFlow
             KnifeModel.Saber => "PLASMA SABER",
             KnifeModel.Shardfang => "CRYSTAL DAGGER",
             KnifeModel.Railgun => "VOID RAILGUN",
+            KnifeModel.Crescent => "MOON RIFLE",
+            KnifeModel.Leviathan => "SEA SERPENT",
+            KnifeModel.Storm => "TESLA RIFLE",
+            KnifeModel.Clockwork => "CLOCKWORK",
+            KnifeModel.Orbit => "ORBITAL",
+            KnifeModel.Serpent => "SERPENT RIFLE",
+            KnifeModel.ScytheRifle => "SCYTHE RIFLE",
+            KnifeModel.BlackHole => "SINGULARITY",
+            KnifeModel.Glitch => "CORRUPTED",
             KnifeModel.Kukri => "VOID KUKRI",
             KnifeModel.Claws => "VOID CLAWS",
             KnifeModel.Axe => "VOID AXE",
@@ -204,20 +215,21 @@ namespace VoidFlow
             new("Longreach | Amber Stripe", KnifeModel.Rifle, KnifeFinish.AmberStripe, SkinRarity.Mythic),
             new("Longreach | Candy Swirl", KnifeModel.Rifle, KnifeFinish.CandySwirl, SkinRarity.Mythic),
             new("Longreach | Red Web", KnifeModel.Rifle, KnifeFinish.RedWeb, SkinRarity.Mythic),
-            new("Longreach | Hollow Moon", KnifeModel.Rifle, KnifeFinish.HollowMoon, SkinRarity.Void),
-            new("Longreach | Tidebreaker", KnifeModel.Rifle, KnifeFinish.Tidebreaker, SkinRarity.Void),
-            new("Singularity", KnifeModel.Railgun, KnifeFinish.Singularity, SkinRarity.Void),
-            new("Frostbite Railgun", KnifeModel.Railgun, KnifeFinish.FrostRail, SkinRarity.Void),
+            // Void snipers: every one its own design (Spectrum cycles through every color)
+            new("Spectrum", KnifeModel.Railgun, KnifeFinish.Singularity, SkinRarity.Void),
+            new("Crescent", KnifeModel.Crescent, KnifeFinish.HollowMoon, SkinRarity.Void),
+            new("Leviathan", KnifeModel.Leviathan, KnifeFinish.Tidebreaker, SkinRarity.Void),
             new("Hellfire", KnifeModel.Hellfire, KnifeFinish.Hellfire, SkinRarity.Void),
-            new("Event Horizon", KnifeModel.Railgun, KnifeFinish.EventHorizon, SkinRarity.Void),
-            new("Tempest", KnifeModel.Railgun, KnifeFinish.TempestRail, SkinRarity.Void),
-            new("Inferno", KnifeModel.Hellfire, KnifeFinish.Inferno, SkinRarity.Void),
-            new("Abyssal Fire", KnifeModel.Hellfire, KnifeFinish.AbyssalFire, SkinRarity.Void),
+            new("Stormcaller", KnifeModel.Storm, KnifeFinish.TempestRail, SkinRarity.Void),
+            new("Clockwork", KnifeModel.Clockwork, KnifeFinish.Inferno, SkinRarity.Void),
+            new("Nebula Core", KnifeModel.Orbit, KnifeFinish.FrostRail, SkinRarity.Void),
+            new("Viper", KnifeModel.Serpent, KnifeFinish.SerpentFang, SkinRarity.Void),
+            new("Grim Harvest", KnifeModel.ScytheRifle, KnifeFinish.AbyssalFire, SkinRarity.Void),
+            new("Event Horizon", KnifeModel.BlackHole, KnifeFinish.EventHorizon, SkinRarity.Void),
+            new("Glitch", KnifeModel.Glitch, KnifeFinish.CrimsonLance, SkinRarity.Void),
             new("Prism", KnifeModel.Prism, KnifeFinish.PrismRifle, SkinRarity.Void),
-            new("Amethyst Prism", KnifeModel.Prism, KnifeFinish.AmethystPrism, SkinRarity.Void),
             new("Deathwhisper", KnifeModel.Bone, KnifeFinish.Deathwhisper, SkinRarity.Void),
             new("Plasma Lance", KnifeModel.Lance, KnifeFinish.PlasmaLance, SkinRarity.Void),
-            new("Crimson Lance", KnifeModel.Lance, KnifeFinish.CrimsonLance, SkinRarity.Void),
             new("Seraph", KnifeModel.Seraph, KnifeFinish.Seraph, SkinRarity.Void),
             new("Longreach | Tidewater Onyx", KnifeModel.Rifle, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
             new("Longreach | Carbon", KnifeModel.Rifle, KnifeFinish.Carbon, SkinRarity.Mythic),

@@ -42,7 +42,7 @@ namespace VoidFlow
 
         void Start()
         {
-            if (Application.isPlaying) FxLibrary.Sparkle(transform, Skins.RarityColor(Skin.rarity), 0.4f, 2.5f);
+            if (Application.isPlaying && !gallery) FxLibrary.Sparkle(transform, Skins.RarityColor(Skin.rarity), 0.4f, 2.5f);
         }
         void OnDisable()
         {
@@ -78,7 +78,8 @@ namespace VoidFlow
             var offset = new GameObject("Offset").transform;
             offset.SetParent(model, false);
             offset.localPosition = sniper ? new Vector3(0f, -0.02f, -0.25f) : glove ? new Vector3(0f, 0.12f, 0f) : new Vector3(0f, -0.06f, 0f);
-            var builder = new WeaponBuilder(template, gameObject.layer, true, materials);
+            // Gallery pieces cast no shadows: there are a lot of them
+            var builder = new WeaponBuilder(template, gameObject.layer, !gallery, materials);
             parts = glove ? builder.GloveModel(Skin, offset) : sniper ? builder.Rifle(Skin, offset) : builder.Knife(Skin, offset);
             if (shelfBelow > 0f) FitAboveShelf();
             foreach (var t in model.GetComponentsInChildren<Transform>(true)) t.gameObject.hideFlags = HideFlags.HideAndDontSave;
@@ -129,7 +130,7 @@ namespace VoidFlow
             if (!player) player = FindAnyObjectByType<PlayerMovement>();
             if (!player) return;
             // Far across the hall, the model switches off (a gallery holds a lot of them)
-            if (model) model.gameObject.SetActive((player.Position - transform.position).sqrMagnitude < 34f * 34f);
+            if (model) model.gameObject.SetActive((player.Position - transform.position).sqrMagnitude < 24f * 24f);
             near = IsNearest(player.Position) && !ViewModel.InputBlocked;
             var kb = Keyboard.current;
             if (near && !gallery && kb != null && kb.eKey.wasPressedThisFrame)

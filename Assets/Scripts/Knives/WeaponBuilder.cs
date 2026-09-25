@@ -21,6 +21,20 @@ namespace VoidFlow
 
         public bool IsSword => model is KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus;
         public WeaponFlames flames;
+        // Moving parts: things that turn (gears, rings, orbits), things that crackle on and off
+        // (lightning, holograms) and things that glitch out of place and snap back
+        public readonly List<(Transform t, Quaternion rest, Vector3 rate)> spinners = new();
+        public readonly List<(Transform t, float phase, float rate)> flickers = new();
+        public readonly List<(Transform t, Vector3 home, float amount)> jitters = new();
+        // Spectrum: every glow cycles through the colors
+        public bool cycleHue;
+        public readonly List<(Material m, float alpha, float intensity)> tintMaterials = new();
+
+        static float Hash(float n)
+        {
+            float s = Mathf.Sin(n * 12.9898f) * 43758.5453f;
+            return s - Mathf.Floor(s);
+        }
         public Color hue = Color.white; // Void weapons: the color they burn in
 
         // The hand raises every knife to show it off (see ViewModel); on top of that the
@@ -95,6 +109,37 @@ namespace VoidFlow
                 }
             }
 
+            foreach (var (t, rest, rate) in spinners)
+                if (t) t.localRotation = rest * Quaternion.Euler(rate * time);
+            foreach (var (t, phase, rate) in flickers)
+                if (t) t.gameObject.SetActive(Hash(Mathf.Floor(time * rate + phase)) > 0.4f);
+            for (int i = 0; i < jitters.Count; i++)
+            {
+                var (t, home, amount) = jitters[i];
+                if (!t) continue;
+                float step = Mathf.Floor(time * 10f + i * 3.7f);
+                bool slip = Hash(step + i * 17f) > 0.82f;
+                t.localPosition = slip ? home + new Vector3(Hash(step) - 0.5f, Hash(step + 1f) - 0.5f, Hash(step + 2f) - 0.5f) * amount * 2f : home;
+            }
+            if (cycleHue)
+            {
+                Color h = Color.HSVToRGB(Mathf.Repeat(time * 0.12f, 1f), 0.85f, 1f);
+                hue = h;
+                if (flames) flames.hue = h;
+                for (int i = 0; i < glowMaterials.Count; i++)
+                {
+                    if (!glowMaterials[i]) continue;
+                    float pulse = 1f + 0.25f * Mathf.Sin(time * 3f + i) + burst * 2.5f;
+                    glowMaterials[i].SetColor("_EmissionColor", h * glowColors[i].maxColorComponent * pulse);
+                }
+                foreach (var (m, alpha, intensity) in tintMaterials)
+                {
+                    if (!m) continue;
+                    m.SetColor("_BaseColor", new Color(h.r, h.g, h.b, alpha));
+                    m.SetColor("_EmissionColor", h * intensity);
+                }
+            }
+
             if (model == KnifeModel.Talon && root)
             {
                 // Spinning around the finger ring (how far is driven by the view: it keeps
@@ -121,7 +166,7 @@ namespace VoidFlow
     // space": handle along +Y from -0.11 to 0, blade above it, edge toward -X, blade flat in
     // the XY plane) and the sniper rifle (+Z along the barrel, origin at the trigger).
     // Used for the first-person view, the hall displays and the cases.
-    public class WeaponBuilder
+    public partial class WeaponBuilder
     {
         readonly Material template;
         readonly int layer;
@@ -135,6 +180,25 @@ namespace VoidFlow
             this.layer = layer;
             this.shadows = shadows;
             this.materials = materials;
+        }
+
+        // The size of a weapon's meshes in its root's space (flames and aura left out)
+        public static Vector3 MeshSize(WeaponParts parts)
+        {
+            Vector3 lo = Vector3.one * 99f, hi = -lo;
+            foreach (var mf in parts.root.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (!mf.sharedMesh || mf.name == "Flame" || (parts.aura && mf.transform.IsChildOf(parts.aura))) continue;
+                var b = mf.sharedMesh.bounds;
+                var m = parts.root.worldToLocalMatrix * mf.transform.localToWorldMatrix;
+                for (int c = 0; c < 8; c++)
+                {
+                    var p = m.MultiplyPoint3x4(b.center + Vector3.Scale(b.extents, new Vector3((c & 1) == 0 ? -1 : 1, (c & 2) == 0 ? -1 : 1, (c & 4) == 0 ? -1 : 1)));
+                    lo = Vector3.Min(lo, p);
+                    hi = Vector3.Max(hi, p);
+                }
+            }
+            return hi.x >= lo.x ? hi - lo : Vector3.zero;
         }
 
         public static void Kill(Object o)
@@ -414,6 +478,13 @@ namespace VoidFlow
         }
 
         // A see-through glowing material (plasma halos)
+        Material SeeThroughGlow(Color color, float alpha, float intensity, WeaponParts tinted)
+        {
+            var m = SeeThroughGlow(color, alpha, intensity);
+            tinted.tintMaterials.Add((m, alpha, intensity));
+            return m;
+        }
+
         Material SeeThroughGlow(Color color, float alpha, float intensity)
         {
             var m = ViewModel.MakeTransparent(new Material(template));
@@ -973,8 +1044,8 @@ namespace VoidFlow
             foreach (float z in new[] { -0.06f, 0.1f, 0.2f })
                 MeshPart(t, seam, Torus(0.0175f, 0.0028f, 24, 6), new Vector3(0f, 0.098f, z), Quaternion.identity);
             MeshPart(t, seam, Torus(0.034f, 0.003f, 28, 6), new Vector3(0f, 0.098f, 0.34f), Quaternion.identity);
-            Rod(t, SeeThroughGlow(parts.hue, 0.8f, 3f), new Vector3(0f, 0.098f, 0.346f), new Vector3(0f, 0.098f, 0.35f), 0.056f);
-            Rod(t, SeeThroughGlow(parts.hue, 0.8f, 3f), new Vector3(0f, 0.098f, -0.172f), new Vector3(0f, 0.098f, -0.175f), 0.034f);
+            Rod(t, SeeThroughGlow(parts.hue, 0.8f, 3f, parts), new Vector3(0f, 0.098f, 0.346f), new Vector3(0f, 0.098f, 0.35f), 0.056f);
+            Rod(t, SeeThroughGlow(parts.hue, 0.8f, 3f, parts), new Vector3(0f, 0.098f, -0.172f), new Vector3(0f, 0.098f, -0.175f), 0.034f);
             // Motes orbiting the rifle
             var holder = new GameObject("Aura").transform;
             holder.SetParent(t, false);
@@ -1077,7 +1148,7 @@ namespace VoidFlow
                 foreach (float y in new[] { 0.036f, 0.0f })
                     Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, y, 0.62f), new Vector3(0.02f, 0.012f, 0.84f));
                 Rod(t, coil, new Vector3(0f, 0.018f, 0.2f), new Vector3(0f, 0.018f, 1.02f), 0.007f);
-                Rod(t, SeeThroughGlow(parts.hue, 0.25f, 2f), new Vector3(0f, 0.018f, 0.2f), new Vector3(0f, 0.018f, 1.02f), 0.02f);
+                Rod(t, SeeThroughGlow(parts.hue, 0.25f, 2f, parts), new Vector3(0f, 0.018f, 0.2f), new Vector3(0f, 0.018f, 1.02f), 0.02f);
                 for (int k = 0; k < 8; k++)
                 {
                     float z = 0.3f + k * 0.09f;
@@ -1172,7 +1243,9 @@ namespace VoidFlow
                 MeshPart(t, Glow(parts.hue, 3f, parts), Torus(0.045f, 0.004f, 32, 8), new Vector3(0f, 0.16f, 0.07f), Quaternion.Euler(90f, 0f, 0f));
                 for (int k = 0; k < 4; k++) burn.Add(new Vector3(0f, 0.04f, 0.35f + k * 0.18f));
             }
+            BuildVoidRifle(skin, parts, t, chassis, metal, burn);
             if (skin.rarity == SkinRarity.Void) VoidRifleKit(parts, t);
+            parts.cycleHue = skin.name == "Spectrum";
 
             // Magazine just ahead of the trigger
             parts.magazine = new GameObject("Magazine").transform;

@@ -289,7 +289,9 @@ namespace VoidFlow.EditorTools
             probe.size = new Vector3(width, HallHeight, HallDepth);
             probe.boxProjection = true;
             probe.importance = 2;
-            probe.resolution = 128;
+            // Low resolution and no shadows: it bakes the whole room once, and the room holds a lot
+            probe.resolution = 64;
+            probe.shadowDistance = 0f;
             probe.cullingMask = ~(1 << 30);
 
             var spawn = new GameObject("Spawn").transform;

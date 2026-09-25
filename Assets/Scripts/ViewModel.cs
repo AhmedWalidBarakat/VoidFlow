@@ -508,6 +508,8 @@ namespace VoidFlow
         }
 
         BlockArm rightHand, leftHand;
+        float knifeScale = 1f;
+        static readonly Vector3 KnifeHandle = new(0f, -0.055f, 0f);
 
         void BuildKnifeModel()
         {
@@ -518,6 +520,10 @@ namespace VoidFlow
             else SetGrip(rightHand, false);
             var builder = new WeaponBuilder(template, Layer, false, knifeMaterials);
             knife = builder.Knife(Skins.Knives[knifeSkin], rightHand.grip);
+            // Every knife is sized like the talon knife (about 0.3 long), so none reaches across
+            // the middle of the screen; it's scaled about its handle, so the grip stays put
+            float length = WeaponBuilder.MeshSize(knife).magnitude;
+            knifeScale = length > 0.01f ? Mathf.Clamp(0.3f / length, 0.6f, 1f) : 1f;
             BuildSheath(Skins.Knives[knifeSkin], builder);
             if (weapons != null) weapons[KnifeSlot].drawTime = knife.IsSword ? SwordDrawTime : 0.6f;
             UpdateSheath();

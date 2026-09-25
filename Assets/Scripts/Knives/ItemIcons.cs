@@ -82,7 +82,7 @@ namespace VoidFlow
                 if (vm) template = vm.template;
                 if (!template) return;
             }
-            for (int budget = 2; budget > 0 && queue.Count > 0; budget--)
+            for (int budget = 1; budget > 0 && queue.Count > 0; budget--) // one a frame keeps the GPU queue light
             {
                 var key = queue[0];
                 queue.RemoveAt(0);

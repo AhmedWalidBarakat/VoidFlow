@@ -65,6 +65,8 @@ namespace VoidFlow
             // The sword itself, blade down inside the scabbard, hilt sticking out of the mouth
             var holder = new GameObject("Sheathed Sword").transform;
             holder.SetParent(sheath, false);
+            holder.localScale = Vector3.one * knifeScale;
+            holder.localPosition = (1f - knifeScale) * KnifeHandle;
             sheathed = builder.Knife(skin, holder);
             if (sheathed.aura) Kill(sheathed.aura.gameObject);
         }
@@ -74,8 +76,9 @@ namespace VoidFlow
         (Quaternion atHilt, Vector3 hiltPosition, Vector3 pulled) HiltPose()
         {
             Transform rig = hand.parent;
-            Quaternion swordRotation = Quaternion.Inverse(rig.rotation) * sheathed.root.rotation;
-            Vector3 swordPosition = rig.InverseTransformPoint(sheathed.root.position);
+            // The sword's unscaled pose is the sheath's own (the scaled copy sits about its handle)
+            Quaternion swordRotation = Quaternion.Inverse(rig.rotation) * sheath.rotation;
+            Vector3 swordPosition = rig.InverseTransformPoint(sheath.position);
             Quaternion atHilt = swordRotation * Quaternion.Inverse(rightHand.grip.localRotation);
             Vector3 hiltPosition = swordPosition - atHilt * rightHand.grip.localPosition;
             return (atHilt, hiltPosition, hiltPosition + swordRotation * Vector3.down * 0.3f);
