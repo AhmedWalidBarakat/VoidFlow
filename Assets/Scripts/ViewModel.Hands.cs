@@ -49,6 +49,23 @@ namespace VoidFlow
             return Quaternion.LookRotation(back, fingers);
         }
 
+        // Where a knife sits for an inspect: flat against the palm side of the glove (its
+        // blade plane parallel to the palm, a little in front of it), pivot on the palm center.
+        // The pivot is the handle's middle for a sword, the finger ring for a karambit and the
+        // hinge pin for a butterfly knife, so each spins or flips around the right point.
+        static readonly Vector3 PalmPoint = new(0f, 0.012f, -(GloveSize.z * 0.5f + 0.022f));
+
+        static (Vector3, Quaternion) PalmGrip(WeaponParts knife)
+        {
+            Vector3 pivot = knife.model switch
+            {
+                KnifeModel.Karambit => knife.ringCenter,
+                KnifeModel.Butterfly => Vector3.zero,
+                _ => new Vector3(0f, -0.055f, 0f),
+            };
+            return (PalmPoint - pivot, Quaternion.identity);
+        }
+
         // Put a knife in the glove: its handle (knife space y -0.11 to 0) runs across the front
         // edge of the block.
         // Forward grip: blade out of the thumb side (+X). Reverse grip (karambit): blade out of

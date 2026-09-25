@@ -68,8 +68,8 @@ namespace VoidFlow
             }
             if (IsSword && root)
             {
-                // Two even turns in the grip, pivoting on the middle of the handle, easing in
-                // and out so it starts and lands cleanly on the salute
+                // Two even turns flat in front of the palm, pivoting on the middle of the
+                // handle, easing in and out so it starts and lands cleanly on the salute
                 float a = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.0f, 2.0f, inspect)) * 720f : 0f;
                 var spin = Quaternion.Euler(0f, 0f, a);
                 var pivot = new Vector3(0f, -0.055f, 0f);

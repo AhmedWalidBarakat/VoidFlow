@@ -118,7 +118,8 @@ namespace VoidFlow
                 hand.localPosition = Vector3.Lerp(pulled, RightIdle, a) + Vector3.up * (Mathf.Sin(a * Mathf.PI) * 0.06f);
                 hand.localRotation = Quaternion.Slerp(atHilt, ForwardIdle, a);
             }
-            leftHand.root.localPosition = LeftIdle;
+            // The left arm dips while the right hand crosses the body to the hip
+            leftHand.root.localPosition = LeftIdle + LeftHandAway * Plateau(t, 0f, 0.15f, SwordPulled, SwordDrawTime);
             leftHand.root.gameObject.SetActive(true);
             return true;
         }

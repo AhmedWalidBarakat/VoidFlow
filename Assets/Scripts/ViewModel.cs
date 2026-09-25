@@ -351,9 +351,13 @@ namespace VoidFlow
         static readonly Vector3 InspectSpot = new(0.06f, -0.035f, 0.33f);
         static readonly Quaternion InspectRotation = FingersBack(new Vector3(-1f, 0f, 0.3f), new Vector3(0.3f, 0f, 1f));
         static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
-        // Swords are shown dead center, further out, so their twirl circles the middle of the
-        // screen (the hand sits right of center so the grip it holds is exactly in the middle)
-        static readonly Vector3 SwordInspectSpot = new(0.056f, 0f, 0.46f);
+        // For inspects the hand turns its palm toward you, fingers up, and the knife moves
+        // onto the palm side and spins flat in front of it, facing you. The glove and sleeve
+        // stay behind the spin, so nothing ever passes through them. Swords go further out
+        // and dead center so their big spin circles the middle of the screen.
+        static readonly Quaternion PalmRotation = FingersBack(new Vector3(-0.25f, 1f, 0f), new Vector3(0.15f, 0f, 1f));
+        static readonly Vector3 TrickSpot = new(0.045f, -0.06f, 0.46f);
+        static readonly Vector3 SwordInspectSpot = new(0.03f, -0.035f, 0.6f);
 
         // Places the hands for the current knife: the resting hold plus the slash offset
         // (camera space pos, rot), blended into the inspect pose while inspecting (inspect >= 0)
@@ -365,11 +369,20 @@ namespace VoidFlow
             // Up in 0.3 s, hold, back down over the last 0.35 s
             bool sword = knife.IsSword;
             float w = inspect >= 0f ? Plateau(inspect, 0f, sword ? 0.35f : 0.3f, length - (sword ? 0.5f : 0.35f), length) : 0f;
-            Quaternion show = InspectRotation * InspectMove(inspect);
-            hand.localPosition = Vector3.Lerp(RightIdle, sword ? SwordInspectSpot : InspectSpot, w) + pos;
+            Quaternion show = PalmRotation * InspectMove(inspect);
+            hand.localPosition = Vector3.Lerp(RightIdle, sword ? SwordInspectSpot : TrickSpot, w) + pos;
             hand.localRotation = Quaternion.Euler(rot) * Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, show, w);
-            if (reverse) SetGrip(rightHand, true, -90f * w);
-            leftHand.root.localPosition = LeftIdle + LeftHandAway * w;
+            // The knife moves from its normal hold onto the palm side for the show
+            SetGrip(rightHand, reverse);
+            if (w > 0f)
+            {
+                var (palmPos, palmRot) = PalmGrip(knife);
+                rightHand.grip.SetLocalPositionAndRotation(
+                    Vector3.Lerp(rightHand.grip.localPosition, palmPos, w), Quaternion.Slerp(rightHand.grip.localRotation, palmRot, w));
+            }
+            // The left arm dips out of the way of inspects and of cuts that cross the body
+            float slashAway = slashTime >= 0f && slashSide < 0f ? Plateau(slashTime, 0f, 0.1f, 0.3f, 0.45f) : 0f;
+            leftHand.root.localPosition = LeftIdle + LeftHandAway * Mathf.Max(w, slashAway);
             // During a sword inspect the left arm disappears so it never blocks the show
             leftHand.root.gameObject.SetActive(!(knife.IsSword && inspect >= 0f));
             knife.Animate(Application.isPlaying ? Time.time : 0f, inspect);
@@ -386,15 +399,16 @@ namespace VoidFlow
                     // The CS finger-ring twirl (the spin is in WeaponParts): the wrist rolls and
                     // bobs in time with it, then settles
                     float twirl = Plateau(t, 0.45f, 0.6f, 1.55f, 1.8f);
-                    return Quaternion.Euler(Mathf.Sin(t * 12f) * 7f * twirl, 0f, Mathf.Lerp(-12f, 14f, Ease(t, 0.3f, 2.1f)));
+                    return Quaternion.Euler(0f, 0f, Mathf.Sin(t * 12f) * 4f * twirl);
                 case KnifeModel.Butterfly:
                     // Flip tricks: the wrist snaps with every flip of the blade
                     float flips = Plateau(t, 0.4f, 0.5f, 1.55f, 1.75f);
-                    return Quaternion.Euler(Mathf.Sin((t - 0.45f) * Mathf.PI * 2f / 0.4f) * 14f * flips, 0f, -8f + 10f * Ease(t, 0.3f, 2f));
+                    return Quaternion.Euler(0f, 0f, Mathf.Sin((t - 0.45f) * Mathf.PI * 2f / 0.4f) * 6f * flips);
                 default:
                     // Swords: a blade-up salute in the middle of the screen with the flat toward
                     // you, one slow even sway left and right while the edge flares, then two
-                    // full turns in the grip (see WeaponParts), then still again before lowering
+                    // full spins flat in front of the palm (see WeaponParts), then still again
+                    // before lowering
                     float sway = Mathf.Sin(Ease(t, 0.35f, 0.95f) * Mathf.PI * 2f) * 7f;
                     return Quaternion.Euler(0f, 0f, sway);
             }
