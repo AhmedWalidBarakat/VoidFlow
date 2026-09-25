@@ -31,9 +31,9 @@ namespace VoidFlow
         static readonly Quaternion TalonIdle = FingersBack(new Vector3(-0.05f, 0.85f, 0.5f), new Vector3(0f, -0.5f, 0.85f));
         // Talon inspect: the knife hangs from the finger ring in front of the raised glove, flat
         // side on, and spins round the finger there
-        static readonly Vector3 TalonShowPos = new(0.095f, -0.005f, 0.33f);
-        static readonly Quaternion TalonShowArm = FingersBack(new Vector3(-0.28f, 0.75f, 0.6f), new Vector3(0.15f, -0.3f, 0.95f));
-        static readonly Quaternion TalonShow = Quaternion.Euler(0f, 0f, -18f);
+        static readonly Vector3 TalonShowPos = TalonIdlePos; // the arm stays put: only the hand turns
+        static readonly Quaternion TalonShowArm = FingersBack(new Vector3(-0.12f, 0.9f, 0.42f), new Vector3(0.1f, -0.4f, 0.9f));
+        static readonly Quaternion TalonShow = Quaternion.Euler(0f, 0f, -42f);
         static readonly Quaternion ForwardIdle = FingersBack(new Vector3(-0.3f, 0.5f, 1f), new Vector3(0.6f, 0.5f, -0.6f));
         static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.3f, 0.5f, 1f), new Vector3(-0.1f, 0.6f, -0.7f));
         static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
@@ -496,7 +496,7 @@ namespace VoidFlow
             // Talon show: the knife hangs from the finger ring just in front of the glove
             if (show > 0f)
             {
-                Vector3 ringAt = right.p + right.q * GripFront + new Vector3(0f, 0f, -0.06f); // in front of the glove
+                Vector3 ringAt = right.p + right.q * GripFront + new Vector3(-0.035f, 0.035f, -0.035f); // on the glove's top corner, spinning low right, clear of the middle
                 knifePose = Pose.Blend(knifePose, new Pose(ringAt - TalonShow * pivot, TalonShow), show);
             }
             knife.root.localScale = Vector3.one * size;
