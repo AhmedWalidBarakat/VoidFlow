@@ -128,6 +128,8 @@ namespace VoidFlow
                 w.root.gameObject.SetActive(w == Current);
             }
             SetupSniper();
+            gloveSkin = Skins.EquippedGlove;
+            ApplyGloves();
         }
 
         // Builds the viewmodel outside play mode too, so editor tools can photograph it
@@ -167,6 +169,7 @@ namespace VoidFlow
             Kill(panel);
             Kill(dot);
             Kill(gloveTexture);
+            foreach (var m in gloveMaterials) Kill(m);
             Kill(trailFade);
             Kill(sleeveTexture);
             Kill(scopeTexture);
@@ -307,6 +310,7 @@ namespace VoidFlow
             if (current == KnifeSlot) UpdateKnife(kb, mouse, locked, ready, dt);
             else UpdateSniper(kb, mouse, locked, ready, dt);
             UpdateEffects(dt);
+            UpdateGloves();
 
             if (player) player.maxSpeed = (current == SniperSlot && zoom > 0 ? 100f : weapon.speed) * PlayerMovement.SourceUnit;
         }

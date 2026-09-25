@@ -15,6 +15,7 @@ namespace VoidFlow
     {
         public string title = "KNIFE CASE";
         public bool sniperCase;
+        public bool gloveCase;
         [Tooltip("Which skin floats above the case")]
         public int showcaseSkin = 1;
         public Color stripeA = new(0.08f, 0.06f, 0.12f), stripeB = new(0.55f, 0.25f, 1f), rayColor = new(1f, 0.75f, 0.25f);
@@ -30,7 +31,7 @@ namespace VoidFlow
 
         static readonly Vector3 ShowcaseSpot = new(0f, 1.75f, -0.25f); // above the case, in front of the lid
 
-        Skins.Skin[] Pool => sniperCase ? Skins.Snipers : Skins.Knives;
+        Skins.Skin[] Pool => gloveCase ? Skins.Gloves : sniperCase ? Skins.Snipers : Skins.Knives;
 
         void OnEnable() => Build();
 
@@ -120,12 +121,12 @@ namespace VoidFlow
             var tilt = new GameObject("Tilt").transform;
             tilt.SetParent(showcaseSpin, false);
             tilt.localRotation = Quaternion.Euler(0f, 0f, sniperCase ? 15f : -35f);
-            tilt.localScale = Vector3.one * (sniperCase ? 1.5f : 6.5f);
+            tilt.localScale = Vector3.one * (sniperCase ? 1.5f : gloveCase ? 5f : 6.5f);
             var offset = new GameObject("Offset").transform;
             offset.SetParent(tilt, false);
-            offset.localPosition = sniperCase ? new Vector3(0f, -0.02f, -0.25f) : new Vector3(0f, -0.06f, 0f);
+            offset.localPosition = sniperCase ? new Vector3(0f, -0.02f, -0.25f) : gloveCase ? new Vector3(0f, 0.07f, 0f) : new Vector3(0f, -0.06f, 0f);
             int skin = Mathf.Clamp(showcaseSkin, 0, Pool.Length - 1);
-            showcase = sniperCase ? b.Rifle(Pool[skin], offset) : b.Knife(Pool[skin], offset);
+            showcase = gloveCase ? b.GloveModel(Pool[skin], offset) : sniperCase ? b.Rifle(Pool[skin], offset) : b.Knife(Pool[skin], offset);
 
             foreach (var tr in model.GetComponentsInChildren<Transform>(true)) tr.gameObject.hideFlags = HideFlags.HideAndDontSave;
         }
@@ -286,7 +287,8 @@ namespace VoidFlow
             if (!viewModel) viewModel = FindAnyObjectByType<ViewModel>();
             if (viewModel)
             {
-                if (sniperCase) viewModel.EquipSniperSkin(winner);
+                if (gloveCase) viewModel.EquipGloveSkin(winner);
+                else if (sniperCase) viewModel.EquipSniperSkin(winner);
                 else viewModel.EquipKnifeSkin(winner);
             }
         }
@@ -399,7 +401,7 @@ namespace VoidFlow
             holder.SetParent(stageModel, false);
             var builder = new WeaponBuilder(template, layer, false, stageMaterials);
             var skin = Pool[winner];
-            stageParts = sniperCase ? builder.Rifle(skin, holder) : builder.Knife(skin, holder);
+            stageParts = gloveCase ? builder.GloveModel(skin, holder) : sniperCase ? builder.Rifle(skin, holder) : builder.Knife(skin, holder);
             if (sniperCase) holder.localRotation = Quaternion.Euler(0f, 90f, 0f);
             var bounds = new Bounds();
             bool first = true;
@@ -655,7 +657,7 @@ namespace VoidFlow
             GUI.color = new Color(color.r, color.g, color.b, 0.85f);
             GUI.DrawTexture(new Rect(-w + slide * w, by, w, 44f), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(-w + slide * w, by, w, 44f), $"{Skins.RarityName(skin.rarity).ToUpper()}  ·  {(sniperCase ? "SNIPER" : "KNIFE")} UNBOXED", bannerStyle);
+            GUI.Label(new Rect(-w + slide * w, by, w, 44f), $"{Skins.RarityName(skin.rarity).ToUpper()}  ·  {(gloveCase ? "GLOVES" : sniperCase ? "SNIPER" : "KNIFE")} UNBOXED", bannerStyle);
 
             // The name pops in
             float pop = t < 0.3f ? 0f : ElasticOut(Mathf.Clamp01((t - 0.3f) / 0.5f));
@@ -697,6 +699,7 @@ namespace VoidFlow
             GUI.color = new Color(1f, 1f, 1f, alpha);
             string kind = skin.model switch
             {
+                var m when Skins.IsGlove(m) => m == KnifeModel.Glove ? "GLOVES" : "VOID GLOVES",
                 KnifeModel.Talon => "TALON KNIFE",
                 KnifeModel.Butterfly => "BUTTERFLY",
                 KnifeModel.Rifle => "LONGREACH",

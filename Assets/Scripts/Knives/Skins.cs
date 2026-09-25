@@ -2,7 +2,8 @@ using UnityEngine;
 
 namespace VoidFlow
 {
-    public enum KnifeModel { Talon, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle, Reaper, Saber, Shardfang, Railgun, Hellfire, Kukri, Claws, Axe, Sai, Spear, Kris, Prism, Bone, Lance, Seraph }
+    public enum KnifeModel { Talon, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle, Reaper, Saber, Shardfang, Railgun, Hellfire, Kukri, Claws, Axe, Sai, Spear, Kris, Prism, Bone, Lance, Seraph,
+        Glove, GloveArmor, GloveClaws, GloveRunes, GloveScales, GloveKnuckles, GloveBone, GloveCrystal, GloveWings, GloveStorm, GloveWraps }
 
     // Finishes. Most are painted in code (our own takes on the classic flashy knife finishes,
     // and the glowing Void ones); the stone, carbon and metal ones use CC0 photo textures from
@@ -14,6 +15,7 @@ namespace VoidFlow
         DesertOnyx, CaramelSwirl, GlacierOnyx, AmberOnyx, CrimsonOnyx, StormOnyx, VioletOnyx, Obsidian, Confetti, MagmaVein, Molten, LavaFlow, Plasma, Toxic, VoidFlare, Frostbite, ShatteredIce, Sapphire, Amethyst, Ruby, Chrome, Gold, Copper, AntiqueGold, Holographic,
         SoulReaper, FrostReaper, NovaSaber, CrimsonSaber, Shardfang, Singularity, FrostRail, Hellfire,
         SerpentFang, DragonClaw, DoomAxe, StormSai, Starlance, WraithKris, InfernoReaper, VoidSaber, SolarSaber, EmeraldShard, EventHorizon, TempestRail, Inferno, AbyssalFire, PrismRifle, AmethystPrism, Deathwhisper, PlasmaLance, CrimsonLance, Seraph,
+        InfernoGauntlet, FrostTalons, VoidRunes, Dragonscale, PlasmaKnuckles, Bonehand, CrystalGauntlet, SeraphWraps, StormGauntlet, ReaperWraps,
     }
 
     public enum SkinRarity { Default, Mythic, Void }
@@ -44,6 +46,52 @@ namespace VoidFlow
 
         public static bool IsRifle(KnifeModel m) => m is KnifeModel.Rifle or KnifeModel.Railgun or KnifeModel.Hellfire
             or KnifeModel.Prism or KnifeModel.Bone or KnifeModel.Lance or KnifeModel.Seraph;
+
+        public static bool IsGlove(KnifeModel m) => m >= KnifeModel.Glove;
+
+        // Gloves: the default black pair, Mythic finishes, and Void gloves with their own add-ons
+        public static readonly Skin[] Gloves =
+        {
+            new("Gloves", KnifeModel.Glove, KnifeFinish.Polished, SkinRarity.Default),
+            new("Gloves | Nebula", KnifeModel.Glove, KnifeFinish.Nebula, SkinRarity.Mythic),
+            new("Gloves | Sunset Fade", KnifeModel.Glove, KnifeFinish.SunsetFade, SkinRarity.Mythic),
+            new("Gloves | Candy Swirl", KnifeModel.Glove, KnifeFinish.CandySwirl, SkinRarity.Mythic),
+            new("Gloves | Amber Stripe", KnifeModel.Glove, KnifeFinish.AmberStripe, SkinRarity.Mythic),
+            new("Gloves | Red Web", KnifeModel.Glove, KnifeFinish.RedWeb, SkinRarity.Mythic),
+            new("Gloves | Emerald Nebula", KnifeModel.Glove, KnifeFinish.EmeraldNebula, SkinRarity.Mythic),
+            new("Gloves | Carbon", KnifeModel.Glove, KnifeFinish.Carbon, SkinRarity.Mythic),
+            new("Gloves | Gunmetal", KnifeModel.Glove, KnifeFinish.Gunmetal, SkinRarity.Mythic),
+            new("Gloves | Diamond Plate", KnifeModel.Glove, KnifeFinish.DiamondPlate, SkinRarity.Mythic),
+            new("Gloves | Saddle", KnifeModel.Glove, KnifeFinish.Saddle, SkinRarity.Mythic),
+            new("Gloves | Tidewater Onyx", KnifeModel.Glove, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
+            new("Gloves | Black Marble", KnifeModel.Glove, KnifeFinish.BlackMarble, SkinRarity.Mythic),
+            new("Gloves | 24K Gold", KnifeModel.Glove, KnifeFinish.Gold, SkinRarity.Mythic),
+            new("Gloves | Chrome", KnifeModel.Glove, KnifeFinish.Chrome, SkinRarity.Mythic),
+            new("Gloves | Holographic", KnifeModel.Glove, KnifeFinish.Holographic, SkinRarity.Mythic),
+            new("Gloves | Molten", KnifeModel.Glove, KnifeFinish.Molten, SkinRarity.Mythic),
+            new("Gloves | Toxic", KnifeModel.Glove, KnifeFinish.Toxic, SkinRarity.Mythic),
+            new("Gloves | Sapphire", KnifeModel.Glove, KnifeFinish.Sapphire, SkinRarity.Mythic),
+            new("Gloves | Ruby", KnifeModel.Glove, KnifeFinish.Ruby, SkinRarity.Mythic),
+            new("Gloves | Amethyst", KnifeModel.Glove, KnifeFinish.Amethyst, SkinRarity.Mythic),
+            new("Gloves | Obsidian", KnifeModel.Glove, KnifeFinish.Obsidian, SkinRarity.Mythic),
+            new("Gloves | Confetti", KnifeModel.Glove, KnifeFinish.Confetti, SkinRarity.Mythic),
+            new("Inferno Gauntlet", KnifeModel.GloveArmor, KnifeFinish.InfernoGauntlet, SkinRarity.Void),
+            new("Frost Talons", KnifeModel.GloveClaws, KnifeFinish.FrostTalons, SkinRarity.Void),
+            new("Void Runes", KnifeModel.GloveRunes, KnifeFinish.VoidRunes, SkinRarity.Void),
+            new("Dragonscale", KnifeModel.GloveScales, KnifeFinish.Dragonscale, SkinRarity.Void),
+            new("Plasma Knuckles", KnifeModel.GloveKnuckles, KnifeFinish.PlasmaKnuckles, SkinRarity.Void),
+            new("Bonehand", KnifeModel.GloveBone, KnifeFinish.Bonehand, SkinRarity.Void),
+            new("Crystal Gauntlet", KnifeModel.GloveCrystal, KnifeFinish.CrystalGauntlet, SkinRarity.Void),
+            new("Seraph Wraps", KnifeModel.GloveWings, KnifeFinish.SeraphWraps, SkinRarity.Void),
+            new("Storm Gauntlet", KnifeModel.GloveStorm, KnifeFinish.StormGauntlet, SkinRarity.Void),
+            new("Reaper Wraps", KnifeModel.GloveWraps, KnifeFinish.ReaperWraps, SkinRarity.Void),
+        };
+
+        public static int EquippedGlove
+        {
+            get => Mathf.Clamp(PlayerPrefs.GetInt("VoidFlow.Glove", 0), 0, Gloves.Length - 1);
+            set { PlayerPrefs.SetInt("VoidFlow.Glove", value); PlayerPrefs.Save(); }
+        }
 
         public static readonly Skin[] Knives =
         {

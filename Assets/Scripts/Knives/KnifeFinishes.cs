@@ -75,6 +75,16 @@ namespace VoidFlow
             KnifeFinish.PlasmaLance => VoidEdge(f, new Color(0.3f, 0.85f, 1f), 0.06f),
             KnifeFinish.CrimsonLance => VoidEdge(f, new Color(1f, 0.15f, 0.25f), 0.06f),
             KnifeFinish.Seraph => VoidEdge(f, new Color(1f, 0.9f, 0.6f), 0.5f),
+            KnifeFinish.InfernoGauntlet => VoidEdge(f, new Color(1f, 0.45f, 0.08f), 0.07f),
+            KnifeFinish.FrostTalons => VoidEdge(f, new Color(0.35f, 0.8f, 1f), 0.07f),
+            KnifeFinish.VoidRunes => VoidEdge(f, new Color(0.65f, 0.25f, 1f), 0.07f),
+            KnifeFinish.Dragonscale => VoidEdge(f, new Color(1f, 0.2f, 0.1f), 0.07f),
+            KnifeFinish.PlasmaKnuckles => VoidEdge(f, new Color(0.3f, 0.9f, 1f), 0.07f),
+            KnifeFinish.Bonehand => VoidEdge(f, new Color(0.45f, 1f, 0.35f), 0.07f),
+            KnifeFinish.CrystalGauntlet => VoidEdge(f, new Color(1f, 0.35f, 0.85f), 0.07f),
+            KnifeFinish.SeraphWraps => VoidEdge(f, new Color(1f, 0.88f, 0.55f), 0.07f),
+            KnifeFinish.StormGauntlet => VoidEdge(f, new Color(1f, 0.95f, 0.3f), 0.07f),
+            KnifeFinish.ReaperWraps => VoidEdge(f, new Color(0.95f, 0.08f, 0.12f), 0.07f),
             KnifeFinish.Colossus => new Look
             {
                 albedo = Paint(f, (u, y) => Grey((u > 0.55f && u < 0.75f ? 0.36f : 0.58f) + (Noise(u * 3f, y * 40f, 7) - 0.5f) * 0.08f)),

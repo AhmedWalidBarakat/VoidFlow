@@ -12,6 +12,7 @@ namespace VoidFlow
     {
         public int skinIndex;
         public bool sniper;
+        public bool glove;
         [Tooltip("Any URP Lit material; the model's materials are made from it")]
         public Material template;
         public float scale = 8f;
@@ -25,7 +26,7 @@ namespace VoidFlow
         bool near;
         GUIStyle style;
 
-        public Skins.Skin Skin => sniper ? Skins.Snipers[Mathf.Clamp(skinIndex, 0, Skins.Snipers.Length - 1)] : Skins.Knives[Mathf.Clamp(skinIndex, 0, Skins.Knives.Length - 1)];
+        public Skins.Skin Skin => glove ? Skins.Gloves[Mathf.Clamp(skinIndex, 0, Skins.Gloves.Length - 1)] : sniper ? Skins.Snipers[Mathf.Clamp(skinIndex, 0, Skins.Snipers.Length - 1)] : Skins.Knives[Mathf.Clamp(skinIndex, 0, Skins.Knives.Length - 1)];
 
         static readonly List<SkinDisplay> all = new();
 
@@ -72,9 +73,9 @@ namespace VoidFlow
             // Center the weapon on the spin axis
             var offset = new GameObject("Offset").transform;
             offset.SetParent(model, false);
-            offset.localPosition = sniper ? new Vector3(0f, -0.02f, -0.25f) : new Vector3(0f, -0.06f, 0f);
+            offset.localPosition = sniper ? new Vector3(0f, -0.02f, -0.25f) : glove ? new Vector3(0f, 0.12f, 0f) : new Vector3(0f, -0.06f, 0f);
             var builder = new WeaponBuilder(template, gameObject.layer, true, materials);
-            parts = sniper ? builder.Rifle(Skin, offset) : builder.Knife(Skin, offset);
+            parts = glove ? builder.GloveModel(Skin, offset) : sniper ? builder.Rifle(Skin, offset) : builder.Knife(Skin, offset);
             foreach (var t in model.GetComponentsInChildren<Transform>(true)) t.gameObject.hideFlags = HideFlags.HideAndDontSave;
         }
 
@@ -102,7 +103,8 @@ namespace VoidFlow
             {
                 if (!viewModel) viewModel = FindAnyObjectByType<ViewModel>();
                 if (!viewModel) return;
-                if (sniper) viewModel.EquipSniperSkin(skinIndex);
+                if (glove) viewModel.EquipGloveSkin(skinIndex);
+                else if (sniper) viewModel.EquipSniperSkin(skinIndex);
                 else viewModel.EquipKnifeSkin(skinIndex);
             }
         }

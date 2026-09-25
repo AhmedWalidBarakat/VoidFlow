@@ -122,25 +122,55 @@ namespace VoidFlow.EditorTools
             float caseX = right - 4f;
             var cases = new[]
             {
-                ("KNIFE CASE", false, 2, HallFront - 8f, new Color(0.04f, 0.03f, 0.06f), new Color(0.55f, 0.15f, 1f), new Color(0.7f, 0.35f, 1f)),
-                ("SNIPER CASE", true, 1, HallFront - 16f, new Color(0.04f, 0.03f, 0.06f), new Color(0.8f, 0.5f, 1f), new Color(0.9f, 0.3f, 1f)),
+                ("KNIFE CASE", false, false, 2, HallFront - 8f, new Color(0.04f, 0.03f, 0.06f), new Color(0.55f, 0.15f, 1f), new Color(0.7f, 0.35f, 1f)),
+                ("SNIPER CASE", true, false, 1, HallFront - 16f, new Color(0.04f, 0.03f, 0.06f), new Color(0.8f, 0.5f, 1f), new Color(0.9f, 0.3f, 1f)),
+                ("GLOVE CASE", false, true, Skins.Gloves.Length - 10, HallFront - 24f, new Color(0.04f, 0.03f, 0.06f), new Color(1f, 0.3f, 0.8f), new Color(1f, 0.45f, 0.85f)),
             };
-            foreach (var (title, sniper, showcase, caseZ, stripeA, stripeB, rayColor) in cases)
+            foreach (var (title, sniper, gloves, showcase, caseZ, stripeA, stripeB, rayColor) in cases)
             {
-                Material rim = MakeGlow(sniper ? "GlowSniperCase" : "GlowKnifeCase", rayColor, 1.4f);
-                Box(sniper ? "SniperCasePedestal" : "KnifeCasePedestal", new Vector3(caseX, 0.6f, caseZ), new Vector3(2.2f, 1.2f, 2.2f), metal, hall);
+                Material rim = MakeGlow(gloves ? "GlowGloveCase" : sniper ? "GlowSniperCase" : "GlowKnifeCase", rayColor, 1.4f);
+                Box(gloves ? "GloveCasePedestal" : sniper ? "SniperCasePedestal" : "KnifeCasePedestal", new Vector3(caseX, 0.6f, caseZ), new Vector3(2.2f, 1.2f, 2.2f), metal, hall);
                 Deco("CasePedestalRim", hall, new Vector3(caseX, 1.22f, caseZ), new Vector3(2.3f, 0.06f, 2.3f), Quaternion.identity, rim);
                 var station = new GameObject(title).AddComponent<CaseStation>();
                 station.transform.SetParent(hall, false);
                 station.transform.SetPositionAndRotation(new Vector3(caseX, 1.25f, caseZ), Quaternion.Euler(0f, 90f, 0f));
                 station.title = title;
                 station.sniperCase = sniper;
+                station.gloveCase = gloves;
                 station.showcaseSkin = showcase;
                 station.stripeA = stripeA;
                 station.stripeB = stripeB;
                 station.rayColor = rayColor;
                 station.template = rampMat;
                 Label($"{title}\nMythic  ·  Void 6%", hall, new Vector3(caseX - 1.12f, 0.7f, caseZ), 90f, 0.26f, rayColor);
+            }
+
+            // Glove wall along the back, behind the spawn: every glove over a pedestal, two
+            // staggered rows
+            {
+                int count = Skins.Gloves.Length - 1, gloveRow = Mathf.CeilToInt(count / 2f);
+                float from = left + 8.5f, to = right - 7f, step = (to - from) / Mathf.Max(1, gloveRow - 1);
+                for (int g = 1; g < Skins.Gloves.Length; g++)
+                {
+                    var skin = Skins.Gloves[g];
+                    int row = (g - 1) % 2, place = (g - 1) / 2;
+                    float x = from + place * step + row * step * 0.5f, z = HallBack + 1.3f + row * 1.5f;
+                    Color color = skin.rarity == SkinRarity.Void ? new Color(0.6f, 0.25f, 1f) : Skins.RarityColor(skin.rarity);
+                    Material glow = MakeGlow($"Glow{Skins.RarityName(skin.rarity)}", color, 1.4f);
+                    Box($"GlovePedestal{g}", new Vector3(x, 0.45f, z), new Vector3(0.6f, 0.9f, 0.6f), metal, hall);
+                    Deco("PedestalRim", hall, new Vector3(x, 0.92f, z), new Vector3(0.66f, 0.04f, 0.66f), Quaternion.identity, glow);
+                    var display = new GameObject($"Display {skin.name}").AddComponent<SkinDisplay>();
+                    display.transform.SetParent(hall, false);
+                    display.transform.position = new Vector3(x, 1.4f, z);
+                    display.glove = true;
+                    display.scale = 4f;
+                    display.useRange = 1.3f;
+                    display.skinIndex = g;
+                    display.template = rampMat;
+                    string name = skin.name.Replace("Gloves | ", "");
+                    Label($"{name}\n{Skins.RarityName(skin.rarity).ToUpper()}", hall, new Vector3(x, 0.5f, z + 0.32f), 180f, 0.1f, color);
+                }
+                Label("GLOVES\nwalk up + E to try on", hall, new Vector3(lane, 7.5f, HallBack + 0.15f), 180f, 1f, Color.white);
             }
 
             // Skeet range at the back right: a launcher throws discs up and across the hall,

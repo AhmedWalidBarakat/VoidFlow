@@ -554,6 +554,184 @@ namespace VoidFlow
             parts.tip = Tip(t, new Vector2(0f, 0.256f));
         }
 
+        // The skin's material on its own (for gloves)
+        public Material SkinMaterial(KnifeFinish finish) => FinishMaterial(finish, new WeaponParts());
+
+        // A glove on its own, for displays and cases: the chunky glove block with its knuckle
+        // plate, trim, cuff and a short sleeve, in the skin, plus any Void add-ons
+        public WeaponParts GloveModel(Skins.Skin skin, Transform parent)
+        {
+            var root = new GameObject(skin.name).transform;
+            root.SetParent(parent, false);
+            var parts = new WeaponParts { root = root, model = skin.model, rarity = skin.rarity, hue = HueOf(skin.finish) };
+            var size = new Vector3(0.076f, 0.082f, 0.071f);
+            Material body = skin.finish == KnifeFinish.Polished ? Mat(new Color(0.07f, 0.07f, 0.08f), 0.4f, 0f) : FinishMaterial(skin.finish, parts);
+            Material plate = skin.rarity == SkinRarity.Void ? Glow(parts.hue, 2.4f, parts) : Mat(new Color(0.03f, 0.03f, 0.035f), 0.7f, 0f);
+            Material trim = Mat(new Color(0.3f, 0.3f, 0.33f), 0.5f, 0.2f);
+            Material cuff = Mat(new Color(0.05f, 0.05f, 0.055f), 0.35f, 0f);
+            Material sleeve = Mat(new Color(0.17f, 0.17f, 0.2f), 0.2f, 0f);
+            Part(root, PrimitiveType.Cube, body, Vector3.zero, size);
+            Part(root, PrimitiveType.Cube, plate, new Vector3(0f, 0.016f, size.z * 0.5f + 0.002f), new Vector3(0.06f, 0.036f, 0.006f));
+            Part(root, PrimitiveType.Cube, trim, new Vector3(0f, -0.019f, 0f), new Vector3(size.x + 0.003f, 0.007f, size.z + 0.003f));
+            Part(root, PrimitiveType.Cube, cuff, new Vector3(0f, -0.05f, 0f), new Vector3(0.083f, 0.021f, 0.078f));
+            Part(root, PrimitiveType.Cube, sleeve, new Vector3(0f, -0.12f, 0f), new Vector3(0.069f, 0.12f, 0.064f));
+            BuildGloveKit(skin, parts, root);
+            parts.Animate(0f, -1f);
+            return parts;
+        }
+
+        // Only the Void add-ons, built onto an existing arm (arm space: glove block centered on
+        // the origin, fingers along +Y, back of the hand toward +Z)
+        public WeaponParts GloveKit(Skins.Skin skin, Transform arm)
+        {
+            var root = new GameObject("Glove Kit").transform;
+            root.SetParent(arm, false);
+            var parts = new WeaponParts { root = root, model = skin.model, rarity = skin.rarity, hue = HueOf(skin.finish) };
+            BuildGloveKit(skin, parts, root);
+            parts.Animate(0f, -1f);
+            return parts;
+        }
+
+        void BuildGloveKit(Skins.Skin skin, WeaponParts parts, Transform t)
+        {
+            if (skin.rarity != SkinRarity.Void) return;
+            Material finish = FinishMaterial(skin.finish, parts);
+            Material glow = Glow(parts.hue, 2.6f, parts);
+            Material dark = Mat(new Color(0.08f, 0.08f, 0.09f), 0.9f, 0.95f);
+            const float back = 0.0355f, top = 0.041f;
+            switch (skin.model)
+            {
+                case KnifeModel.GloveArmor:
+                    // Layered armour plates over the back, spiked knuckles, a bracer
+                    for (int k = 0; k < 3; k++)
+                        Part(t, PrimitiveType.Cube, k == 1 ? glow : finish, new Vector3(0f, -0.02f + k * 0.02f, back + 0.004f + k * 0.001f), new Vector3(0.074f - k * 0.006f, 0.024f, 0.006f), Quaternion.Euler(-12f, 0f, 0f));
+                    for (int k = 0; k < 4; k++)
+                        MeshPart(t, finish, CrystalMesh(0.028f, 0.006f, 4, 0.5f), new Vector3(-0.027f + k * 0.018f, 0.03f, back + 0.004f), Quaternion.Euler(70f, 0f, 0f));
+                    Part(t, PrimitiveType.Cube, finish, new Vector3(0f, -0.05f, 0f), new Vector3(0.09f, 0.028f, 0.086f));
+                    Part(t, PrimitiveType.Cube, glow, new Vector3(0f, -0.05f, 0.0435f), new Vector3(0.06f, 0.006f, 0.002f));
+                    break;
+                case KnifeModel.GloveClaws:
+                    // Three curved talons out of the knuckles, curling toward the palm
+                    for (int c = -1; c <= 1; c++)
+                    {
+                        const int n = 14;
+                        var spine = new Vector2[n + 1];
+                        var edge = new Vector2[n + 1];
+                        for (int i = 0; i <= n; i++)
+                        {
+                            float s = (float)i / n, a = s * 75f * Mathf.Deg2Rad;
+                            var center = new Vector2(-0.07f + 0.07f * Mathf.Cos(a), 0.07f * Mathf.Sin(a));
+                            var outward = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                            float w = 0.014f * (1f - Mathf.Pow(s, 1.4f));
+                            spine[i] = center + outward * w * 0.5f;
+                            edge[i] = center - outward * w * 0.5f;
+                        }
+                        MeshPart(t, finish, RailBlade(spine, edge, 0.0025f, 0.0004f), new Vector3(c * 0.022f, top - 0.004f, 0.012f), Quaternion.Euler(0f, -90f, 0f));
+                    }
+                    Part(t, PrimitiveType.Cube, glow, new Vector3(0f, top - 0.006f, back + 0.002f), new Vector3(0.06f, 0.004f, 0.003f));
+                    break;
+                case KnifeModel.GloveRunes:
+                {
+                    // A ring of glowing runes orbiting the wrist, and a smaller one at the knuckles
+                    MeshPart(t, glow, Torus(0.066f, 0.0025f, 36, 6), new Vector3(0f, -0.055f, 0f), Quaternion.Euler(90f, 0f, 0f));
+                    MeshPart(t, glow, Torus(0.05f, 0.002f, 32, 6), new Vector3(0f, 0.03f, 0f), Quaternion.Euler(90f, 0f, 0f));
+                    var holder = new GameObject("Aura").transform;
+                    holder.SetParent(t, false);
+                    parts.aura = holder;
+                    for (int k = 0; k < 8; k++)
+                    {
+                        float a = k * Mathf.PI * 2f / 8f;
+                        var home = new Vector3(Mathf.Cos(a) * 0.066f, -0.055f + (k % 2) * 0.01f, Mathf.Sin(a) * 0.066f);
+                        var rune = Part(holder, PrimitiveType.Cube, glow, home, new Vector3(0.012f, 0.016f, 0.003f), Quaternion.Euler(0f, -a * Mathf.Rad2Deg + 90f, 0f));
+                        parts.motes.Add((rune, home, k * 1.3f));
+                    }
+                    break;
+                }
+                case KnifeModel.GloveScales:
+                    // Overlapping scales down the back, glowing between them
+                    Part(t, PrimitiveType.Cube, glow, new Vector3(0f, 0f, back + 0.001f), new Vector3(0.07f, 0.075f, 0.001f));
+                    for (int row = 0; row < 4; row++)
+                    for (int col = 0; col < 4 - row % 2; col++)
+                    {
+                        float x = -0.027f + col * 0.018f + (row % 2) * 0.009f;
+                        Part(t, PrimitiveType.Sphere, finish, new Vector3(x, 0.03f - row * 0.02f, back + 0.004f), new Vector3(0.02f, 0.024f, 0.008f), Quaternion.Euler(-20f, 0f, 0f));
+                    }
+                    break;
+                case KnifeModel.GloveKnuckles:
+                    // Glowing rings across the knuckles and a coil of energy up the wrist
+                    for (int k = 0; k < 4; k++)
+                        MeshPart(t, glow, Torus(0.009f, 0.003f, 20, 6), new Vector3(-0.027f + k * 0.018f, top - 0.004f, 0.02f), Quaternion.Euler(90f, 0f, 0f));
+                    foreach (float y in new[] { -0.045f, -0.075f, -0.105f })
+                        MeshPart(t, glow, Torus(0.05f, 0.003f, 32, 6), new Vector3(0f, y, 0f), Quaternion.Euler(90f, 0f, 0f));
+                    Part(t, PrimitiveType.Cube, dark, new Vector3(0f, top - 0.006f, 0.03f), new Vector3(0.078f, 0.012f, 0.014f));
+                    break;
+                case KnifeModel.GloveBone:
+                {
+                    // Finger bones over the back and a small skull at the wrist with burning eyes
+                    Material bone = Mat(new Color(0.88f, 0.84f, 0.74f), 0.6f, 0.1f);
+                    for (int k = 0; k < 4; k++)
+                    {
+                        float x = -0.027f + k * 0.018f;
+                        Rod(t, bone, new Vector3(x, -0.02f, back + 0.004f), new Vector3(x, 0.036f, back + 0.004f), 0.007f);
+                        Part(t, PrimitiveType.Sphere, bone, new Vector3(x, 0.038f, back + 0.004f), Vector3.one * 0.011f);
+                    }
+                    Part(t, PrimitiveType.Sphere, bone, new Vector3(0f, -0.045f, back + 0.012f), new Vector3(0.034f, 0.034f, 0.03f));
+                    foreach (float x in new[] { -0.008f, 0.008f })
+                        Part(t, PrimitiveType.Sphere, glow, new Vector3(x, -0.042f, back + 0.026f), Vector3.one * 0.008f);
+                    break;
+                }
+                case KnifeModel.GloveCrystal:
+                {
+                    // Crystal shards bursting out of the back of the hand
+                    var random = new System.Random(3);
+                    for (int k = 0; k < 7; k++)
+                    {
+                        var at = new Vector3(((float)random.NextDouble() - 0.5f) * 0.06f, ((float)random.NextDouble() - 0.5f) * 0.06f, back);
+                        var tilt = Quaternion.Euler(90f + ((float)random.NextDouble() - 0.5f) * 50f, 0f, ((float)random.NextDouble() - 0.5f) * 60f);
+                        MeshPart(t, finish, CrystalMesh(0.025f + (float)random.NextDouble() * 0.03f, 0.007f, 5, 0.3f), at, tilt);
+                    }
+                    break;
+                }
+                case KnifeModel.GloveWings:
+                    // Small feathered wings swept back from the wrist, and a halo around it
+                    foreach (float side in new[] { -1f, 1f })
+                        for (int f = 0; f < 3; f++)
+                        {
+                            float len = 0.07f - f * 0.012f;
+                            var a = new[] { new Vector2(0f, 0f), new Vector2(len * 0.5f, 0.01f), new Vector2(len, 0.002f) };
+                            var b = new[] { new Vector2(0f, -0.012f), new Vector2(len * 0.5f, -0.006f), new Vector2(len, 0.002f) };
+                            MeshPart(t, f == 1 ? glow : finish, RailBlade(a, b, 0.002f, 0.0008f),
+                                new Vector3(side * 0.042f, -0.04f + f * 0.008f, 0f), Quaternion.Euler(0f, side > 0f ? 0f : 180f, -70f - f * 12f));
+                        }
+                    MeshPart(t, glow, Torus(0.06f, 0.0025f, 36, 6), new Vector3(0f, -0.07f, 0f), Quaternion.Euler(90f, 0f, 0f));
+                    break;
+                case KnifeModel.GloveStorm:
+                    // Coils on the wrist and prongs on the knuckles, crackling at the tips
+                    foreach (float y in new[] { -0.045f, -0.065f })
+                        MeshPart(t, finish, Torus(0.048f, 0.005f, 32, 8), new Vector3(0f, y, 0f), Quaternion.Euler(90f, 0f, 0f));
+                    for (int k = 0; k < 4; k++)
+                    {
+                        float x = -0.027f + k * 0.018f;
+                        Rod(t, dark, new Vector3(x, top - 0.004f, back - 0.004f), new Vector3(x, top + 0.02f, back + 0.006f), 0.004f);
+                        Part(t, PrimitiveType.Sphere, glow, new Vector3(x, top + 0.021f, back + 0.006f), Vector3.one * 0.008f);
+                    }
+                    break;
+                case KnifeModel.GloveWraps:
+                {
+                    // Dark bandage wraps with a burning stripe, and a hooked blade off the wrist
+                    Material cloth = Mat(new Color(0.12f, 0.1f, 0.1f), 0.2f, 0f);
+                    for (int k = 0; k < 4; k++)
+                        Part(t, PrimitiveType.Cube, k == 2 ? glow : cloth, new Vector3(0f, -0.03f + k * 0.02f, 0f), new Vector3(0.08f, 0.008f, 0.075f), Quaternion.Euler(0f, 0f, k % 2 == 0 ? 12f : -12f));
+                    var s = new[] { new Vector2(0f, 0f), new Vector2(0.03f, 0.012f), new Vector2(0.055f, 0.005f), new Vector2(0.065f, -0.015f) };
+                    var e = new[] { new Vector2(0f, -0.014f), new Vector2(0.03f, -0.004f), new Vector2(0.05f, -0.006f), new Vector2(0.065f, -0.015f) };
+                    MeshPart(t, finish, RailBlade(s, e, 0.0025f, 0.0005f), new Vector3(0.04f, -0.05f, 0f), Quaternion.Euler(0f, 0f, -80f));
+                    break;
+                }
+            }
+            // Flames licking up off the knuckles
+            AddFlames(parts, new List<Vector3> { new(-0.025f, top, back), new(0f, top + 0.004f, back), new(0.025f, top, back) }, 0.05f, 0.06f);
+        }
+
         // A plain dark grip with glowing bands and a pommel, for the Void specials
         void VoidGrip(WeaponParts parts, Transform t)
         {

@@ -30,8 +30,9 @@ namespace VoidFlow
             var arm = new BlockArm { root = new GameObject(name).transform };
             var t = arm.root;
             t.SetParent(parent, false);
-            Part(t, PrimitiveType.Cube, glove, Vector3.zero, GloveSize);
-            Part(t, PrimitiveType.Cube, gloveRubber, new Vector3(0f, 0.016f, GloveSize.z * 0.5f + 0.002f), new Vector3(0.06f, 0.036f, 0.006f));
+            Part(t, PrimitiveType.Cube, glove, Vector3.zero, GloveSize, Quaternion.identity).name = "GloveBlock";
+            Part(t, PrimitiveType.Cube, gloveRubber, new Vector3(0f, 0.016f, GloveSize.z * 0.5f + 0.002f), new Vector3(0.06f, 0.036f, 0.006f), Quaternion.identity).name = "GlovePlate";
+            arms.Add(arm);
             Part(t, PrimitiveType.Cube, gloveTrim, new Vector3(0f, -0.019f, 0f), new Vector3(GloveSize.x + 0.003f, 0.007f, GloveSize.z + 0.003f));
             Part(t, PrimitiveType.Cube, cuff, new Vector3(0f, -0.05f, 0f), new Vector3(0.083f, 0.021f, 0.078f));
             Part(t, PrimitiveType.Cube, sleeve, new Vector3(0f, -0.06f - ArmLength * 0.5f, 0f), new Vector3(0.069f, ArmLength, 0.064f));
