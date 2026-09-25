@@ -460,11 +460,11 @@ namespace VoidFlow
                 Rod(t, metal, new Vector3(0f, sy, z - 0.01f), new Vector3(0f, sy, z + 0.01f), 0.04f);
             }
             Rod(t, chassis, new Vector3(0f, sy, -0.09f), new Vector3(0f, sy, 0.22f), 0.032f);
-            Rod(t, chassis, new Vector3(0f, sy, 0.22f), new Vector3(0f, sy, 0.27f), 0.046f);
-            Rod(t, chassis, new Vector3(0f, sy, 0.27f), new Vector3(0f, sy, 0.34f), 0.066f);
+            Rod(t, metal, new Vector3(0f, sy, 0.22f), new Vector3(0f, sy, 0.27f), 0.046f);
+            Rod(t, metal, new Vector3(0f, sy, 0.27f), new Vector3(0f, sy, 0.34f), 0.066f);
             Rod(t, rubber, new Vector3(0f, sy, 0.335f), new Vector3(0f, sy, 0.345f), 0.069f);
             Rod(t, lens, new Vector3(0f, sy, 0.344f), new Vector3(0f, sy, 0.346f), 0.058f);
-            Rod(t, chassis, new Vector3(0f, sy, -0.09f), new Vector3(0f, sy, -0.15f), 0.044f);
+            Rod(t, metal, new Vector3(0f, sy, -0.09f), new Vector3(0f, sy, -0.15f), 0.044f);
             Rod(t, rubber, new Vector3(0f, sy, -0.15f), new Vector3(0f, sy, -0.17f), 0.046f);
             Rod(t, lens, new Vector3(0f, sy, -0.17f), new Vector3(0f, sy, -0.171f), 0.036f);
             Rod(t, metal, new Vector3(0f, sy + 0.016f, 0.06f), new Vector3(0f, sy + 0.04f, 0.06f), 0.03f);
@@ -473,7 +473,7 @@ namespace VoidFlow
             Rod(t, metal, new Vector3(-0.016f, sy, 0.06f), new Vector3(-0.034f, sy, 0.06f), 0.03f);
             keep.Add(lens);
             keep.Add(red);
-            if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, chassis, 14);
+            if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, chassis, 14, cover: false); // the barrel, scope ends and metal stay dark
             parts.Animate(0f, -1f);
             return parts;
         }
@@ -529,7 +529,7 @@ namespace VoidFlow
 
         // Photo skins wrap the whole weapon (everything but lenses and glowing bits) in the
         // finish, and scatter little twinkling star sparkles over it
-        void CoverAndSparkle(WeaponParts parts, KnifeFinish finish, Material bladeOrBody, int count)
+        void CoverAndSparkle(WeaponParts parts, KnifeFinish finish, Material bladeOrBody, int count, bool cover = true)
         {
             // Blades show a strip of the texture; everything else a full, untouched copy
             Material body = bladeOrBody;
@@ -539,7 +539,7 @@ namespace VoidFlow
             }
             var renderers = parts.root.GetComponentsInChildren<MeshRenderer>(true);
             foreach (var r in renderers)
-                if (r.sharedMaterial != bladeOrBody && !keep.Contains(r.sharedMaterial)) r.sharedMaterial = body;
+                if (cover && r.sharedMaterial != bladeOrBody && !keep.Contains(r.sharedMaterial)) r.sharedMaterial = body;
 
             Material star = Glow(Color.white, 5f, null);
             var random = new System.Random(finish.GetHashCode() * 31 + count);

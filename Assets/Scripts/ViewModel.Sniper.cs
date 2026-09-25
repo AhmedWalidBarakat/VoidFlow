@@ -12,7 +12,7 @@ namespace VoidFlow
     // no movement or unscoped inaccuracy, no drop and no falloff.
     public partial class ViewModel
     {
-        static readonly Vector3 SniperRest = new(0.2f, -0.085f, 0.47f);
+        static readonly Vector3 SniperRest = new(0.23f, -0.1f, 0.58f);
         static readonly Quaternion SniperRestRotation = Quaternion.Euler(-4f, -24f, -5f);
 
         const int MagSize = 5;
