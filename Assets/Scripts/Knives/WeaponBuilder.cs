@@ -406,66 +406,71 @@ namespace VoidFlow
             Material lens = Mat(new Color(0.06f, 0.1f, 0.2f), 0.95f, 0.4f);
             Material red = Mat(new Color(0.85f, 0.1f, 0.06f), 0.4f, 0.1f);
 
-            // Receiver, rail and chassis
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.02f, 0.04f), new Vector3(0.046f, 0.058f, 0.26f));
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.054f, 0.04f), new Vector3(0.026f, 0.01f, 0.3f));
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.01f, 0.05f), new Vector3(0.052f, 0.032f, 0.27f));
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, 0f, 0.3f), new Vector3(0.054f, 0.054f, 0.26f));
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0f, 0.3f), new Vector3(0.056f, 0.012f, 0.22f));
-            // Barrel and muzzle brake
-            Rod(t, metal, new Vector3(0f, 0.018f, 0.17f), new Vector3(0f, 0.018f, 0.82f), 0.022f);
-            Rod(t, metal, new Vector3(0f, 0.018f, 0.43f), new Vector3(0f, 0.018f, 0.47f), 0.028f);
-            Rod(t, metalLight, new Vector3(0f, 0.018f, 0.82f), new Vector3(0f, 0.018f, 0.9f), 0.036f);
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, 0.845f), new Vector3(0.038f, 0.012f, 0.012f));
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, 0.875f), new Vector3(0.038f, 0.012f, 0.012f));
-            // Stock
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.005f, -0.2f), new Vector3(0.04f, 0.07f, 0.3f));
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, 0.038f, -0.17f), new Vector3(0.036f, 0.022f, 0.2f));
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.012f, -0.358f), new Vector3(0.046f, 0.12f, 0.02f));
-            // Pistol grip, trigger guard and trigger
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.065f, -0.035f), new Vector3(0.03f, 0.095f, 0.038f), Quaternion.Euler(20f, 0f, 0f));
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.035f, 0.005f), new Vector3(0.008f, 0.006f, 0.065f));
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.022f, 0.036f), new Vector3(0.008f, 0.03f, 0.006f));
-            Part(t, PrimitiveType.Cube, metalLight, new Vector3(0f, -0.022f, 0f), new Vector3(0.006f, 0.022f, 0.006f), Quaternion.Euler(15f, 0f, 0f));
-            // Magazine
+            // Classic arctic-style sniper silhouette (an original build): thumbhole stock, a long
+            // squared receiver, a slim forend, a long thin fluted barrel with a muzzle brake, and a
+            // long scope with a big objective bell. The skin's finish goes on the stock, receiver
+            // shell, forend and scope.
+            //
+            // Stock: an open frame around the thumbhole
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, 0.034f, -0.2f), new Vector3(0.038f, 0.026f, 0.32f));                                   // comb (top)
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.075f, -0.25f), new Vector3(0.038f, 0.026f, 0.22f), Quaternion.Euler(-9f, 0f, 0f)); // belly (bottom)
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.018f, -0.37f), new Vector3(0.04f, 0.13f, 0.045f));                                   // butt
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.018f, -0.397f), new Vector3(0.044f, 0.136f, 0.012f));                                 // butt pad
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.052f, -0.26f), new Vector3(0.034f, 0.012f, 0.14f));                                    // cheek riser
+            // Pistol grip through the thumbhole, and the trigger guard
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.045f, -0.06f), new Vector3(0.034f, 0.1f, 0.036f), Quaternion.Euler(18f, 0f, 0f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.036f, 0.01f), new Vector3(0.008f, 0.006f, 0.07f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.022f, 0.043f), new Vector3(0.008f, 0.03f, 0.006f));
+            Part(t, PrimitiveType.Cube, metalLight, new Vector3(0f, -0.02f, 0.005f), new Vector3(0.006f, 0.02f, 0.006f), Quaternion.Euler(15f, 0f, 0f));
+            // Receiver: a squared shell on a darker core, with an ejection port
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.02f, 0.06f), new Vector3(0.042f, 0.05f, 0.3f));
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.007f, 0.07f), new Vector3(0.048f, 0.03f, 0.3f));
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0.022f, 0.028f, 0.03f), new Vector3(0.004f, 0.02f, 0.08f));
+            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.05f, 0.07f), new Vector3(0.024f, 0.01f, 0.34f));                                       // scope rail
+            // Forend, slimmer than the receiver, tapering toward the muzzle
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.004f, 0.33f), new Vector3(0.044f, 0.04f, 0.24f));
+            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.004f, 0.47f), new Vector3(0.038f, 0.034f, 0.05f));
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.026f, 0.33f), new Vector3(0.046f, 0.006f, 0.2f));
+            // Barrel: long and thin, with flutes, a gas-block collar and a muzzle brake
+            Rod(t, metalLight, new Vector3(0f, 0.018f, 0.2f), new Vector3(0f, 0.018f, 1.02f), 0.017f);
+            for (int k = 0; k < 6; k++)
+                Rod(t, metal, new Vector3(0f, 0.018f, 0.55f + k * 0.065f), new Vector3(0f, 0.018f, 0.57f + k * 0.065f), 0.0195f);
+            Rod(t, metal, new Vector3(0f, 0.018f, 1.02f), new Vector3(0f, 0.018f, 1.09f), 0.03f);
+            foreach (float z in new[] { 1.035f, 1.06f })
+                Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.018f, z), new Vector3(0.033f, 0.01f, 0.01f));
+            // Magazine just ahead of the trigger
             parts.magazine = new GameObject("Magazine").transform;
             parts.magazine.SetParent(t, false);
-            parts.magRest = new Vector3(0f, -0.035f, 0.08f);
+            parts.magRest = new Vector3(0f, -0.03f, 0.1f);
             parts.magazine.localPosition = parts.magRest;
-            Part(parts.magazine, PrimitiveType.Cube, metal, new Vector3(0f, -0.03f, 0f), new Vector3(0.032f, 0.07f, 0.07f), Quaternion.Euler(-6f, 0f, 0f));
-            // Bolt handle on the right, pivoting around the bore
+            Part(parts.magazine, PrimitiveType.Cube, metal, new Vector3(0f, -0.022f, 0f), new Vector3(0.03f, 0.05f, 0.075f), Quaternion.Euler(-5f, 0f, 0f));
+            // Bolt handle on the right, with a round knob, pivoting around the bore
             parts.bolt = new GameObject("Bolt").transform;
             parts.bolt.SetParent(t, false);
-            parts.boltRest = new Vector3(0.024f, 0.035f, -0.035f);
+            parts.boltRest = new Vector3(0.022f, 0.032f, -0.035f);
             parts.bolt.localPosition = parts.boltRest;
-            Rod(parts.bolt, metalLight, Vector3.zero, new Vector3(0.045f, -0.012f, 0f), 0.009f);
-            Part(parts.bolt, PrimitiveType.Sphere, rubber, new Vector3(0.05f, -0.014f, 0f), Vector3.one * 0.02f);
+            Rod(parts.bolt, metalLight, Vector3.zero, new Vector3(0.045f, -0.016f, 0f), 0.008f);
+            Part(parts.bolt, PrimitiveType.Sphere, metal, new Vector3(0.05f, -0.018f, 0f), Vector3.one * 0.019f);
 
-            // Scope: rings, tube, big objective bell with lens, eyepiece, turrets
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.075f, -0.02f), new Vector3(0.04f, 0.04f, 0.018f));
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.075f, 0.12f), new Vector3(0.04f, 0.04f, 0.018f));
-            const float sy = 0.1f;
-            Rod(t, metal, new Vector3(0f, sy, -0.1f), new Vector3(0f, sy, 0.2f), 0.034f);
-            Rod(t, metal, new Vector3(0f, sy, 0.2f), new Vector3(0f, sy, 0.235f), 0.048f);
-            Rod(t, metal, new Vector3(0f, sy, 0.235f), new Vector3(0f, sy, 0.3f), 0.062f);
-            Rod(t, lens, new Vector3(0f, sy, 0.299f), new Vector3(0f, sy, 0.302f), 0.054f);
-            Rod(t, metalLight, new Vector3(0f, sy, -0.075f), new Vector3(0f, sy, -0.055f), 0.042f);
-            Rod(t, metalLight, new Vector3(0f, sy, -0.045f), new Vector3(0f, sy, -0.025f), 0.042f);
-            Rod(t, metal, new Vector3(0f, sy, -0.1f), new Vector3(0f, sy, -0.135f), 0.044f);
-            Rod(t, rubber, new Vector3(0f, sy, -0.135f), new Vector3(0f, sy, -0.155f), 0.046f);
-            Rod(t, lens, new Vector3(0f, sy, -0.155f), new Vector3(0f, sy, -0.156f), 0.036f);
-            Rod(t, metal, new Vector3(0f, sy + 0.017f, 0.05f), new Vector3(0f, sy + 0.042f, 0.05f), 0.03f);
-            Rod(t, red, new Vector3(0f, sy + 0.032f, 0.05f), new Vector3(0f, sy + 0.036f, 0.05f), 0.032f);
-            Rod(t, metal, new Vector3(0.017f, sy, 0.05f), new Vector3(0.042f, sy, 0.05f), 0.028f);
-            Rod(t, metal, new Vector3(-0.017f, sy, 0.05f), new Vector3(-0.036f, sy, 0.05f), 0.03f);
-
-            // Bipod, folded forward under the barrel
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.032f, 0.4f), new Vector3(0.04f, 0.018f, 0.03f));
-            foreach (float x in new[] { -0.012f, 0.012f })
+            // Scope: two rings, a long tube, big objective bell and lens, turrets and an eyepiece
+            const float sy = 0.098f;
+            foreach (float z in new[] { -0.02f, 0.14f })
             {
-                Rod(t, metalLight, new Vector3(x, -0.035f, 0.41f), new Vector3(x, -0.035f, 0.6f), 0.009f);
-                Part(t, PrimitiveType.Sphere, rubber, new Vector3(x, -0.035f, 0.61f), Vector3.one * 0.016f);
+                Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.07f, z), new Vector3(0.03f, 0.03f, 0.02f));
+                Rod(t, metal, new Vector3(0f, sy, z - 0.01f), new Vector3(0f, sy, z + 0.01f), 0.04f);
             }
+            Rod(t, chassis, new Vector3(0f, sy, -0.09f), new Vector3(0f, sy, 0.22f), 0.032f);
+            Rod(t, chassis, new Vector3(0f, sy, 0.22f), new Vector3(0f, sy, 0.27f), 0.046f);
+            Rod(t, chassis, new Vector3(0f, sy, 0.27f), new Vector3(0f, sy, 0.34f), 0.066f);
+            Rod(t, rubber, new Vector3(0f, sy, 0.335f), new Vector3(0f, sy, 0.345f), 0.069f);
+            Rod(t, lens, new Vector3(0f, sy, 0.344f), new Vector3(0f, sy, 0.346f), 0.058f);
+            Rod(t, chassis, new Vector3(0f, sy, -0.09f), new Vector3(0f, sy, -0.15f), 0.044f);
+            Rod(t, rubber, new Vector3(0f, sy, -0.15f), new Vector3(0f, sy, -0.17f), 0.046f);
+            Rod(t, lens, new Vector3(0f, sy, -0.17f), new Vector3(0f, sy, -0.171f), 0.036f);
+            Rod(t, metal, new Vector3(0f, sy + 0.016f, 0.06f), new Vector3(0f, sy + 0.04f, 0.06f), 0.03f);
+            Rod(t, red, new Vector3(0f, sy + 0.03f, 0.06f), new Vector3(0f, sy + 0.034f, 0.06f), 0.032f);
+            Rod(t, metal, new Vector3(0.016f, sy, 0.06f), new Vector3(0.04f, sy, 0.06f), 0.028f);
+            Rod(t, metal, new Vector3(-0.016f, sy, 0.06f), new Vector3(-0.034f, sy, 0.06f), 0.03f);
             keep.Add(lens);
             keep.Add(red);
             if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, chassis, 14);

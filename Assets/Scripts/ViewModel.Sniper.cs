@@ -12,8 +12,8 @@ namespace VoidFlow
     // no movement or unscoped inaccuracy, no drop and no falloff.
     public partial class ViewModel
     {
-        static readonly Vector3 SniperRest = new(0.15f, -0.135f, 0.32f);
-        static readonly Quaternion SniperRestRotation = Quaternion.Euler(-1f, -6f, -4f);
+        static readonly Vector3 SniperRest = new(0.17f, -0.115f, 0.44f);
+        static readonly Quaternion SniperRestRotation = Quaternion.Euler(-3f, -20f, -5f);
 
         const int MagSize = 5;
         const float CycleTime = 1.463f, ReloadTime = 3.67f, Range = 5000f;
@@ -456,7 +456,7 @@ namespace VoidFlow
             // Muzzle flash, shown for a moment after each shot
             flash = new GameObject("Muzzle Flash").transform;
             flash.SetParent(t, false);
-            flash.localPosition = new Vector3(0f, 0.018f, 0.93f);
+            flash.localPosition = new Vector3(0f, 0.018f, 1.12f);
             var muzzleTex = fx && fx.muzzle ? fx.muzzle.GetTexture("_BaseMap") : null;
             var flareTex = fx && fx.flare ? fx.flare.GetTexture("_BaseMap") : null;
             if (muzzleTex && flareTex)
@@ -491,11 +491,11 @@ namespace VoidFlow
             rightFist = right.root;
             // Each glove sits just behind what it holds, so the weapon rests on its front edge
             fistRestRotation = FingersBack(new Vector3(-0.3f, 0.35f, 1f), new Vector3(1f, 0f, 0.3f));
-            fistRest = new Vector3(0f, -0.058f, -0.035f) - fistRestRotation * GripFront;
+            fistRest = new Vector3(0f, -0.05f, -0.06f) - fistRestRotation * GripFront;
             rightFist.SetLocalPositionAndRotation(fistRest, fistRestRotation);
             var left = BuildBlockArm(t, "Left Arm");
             Quaternion leftRotation = FingersBack(new Vector3(0.25f, 0.75f, 0.6f), new Vector3(-1f, 0f, 0.3f));
-            left.root.SetLocalPositionAndRotation(new Vector3(0f, -0.035f, 0.29f) - leftRotation * GripFront, leftRotation);
+            left.root.SetLocalPositionAndRotation(new Vector3(0f, -0.028f, 0.34f) - leftRotation * GripFront, leftRotation);
             return root;
         }
     }
