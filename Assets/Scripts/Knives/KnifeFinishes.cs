@@ -13,6 +13,7 @@ namespace VoidFlow
             public Texture2D albedo, emission;
             public Color tint, glow; // glow is HDR (emission color times intensity)
             public float metallic, smoothness;
+            public bool photo; // a square photo texture: blades show a strip of it, not all of it squeezed
         }
 
         const int Size = 256;
@@ -52,9 +53,25 @@ namespace VoidFlow
                 emission = Paint(f, (u, y) => Grey(1f - Edge(0.01f, 0.08f, u))),
                 tint = Color.white, glow = new Color(0.6f, 0.25f, 1f) * 1.6f, metallic = 0.85f, smoothness = 0.8f,
             },
+            KnifeFinish.TidewaterOnyx => Photo("Onyx011", 0.08f, 0.9f),
+            KnifeFinish.SmokeOnyx => Photo("Onyx013", 0.08f, 0.9f),
+            KnifeFinish.PearlOnyx => Photo("Onyx015", 0.05f, 0.9f),
+            KnifeFinish.GreyMarble => Photo("Marble012", 0.05f, 0.85f),
+            KnifeFinish.BlackMarble => Photo("Marble016", 0.08f, 0.88f),
+            KnifeFinish.WhiteMarble => Photo("Marble021", 0.05f, 0.85f),
+            KnifeFinish.Carbon => Photo("Fabric004", 0.4f, 0.75f),
+            KnifeFinish.Gunmetal => Photo("Metal038", 0.85f, 0.6f),
+            KnifeFinish.DiamondPlate => Photo("DiamondPlate001", 0.9f, 0.7f),
+            KnifeFinish.Saddle => Photo("Leather037", 0.05f, 0.45f),
             KnifeFinish.Tempered => new Look { albedo = Paint(f, Tempered), tint = Color.white, metallic = 0.85f, smoothness = 0.93f },
             // Mirror polished steel
             _ => new Look { tint = new Color(0.93f, 0.94f, 0.97f), metallic = 0.8f, smoothness = 0.95f },
+        };
+
+        // A CC0 photo texture from Resources/SkinTextures (see the LICENSE file there)
+        static Look Photo(string texture, float metallic, float smoothness) => new()
+        {
+            albedo = Resources.Load<Texture2D>("SkinTextures/" + texture), tint = Color.white, metallic = metallic, smoothness = smoothness, photo = true,
         };
 
         static Look Candy(Texture2D albedo) => new() { albedo = albedo, tint = Color.white, metallic = 0.7f, smoothness = 0.92f };

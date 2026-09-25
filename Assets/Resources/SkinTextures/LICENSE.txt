@@ -1,0 +1,6 @@
+Skin textures in this folder are from ambientCG (https://ambientcg.com) and are released
+under the Creative Commons CC0 1.0 Universal license (public domain): free to use, modify and
+publish, commercially too, with no attribution required. Credit is given here anyway.
+
+Onyx011, Onyx013, Onyx015, Marble012, Marble016, Marble021, Fabric004, Metal038,
+DiamondPlate001, Leather037 — color maps only, resized to 512x512.

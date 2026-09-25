@@ -95,7 +95,7 @@ namespace VoidFlow.EditorTools
             for (int k = 1; k < Skins.Knives.Length; k++)
             {
                 var skin = Skins.Knives[k];
-                float z = HallBack + 5f + (k - 1) * 4f;
+                float z = HallBack + 5f + (k - 1) * 36f / Mathf.Max(1, Skins.Knives.Length - 2);
                 Color color = skin.rarity == SkinRarity.Void ? new Color(0.6f, 0.25f, 1f) : Skins.RarityColor(skin.rarity);
                 Material glow = MakeGlow($"Glow{Skins.RarityName(skin.rarity)}", color, 1.4f);
                 Box($"KnifePedestal{k}", new Vector3(knifeX, 0.6f, z), new Vector3(1.2f, 1.2f, 1.2f), metal, hall);

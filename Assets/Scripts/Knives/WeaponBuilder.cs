@@ -98,6 +98,8 @@ namespace VoidFlow
             root.SetParent(parent, false);
             var parts = new WeaponParts { root = root, model = skin.model, rarity = skin.rarity };
             Material finish = FinishMaterial(skin.finish, parts);
+            // Blades are long and thin: show a matching strip of a photo texture
+            if (KnifeFinishes.Get(skin.finish).photo) finish.SetTextureScale("_BaseMap", new Vector2(0.2f, 1f));
             switch (skin.model)
             {
                 case KnifeModel.Butterfly: Butterfly(parts, finish); break;

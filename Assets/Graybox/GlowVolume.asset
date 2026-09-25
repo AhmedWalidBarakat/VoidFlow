@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: GlowVolume
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
-  - {fileID: 7086219299767020451}
---- !u!114 &7086219299767020451
+  - {fileID: 446982386374223914}
+--- !u!114 &446982386374223914
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}

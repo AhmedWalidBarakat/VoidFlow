@@ -4,9 +4,14 @@ namespace VoidFlow
 {
     public enum KnifeModel { Karambit, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle }
 
-    // Finishes. The Mythic ones are our own takes on the classic flashy knife finishes; the
-    // last three are the glowing Void finishes.
-    public enum KnifeFinish { Polished, Tempered, Nebula, SunsetFade, CandySwirl, AmberStripe, RedWeb, EmeraldNebula, HollowMoon, Tidebreaker, Colossus }
+    // Finishes. Most are painted in code (our own takes on the classic flashy knife finishes,
+    // and the glowing Void ones); the stone, carbon and metal ones use CC0 photo textures from
+    // ambientCG (Resources/SkinTextures).
+    public enum KnifeFinish
+    {
+        Polished, Tempered, Nebula, SunsetFade, CandySwirl, AmberStripe, RedWeb, EmeraldNebula, HollowMoon, Tidebreaker, Colossus,
+        TidewaterOnyx, SmokeOnyx, PearlOnyx, GreyMarble, BlackMarble, WhiteMarble, Carbon, Gunmetal, DiamondPlate, Saddle,
+    }
 
     public enum SkinRarity { Default, Mythic, Void }
 
@@ -46,6 +51,11 @@ namespace VoidFlow
             new("Hollow Moon", KnifeModel.HollowMoon, KnifeFinish.HollowMoon, SkinRarity.Void),
             new("Tidebreaker", KnifeModel.Tidebreaker, KnifeFinish.Tidebreaker, SkinRarity.Void),
             new("Colossus", KnifeModel.Colossus, KnifeFinish.Colossus, SkinRarity.Void),
+            new("Karambit | Tidewater Onyx", KnifeModel.Karambit, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
+            new("Karambit | Carbon", KnifeModel.Karambit, KnifeFinish.Carbon, SkinRarity.Mythic),
+            new("Butterfly | Black Marble", KnifeModel.Butterfly, KnifeFinish.BlackMarble, SkinRarity.Mythic),
+            new("Butterfly | Smoke Onyx", KnifeModel.Butterfly, KnifeFinish.SmokeOnyx, SkinRarity.Mythic),
+            new("Karambit | Pearl Onyx", KnifeModel.Karambit, KnifeFinish.PearlOnyx, SkinRarity.Mythic),
         };
 
         public static readonly Skin[] Snipers =
@@ -57,6 +67,13 @@ namespace VoidFlow
             new("Longreach | Red Web", KnifeModel.Rifle, KnifeFinish.RedWeb, SkinRarity.Mythic),
             new("Longreach | Hollow Moon", KnifeModel.Rifle, KnifeFinish.HollowMoon, SkinRarity.Void),
             new("Longreach | Tidebreaker", KnifeModel.Rifle, KnifeFinish.Tidebreaker, SkinRarity.Void),
+            new("Longreach | Tidewater Onyx", KnifeModel.Rifle, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
+            new("Longreach | Carbon", KnifeModel.Rifle, KnifeFinish.Carbon, SkinRarity.Mythic),
+            new("Longreach | Diamond Plate", KnifeModel.Rifle, KnifeFinish.DiamondPlate, SkinRarity.Mythic),
+            new("Longreach | Grey Marble", KnifeModel.Rifle, KnifeFinish.GreyMarble, SkinRarity.Mythic),
+            new("Longreach | White Marble", KnifeModel.Rifle, KnifeFinish.WhiteMarble, SkinRarity.Mythic),
+            new("Longreach | Gunmetal", KnifeModel.Rifle, KnifeFinish.Gunmetal, SkinRarity.Mythic),
+            new("Longreach | Saddle", KnifeModel.Rifle, KnifeFinish.Saddle, SkinRarity.Mythic),
         };
 
         // Picks a case drop: Void 6% of the time, otherwise a Mythic, evenly within each
