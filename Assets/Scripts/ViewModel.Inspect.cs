@@ -5,20 +5,18 @@ using UnityEngine.Rendering;
 
 namespace VoidFlow
 {
-    // Knife handling: the resting hold, slashes, and each knife's own inspect, all in full 3D.
-    // Whenever a move could pass through the right arm, that arm fades to see-through so the
-    // knife always reads cleanly.
+    // Knife handling: the resting hold, slashes, and each knife's inspect. Inspects are
+    // keyframed sequences (copied from reference clips of a Roblox block-arm game): the knife
+    // can be passed between hands, tossed into the air and caught, spun around the arm, or
+    // drawn from and returned to its sheath. The blade leaves a white trail, and wherever the
+    // knife passes behind an arm, that arm turns see-through so the knife always reads.
     //
-    //  - Talon knife: hold F and it spins around the corner of the fist through its ring, at a
-    //    tilted angle; let go and it finishes the turn and settles.
-    //  - Butterfly knife: standing up on the fist, it flips one way, flips back the other way,
-    //    rolls right around the hand, and flips home, the wrist rolling along with it.
-    //  - Void swords: hold F for two quick cuts in opposite directions, then the sword is
-    //    sheathed and held there, right hand on the hilt and left hand on the scabbard, like a
-    //    samurai waiting to draw; let go and it's drawn back out.
+    // Holding F keeps the "show" part going (the talon keeps spinning, the butterfly keeps
+    // circling the arm, the sword stays sheathed in the samurai hold); holding it through the
+    // end starts the routine again.
     public partial class ViewModel
     {
-        [Tooltip("A transparent URP Lit material; see-through copies of the arm are made from it")]
+        [Tooltip("A transparent URP Lit material; see-through copies of the arms are made from it")]
         public Material fadeTemplate;
 
         // Resting poses in camera space: two block arms coming in from the bottom corners, the
@@ -31,41 +29,150 @@ namespace VoidFlow
         static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.3f, 0.5f, 1f), new Vector3(-0.1f, 0.6f, -0.7f));
         static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
 
-        // Talon spin: fist raised upright with the index finger (arm +X) pointing straight back
-        // at you, so the knife spins face-on around it. The ring sits on the finger at the top
-        // of the glove.
-        static readonly Vector3 TalonSpot = new(0.06f, -0.075f, 0.36f);
-        static readonly Quaternion TalonRotation = FromXY(new Vector3(-0.4f, 0.3f, -0.87f), new Vector3(0.3f, 1f, 0.1f));
-        // The top corner of the glove nearest you, where the talon hangs off the index finger
-        static readonly Vector3 FingerPoint = new(GloveSize.x * 0.5f, GloveSize.y * 0.5f, GloveSize.z * 0.5f);
-
-        // Butterfly flips, Counter Blox style: the arm reaches in from the right toward the
-        // left, back of the hand up, and the knife stands on top of the fist facing you (its
-        // held handle down through the fist). The wrist rolls between flips so each one is
-        // seen from a new angle.
-        static readonly Vector3 ButterflySpot = new(0.07f, -0.1f, 0.36f);
-        static readonly Quaternion ButterflyRotation = FingersBack(new Vector3(-0.75f, 0.3f, 0.6f), Vector3.up);
-        static readonly Vector3 HingePoint = new(0f, 0f, GloveSize.z * 0.5f + 0.035f);
-
-        // Sword kata: the sheath rides up into view and the left hand takes hold of it just
-        // below the mouth, the right hand resting on the hilt
-        static readonly Vector3 PresentMouth = new(-0.03f, -0.125f, 0.34f);
-        static readonly Quaternion PresentSheath = FingersBack(new Vector3(-0.85f, -0.25f, -0.45f), new Vector3(0.45f, 0.1f, -0.9f));
-        static readonly Quaternion LeftOnSheath = FingersBack(new Vector3(0.35f, 0.55f, 0.75f), new Vector3(-0.3f, 0.7f, -0.6f));
-
-        // A rotation from where arm +X and arm +Y point
-        static Quaternion FromXY(Vector3 x, Vector3 y)
-        {
-            x.Normalize();
-            y = (y - Vector3.Dot(y, x) * x).normalized;
-            return Quaternion.LookRotation(Vector3.Cross(x, y), y);
-        }
+        // The sheath laid across the bottom of the view for the sword routine (its +Y runs from
+        // the mouth into the scabbard, to the left), and how the left hand holds it
+        static readonly Vector3 AcrossMouth = new(-0.05f, -0.085f, 0.33f);
+        static readonly Quaternion AcrossSheath = FingersBack(new Vector3(-1f, 0.06f, 0.1f), new Vector3(0f, 0.25f, -1f));
+        static readonly Quaternion LeftOnSheath = FingersBack(new Vector3(0.25f, 0.6f, 0.8f), new Vector3(-0.2f, 0.7f, -0.6f));
 
         static float Ease(float t, float a, float b) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t));
 
         // Rises from a to b, holds until c, falls back by d
         static float Plateau(float t, float a, float b, float c, float d) =>
             t < c ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t)) : 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(c, d, t));
+
+        static Quaternion FB(float fx, float fy, float fz, float bx, float by, float bz) =>
+            FingersBack(new Vector3(fx, fy, fz), new Vector3(bx, by, bz));
+
+        // ------------------------------------------------------------------ sequences
+
+        enum Hold { Right, Left, Air, Sheath }
+
+        // One moment of a routine. Values carry over from the previous key unless changed.
+        class Key
+        {
+            public float t;
+            public Vector3 rp, lp, ap;     // right arm, left arm, and (in the air) the knife's pivot
+            public Quaternion rq, lq, aq;
+            public Hold hold;
+            public Vector3 spin;           // knife turned about its own axes (degrees, around its pivot)
+            public float orbit;            // knife carried around the right arm (degrees)
+            public float flips;            // butterfly knife flips done
+            public float slide;            // sword pulled this far out of the sheath
+            public float across;           // sheath at the hip (0) or laid across the view (1)
+            public bool rightOnHilt, leftOnSheath;
+            public Key At(float time) { var k = (Key)MemberwiseClone(); k.t = time; return k; }
+        }
+
+        class Routine
+        {
+            public Key[] keys;
+            public float sustainAt = -1f; // held F pauses the routine here...
+            public int sustainAxis;       // ...and keeps spinning: 0 nothing, 1 the knife, 2 around the arm
+            public float sustainSpeed;
+            public (float t, AudioClip clip, float volume)[] sounds = System.Array.Empty<(float, AudioClip, float)>();
+            public float Length => keys[^1].t;
+        }
+
+        static Key IdleKey(bool reverse) => new()
+        {
+            rp = RightIdle, rq = reverse ? ReverseIdle : ForwardIdle,
+            lp = LeftIdle, lq = LeftIdleRotation,
+            aq = Quaternion.identity,
+        };
+
+        // Talon knife: up to the top right spinning on the ring, over to the left hand, a spin
+        // up there, tossed high and caught by the right, spun off the end of a level arm, home
+        static Routine TalonRoutine()
+        {
+            var ks = new List<Key>();
+            var k = IdleKey(true); ks.Add(k);
+            k = k.At(0.3f); k.rp = new(0.09f, -0.03f, 0.34f); k.rq = FB(-0.2f, 0.9f, 0.4f, 0.1f, 0.2f, -1f); k.spin = new(0f, 0f, -180f); ks.Add(k);
+            k = k.At(0.75f); k.rp = new(0.12f, -0.035f, 0.33f); k.spin = new(0f, 0f, -900f); ks.Add(k);
+            k = k.At(1.05f); k.rp = new(0.04f, -0.04f, 0.32f); k.rq = FB(-0.6f, 0.5f, 0.6f, 0f, 0.5f, -0.9f);
+            k.lp = new(-0.04f, -0.045f, 0.32f); k.lq = FB(0.6f, 0.5f, 0.6f, 0f, 0.5f, -0.9f); k.spin = new(0f, 0f, -1080f); ks.Add(k);
+            k = k.At(1.18f); k.hold = Hold.Left; ks.Add(k);
+            k = k.At(1.5f); k.lp = new(-0.07f, 0.03f, 0.33f); k.lq = FB(0.3f, 0.9f, 0.4f, -0.1f, 0.2f, -1f);
+            k.rp = RightIdle + new Vector3(0f, -0.03f, 0f); k.rq = ReverseIdle; k.spin = new(0f, 0f, -1800f); ks.Add(k);
+            k = k.At(1.8f); k.hold = Hold.Air; k.ap = new(-0.01f, 0.13f, 0.43f); k.aq = Quaternion.Euler(0f, 0f, 30f); k.spin = new(-540f, 0f, -1800f); ks.Add(k);
+            k = k.At(2.05f); k.ap = new(0.03f, 0.06f, 0.39f); k.spin = new(-900f, 0f, -1800f); k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(2.25f); k.hold = Hold.Right; k.rp = new(0.06f, -0.01f, 0.33f); k.rq = FB(-0.3f, 0.8f, 0.6f, 0.3f, 0.3f, -1f); k.spin = new(-1080f, 0f, -1800f); ks.Add(k);
+            k = k.At(2.7f); k.rp = new(0.06f, -0.05f, 0.35f); k.rq = FB(-1f, 0.15f, 0.35f, 0f, 1f, -0.2f); k.spin = new(-1080f, 0f, -2520f); ks.Add(k);
+            k = k.At(3.1f); k.rp = new(0.1f, -0.07f, 0.31f); k.spin = new(-1080f, 0f, -2880f); ks.Add(k);
+            k = k.At(3.5f); k.rp = RightIdle; k.rq = ReverseIdle; ks.Add(k);
+            return new Routine
+            {
+                keys = ks.ToArray(), sustainAt = 0.55f, sustainAxis = 1, sustainSpeed = -1080f,
+                sounds = new[] { (1.8f, WeaponSounds.Slash, 0.35f), (2.4f, WeaponSounds.Slash, 0.35f) },
+            };
+        }
+
+        // Butterfly knife: flipped up high, tossed across to the left hand, flipped there,
+        // tossed high and caught by the right, carried in circles around the right arm while
+        // flipping, a little toss, home
+        static Routine ButterflyRoutine()
+        {
+            var ks = new List<Key>();
+            var k = IdleKey(false); ks.Add(k);
+            k = k.At(0.3f); k.rp = new(0.07f, -0.02f, 0.33f); k.rq = FB(-0.2f, 0.8f, 0.6f, 0.3f, 0.2f, -1f); k.flips = 2f; ks.Add(k);
+            k = k.At(0.55f); k.hold = Hold.Air; k.ap = new(0.01f, 0.08f, 0.4f); k.aq = Quaternion.identity; k.spin = new(0f, 0f, 300f);
+            k.rp = new(0.1f, -0.07f, 0.32f); ks.Add(k);
+            k = k.At(0.8f); k.hold = Hold.Left; k.lp = new(-0.06f, -0.02f, 0.33f); k.lq = FB(0.3f, 0.8f, 0.6f, -0.3f, 0.2f, -1f); k.spin = new(0f, 0f, 720f); ks.Add(k);
+            k = k.At(1.1f); k.lp = new(-0.09f, 0f, 0.34f); k.flips = 4f; ks.Add(k);
+            k = k.At(1.4f); k.hold = Hold.Air; k.ap = new(0f, 0.12f, 0.44f); k.spin = new(360f, 0f, 720f); ks.Add(k);
+            k = k.At(1.75f); k.hold = Hold.Right; k.rp = new(0.06f, -0.01f, 0.33f); k.rq = FB(-0.3f, 0.8f, 0.6f, 0.3f, 0.3f, -1f);
+            k.spin = new(720f, 0f, 720f); k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(2.1f); k.rp = new(0.05f, -0.03f, 0.34f); ks.Add(k);
+            k = k.At(2.9f); k.orbit = 720f; k.flips = 6f; k.rp = new(0.07f, -0.02f, 0.34f); ks.Add(k);
+            k = k.At(3.15f); k.hold = Hold.Air; k.ap = new(0.05f, 0.07f, 0.38f); k.aq = Quaternion.Euler(0f, 0f, -20f); k.spin = new(900f, 0f, 720f); ks.Add(k);
+            k = k.At(3.4f); k.hold = Hold.Right; k.spin = new(1080f, 0f, 720f); k.flips = 8f; ks.Add(k);
+            k = k.At(3.85f); k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
+            return new Routine
+            {
+                keys = ks.ToArray(), sustainAt = 2.5f, sustainAxis = 2, sustainSpeed = 900f,
+                sounds = new[] { (0.5f, WeaponSounds.Slash, 0.35f), (1.35f, WeaponSounds.Slash, 0.35f), (3.1f, WeaponSounds.Slash, 0.3f) },
+            };
+        }
+
+        // Sword: laid across the view and slid into its sheath (held there while F is held),
+        // drawn out along the sheath, three cuts, back across and sheathed, drawn, home
+        static Routine SwordRoutine()
+        {
+            var ks = new List<Key>();
+            var k = IdleKey(false); ks.Add(k);
+            k = k.At(0.3f); k.hold = Hold.Sheath; k.across = 1f; k.slide = 0.3f; k.rightOnHilt = true; k.leftOnSheath = true; ks.Add(k);
+            k = k.At(0.6f); k.slide = 0f; ks.Add(k);
+            k = k.At(0.8f); ks.Add(k);
+            k = k.At(1.2f); k.slide = 0.3f; ks.Add(k);
+            k = k.At(1.4f); k.hold = Hold.Right; k.rightOnHilt = false; k.leftOnSheath = false; k.across = 0f;
+            k.rp = new(0.15f, 0.05f, 0.3f); k.rq = FB(-0.3f, 0.9f, 0.3f, 0.4f, 0f, -1f); k.lp = LeftIdle + LeftHandAway; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(1.62f); k.rp = new(-0.06f, -0.12f, 0.34f); k.rq = FB(-0.9f, -0.4f, 0.5f, 0f, 0.6f, -0.8f); ks.Add(k);
+            k = k.At(1.86f); k.rp = new(0.14f, 0.03f, 0.31f); k.rq = FB(0.3f, 0.8f, 0.5f, 0.5f, -0.2f, -0.8f); ks.Add(k);
+            k = k.At(2.1f); k.rp = new(-0.02f, -0.1f, 0.33f); k.rq = FB(-0.5f, -0.7f, 0.6f, 0.2f, 0.6f, -0.8f); ks.Add(k);
+            k = k.At(2.5f); k.hold = Hold.Sheath; k.across = 1f; k.slide = 0.3f; k.rightOnHilt = true; k.leftOnSheath = true; ks.Add(k);
+            k = k.At(2.85f); k.slide = 0f; ks.Add(k);
+            k = k.At(3.1f); ks.Add(k);
+            k = k.At(3.45f); k.slide = 0.3f; ks.Add(k);
+            k = k.At(3.9f); k.hold = Hold.Right; k.rightOnHilt = false; k.leftOnSheath = false; k.across = 0f;
+            k.rp = RightIdle; k.rq = ForwardIdle; k.lp = LeftIdle; ks.Add(k);
+            return new Routine
+            {
+                keys = ks.ToArray(), sustainAt = 0.7f,
+                sounds = new[]
+                {
+                    (0.58f, WeaponSounds.Sheathe, 0.8f), (0.95f, WeaponSounds.Unsheathe, 0.8f),
+                    (1.45f, WeaponSounds.Slash, 0.75f), (1.7f, WeaponSounds.Slash, 0.75f), (1.95f, WeaponSounds.Slash, 0.75f),
+                    (2.83f, WeaponSounds.Sheathe, 0.8f), (3.2f, WeaponSounds.Unsheathe, 0.8f),
+                },
+            };
+        }
+
+        Routine routine;
+        float sustainExtra;
+        bool sustaining, sustainDone;
+
+        Routine RoutineFor(WeaponParts parts) =>
+            parts.model == KnifeModel.Talon ? TalonRoutine() : parts.model == KnifeModel.Butterfly ? ButterflyRoutine() : SwordRoutine();
 
         // ------------------------------------------------------------------ update
 
@@ -93,243 +200,286 @@ namespace VoidFlow
                 rot = new Vector3(rot.x, rot.y * slashSide, rot.z * slashSide) * reach;
                 if (slashTime > SlashKeys[^1].t) slashTime = -1f;
             }
-            else if (inspectTime >= 0f)
-            {
-                inspectTime += dt;
-                if (knife.model == KnifeModel.Talon) UpdateTalonSpin(held, dt);
-                else if (knife.IsSword) UpdateSwordPoint(held, dt);
-                else if (inspectTime > knife.InspectLength) StopInspect();
-            }
+            else if (inspectTime >= 0f) AdvanceRoutine(held, dt);
             PoseKnife(pos, rot, inspectTime);
+            UpdateTrail(inspectTime >= 0f || slashTime >= 0f);
+        }
+
+        void AdvanceRoutine(bool held, float dt)
+        {
+            routine ??= RoutineFor(knife);
+            if (sustaining)
+            {
+                float speed = Mathf.Abs(routine.sustainSpeed);
+                if (held) sustainExtra += speed * dt;
+                else if (speed > 0f && sustainExtra % 360f > 0.01f)
+                    sustainExtra = Mathf.Min(sustainExtra + speed * dt, Mathf.Ceil(sustainExtra / 360f) * 360f);
+                else { sustaining = false; sustainDone = true; }
+                return;
+            }
+            float before = inspectTime;
+            inspectTime += dt;
+            if (!sustainDone && held && routine.sustainAt >= 0f && before <= routine.sustainAt && inspectTime >= routine.sustainAt)
+            {
+                inspectTime = routine.sustainAt;
+                sustaining = true;
+            }
+            foreach (var (t, clip, volume) in routine.sounds)
+                if (before < t && inspectTime >= t) Play(clip, volume);
+            if (inspectTime > routine.Length)
+            {
+                if (held) StartInspect();
+                else StopInspect();
+            }
         }
 
         void StartInspect()
         {
             inspectTime = 0f;
-            talonSpin = 0f;
-            talonLower = swordRelease = -1f;
+            routine = RoutineFor(knife);
+            sustainExtra = 0f;
+            sustaining = sustainDone = false;
         }
 
         void StopInspect()
         {
             inspectTime = -1f;
-            talonSpin = 0f;
-            talonLower = swordRelease = -1f;
-        }
-
-        // Talon: spin up quickly, keep spinning while F is held; on release finish the turn
-        // it's on (at least one full turn), then lower
-        const float TalonSpinSpeed = 1080f, TalonSpinStart = 0.35f, TalonLowerTime = 0.35f;
-        float talonSpin, talonLower = -1f;
-
-        void UpdateTalonSpin(bool held, float dt)
-        {
-            if (talonLower >= 0f)
-            {
-                talonLower += dt;
-                if (talonLower > TalonLowerTime) StopInspect();
-                return;
-            }
-            if (inspectTime < TalonSpinStart) return;
-            float speed = TalonSpinSpeed * Mathf.Clamp01(0.3f + talonSpin / 180f);
-            float stopAt = held ? float.MaxValue : Mathf.Max(360f, Mathf.Ceil(talonSpin / 360f) * 360f);
-            talonSpin = Mathf.Min(talonSpin + speed * dt, stopAt);
-            if (talonSpin >= stopAt) talonLower = 0f;
-        }
-
-        // Sword kata: cut, cut back, sheathe; hold on the sheath while F is held; let go and
-        // it's drawn again. The first cut starts on the right, the second comes back.
-        const float KataCut = 0.42f, KataSheathe = 1.26f, KataSeated = 1.18f, KataDraw = 0.75f;
-        float swordRelease = -1f;
-
-        void UpdateSwordPoint(bool held, float dt)
-        {
-            float before = inspectTime - dt;
-            if (before < 0.02f && inspectTime >= 0.02f) Play(WeaponSounds.Slash, 0.75f);
-            if (before < KataCut && inspectTime >= KataCut) Play(WeaponSounds.Slash, 0.75f);
-            if (before < KataSeated && inspectTime >= KataSeated) Play(WeaponSounds.Sheathe, 0.8f);
-            if (swordRelease >= 0f)
-            {
-                float r = swordRelease;
-                swordRelease += dt;
-                if (r < 0.22f && swordRelease >= 0.22f) Play(WeaponSounds.Unsheathe, 0.8f);
-                if (swordRelease > KataDraw) StopInspect();
-            }
-            else if (!held && inspectTime >= KataSheathe) swordRelease = 0f;
+            sustaining = false;
+            sustainExtra = 0f;
         }
 
         // ------------------------------------------------------------------ posing
 
-        // Places the hands for the current knife: the resting hold plus the slash offset
-        // (camera space pos, rot), blended into the inspect pose while inspecting (inspect >= 0)
+        // Places the arms and knife: the resting hold plus the slash offset (camera space pos,
+        // rot), or the inspect routine at `inspect` seconds
         void PoseKnife(Vector3 pos, Vector3 rot, float inspect)
         {
             bool reverse = knife.model == KnifeModel.Talon;
             SetGrip(rightHand, reverse);
+            SetGrip(leftHand, reverse);
             float time = Application.isPlaying ? Time.time : 0f;
-            if (sheath && !(inspect >= 0f && knife.IsSword)) sheath.SetLocalPositionAndRotation(SheathMouth, SheathRotation);
+
+            if (inspect >= 0f)
+            {
+                PlayRoutine(inspect);
+                return;
+            }
+
+            // Not inspecting: the knife is back in the right hand, everything solid
+            if (knife.root.parent != rightHand.grip)
+            {
+                knife.root.SetParent(rightHand.grip, false);
+                knife.root.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                UpdateSheath();
+            }
+            if (sheath) sheath.SetLocalPositionAndRotation(SheathMouth, SheathRotation);
+            leftHand.root.gameObject.SetActive(true);
+            SetLeftAlpha(1f);
             if (PoseSwordDraw())
             {
                 SetArmAlpha(0.35f);
                 knife.Animate(time, -1f);
                 return;
             }
-            if (inspect >= 0f && knife.IsSword)
-            {
-                PoseSwordInspect(inspect);
-                knife.Animate(time, inspect);
-                return;
-            }
-            leftHand.root.gameObject.SetActive(true);
-
-            // Talon and butterfly: raise the fist and turn it; the knife moves onto the finger
-            float w = inspect < 0f ? 0f
-                : reverse ? Ease(inspect, 0f, 0.3f) * (talonLower >= 0f ? 1f - Ease(talonLower, 0f, TalonLowerTime) : 1f)
-                : Plateau(inspect, 0f, 0.3f, knife.InspectLength - 0.35f, knife.InspectLength);
-            Quaternion show = (reverse ? TalonRotation : ButterflyRotation) * TrickMove(inspect);
-            hand.localPosition = Vector3.Lerp(RightIdle, reverse ? TalonSpot : ButterflySpot, w) + pos + TrickBob(inspect);
-            hand.localRotation = Quaternion.Euler(rot) * Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, show, w);
-            if (w > 0f)
-            {
-                var (fingerPos, fingerRot) = FingerGrip(inspect);
-                rightHand.grip.SetLocalPositionAndRotation(
-                    Vector3.Lerp(rightHand.grip.localPosition, fingerPos, w), Quaternion.Slerp(rightHand.grip.localRotation, fingerRot, w));
-            }
-            SetArmAlpha(Mathf.Lerp(1f, 0.3f, w));
-
-            // The left arm dips out of the way of inspects and of cuts that cross the body
+            hand.localPosition = RightIdle + pos;
+            hand.localRotation = Quaternion.Euler(rot) * (reverse ? ReverseIdle : ForwardIdle);
+            SetArmAlpha(1f);
+            // The left arm dips out of the way of cuts that cross the body
             float slashAway = slashTime >= 0f && slashSide < 0f ? Plateau(slashTime, 0f, 0.1f, 0.3f, 0.45f) : 0f;
-            leftHand.root.localPosition = LeftIdle + LeftHandAway * Mathf.Max(w, slashAway);
-            knife.ringSpin = talonSpin;
-            knife.Animate(time, inspect, current == KnifeSlot ? drawTime : 99f);
+            leftHand.root.SetLocalPositionAndRotation(LeftIdle + LeftHandAway * slashAway, LeftIdleRotation);
+            knife.ringSpin = 0f;
+            knife.Animate(time, -1f, current == KnifeSlot ? drawTime : 99f);
         }
 
-        // Where the knife sits for a trick. Talon: on the index finger at the top of the glove,
-        // its blade plane square to the finger, pivoting on the ring. Butterfly: standing up
-        // out of the back of the fist (knife up = arm +Z, facing along the finger), pivoting
-        // on the hinge pin.
-        (Vector3, Quaternion) FingerGrip(float inspect)
+        struct Pose
         {
-            if (knife.model == KnifeModel.Talon)
-            {
-                Quaternion r = Quaternion.Euler(0f, 90f, 0f); // knife Z runs along the finger (arm +X)
-                return (FingerPoint - r * knife.ringCenter, r);
-            }
-            // In the rollover the knife travels right round the fist, about the forearm
-            var orbit = Quaternion.Euler(0f, inspect >= 0f ? WeaponParts.ButterflyTrick(inspect).orbit : 0f, 0f);
-            return (orbit * HingePoint, orbit * Quaternion.LookRotation(Vector3.right, Vector3.forward));
+            public Vector3 p;
+            public Quaternion q;
+            public Pose(Vector3 p, Quaternion q) { this.p = p; this.q = q; }
+            public Pose Then(Vector3 lp, Quaternion lq) => new(p + q * lp, q * lq);
+            public Pose Then(Transform local) => Then(local.localPosition, local.localRotation);
+            public static Pose Blend(Pose a, Pose b, float s) => new(Vector3.Lerp(a.p, b.p, s), Quaternion.Slerp(a.q, b.q, s));
         }
 
-        // Small wrist motion on top of the trick pose
-        Quaternion TrickMove(float t)
+        Vector3 KnifePivot => knife.model switch
         {
-            if (t < 0f) return Quaternion.identity;
-            if (knife.model == KnifeModel.Talon)
-                return Quaternion.Euler(0f, Mathf.Sin(talonSpin * Mathf.Deg2Rad) * 3f, 0f);
-            // Butterfly: the wrist rolls one way with the first flip, back with the second, and
-            // rocks through the rollover and the flips home
-            float flips = Plateau(t, 0.3f, 0.45f, 2.3f, 2.5f);
-            float roll = 30f * Mathf.Sin(Mathf.InverseLerp(0.35f, 1.25f, t) * Mathf.PI * 2f) + 12f * Mathf.Sin(Mathf.InverseLerp(1.25f, 2.45f, t) * Mathf.PI * 3f);
-            return Quaternion.Euler(0f, roll * flips, 0f);
+            KnifeModel.Talon => knife.ringCenter,
+            KnifeModel.Butterfly => Vector3.zero,
+            _ => new Vector3(0f, -0.055f, 0f),
+        };
+
+        void PlayRoutine(float t)
+        {
+            routine ??= RoutineFor(knife);
+            var keys = routine.keys;
+            int i = 1;
+            while (i < keys.Length - 1 && t > keys[i].t) i++;
+            Key a = keys[i - 1], b = keys[i];
+            float s = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a.t, b.t, t));
+            Transform rig = hand.parent;
+            float time = Application.isPlaying ? Time.time : 0f;
+
+            // Sheath: at the hip or laid across the view
+            Pose sheathPose = default;
+            if (sheath)
+            {
+                float across = Mathf.Lerp(a.across, b.across, s);
+                sheath.SetLocalPositionAndRotation(
+                    Vector3.Lerp(SheathMouth, AcrossMouth, across), Quaternion.Slerp(SheathRotation, AcrossSheath, across));
+                var m = rig.worldToLocalMatrix * sheath.localToWorldMatrix;
+                sheathPose = new Pose(m.GetColumn(3), m.rotation);
+                sheathed.root.gameObject.SetActive(false);
+            }
+
+            Pose rightGrip = new(rightHand.grip.localPosition, rightHand.grip.localRotation);
+            Pose leftGrip = new(leftHand.grip.localPosition, leftHand.grip.localRotation);
+            Pose InSheath(Key k) => sheathPose.Then(new Vector3(0f, -k.slide, 0f), Quaternion.identity);
+            Pose RightArm(Key k)
+            {
+                if (!k.rightOnHilt) return new Pose(k.rp, k.rq);
+                var knifePose = InSheath(k);
+                var q = knifePose.q * Quaternion.Inverse(rightGrip.q);
+                return new Pose(knifePose.p - q * rightGrip.p, q);
+            }
+            Pose LeftArm(Key k)
+            {
+                if (!k.leftOnSheath) return new Pose(k.lp, k.lq);
+                Vector3 onSheath = sheathPose.p + sheathPose.q * new Vector3(0f, 0.08f, 0f);
+                return new Pose(onSheath - LeftOnSheath * GripFront, LeftOnSheath);
+            }
+            var right = Pose.Blend(RightArm(a), RightArm(b), s);
+            var left = Pose.Blend(LeftArm(a), LeftArm(b), s);
+            Vector3 pivot = KnifePivot;
+            Pose Knife(Key k) => k.hold switch
+            {
+                Hold.Right => right.Then(rightGrip.p, rightGrip.q),
+                Hold.Left => left.Then(leftGrip.p, leftGrip.q),
+                Hold.Air => new Pose(k.ap - k.aq * pivot, k.aq),
+                _ => InSheath(k),
+            };
+            var knifePose = Pose.Blend(Knife(a), Knife(b), s);
+
+            // Spins about the knife's pivot, and orbits around the right arm
+            Vector3 spin = Vector3.Lerp(a.spin, b.spin, s);
+            float orbit = Mathf.Lerp(a.orbit, b.orbit, s);
+            if (routine.sustainAxis == 1) spin.z += Mathf.Sign(routine.sustainSpeed) * sustainExtra;
+            if (routine.sustainAxis == 2) orbit += sustainExtra;
+            Vector3 pivotAt = knifePose.p + knifePose.q * pivot;
+            knifePose.q = knifePose.q * Quaternion.Euler(spin);
+            knifePose.p = pivotAt - knifePose.q * pivot;
+            if (orbit != 0f)
+            {
+                var around = Quaternion.AngleAxis(orbit, right.q * Vector3.up);
+                knifePose.p = right.p + around * (knifePose.p - right.p);
+                knifePose.q = around * knifePose.q;
+            }
+
+            hand.SetLocalPositionAndRotation(right.p, right.q);
+            leftHand.root.gameObject.SetActive(true);
+            leftHand.root.SetLocalPositionAndRotation(left.p, left.q);
+            if (knife.root.parent != rig) knife.root.SetParent(rig, false);
+            knife.ringSpin = 0f;
+            knife.Animate(time, knife.IsSword ? t : -1f);
+            knife.root.gameObject.SetActive(true);
+            knife.root.SetLocalPositionAndRotation(knifePose.p, knifePose.q);
+
+            // Butterfly handles and blade flip as the routine says
+            if (knife.model == KnifeModel.Butterfly && knife.blade && knife.swingHandle)
+            {
+                float flips = Mathf.Lerp(a.flips, b.flips, s);
+                float frac = flips - Mathf.Floor(flips);
+                knife.swingHandle.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(frac * Mathf.PI) * 150f);
+                knife.blade.localRotation = Quaternion.Euler(0f, 0f, flips * 180f);
+            }
+
+            // Arms turn see-through wherever the knife passes behind them
+            var points = new List<Vector3> { pivotAt, knifePose.p };
+            if (knife.tip) points.Add(rig.InverseTransformPoint(knife.tip.position));
+            SetArmAlpha(OverlapAlpha(right, points));
+            SetLeftAlpha(OverlapAlpha(left, points));
         }
 
-        // The butterfly arm sways side to side and dips with each flip while it shows off
-        Vector3 TrickBob(float t)
+        // How solid an arm can stay: see-through where any of the knife's points sit behind it
+        // on screen
+        static float OverlapAlpha(Pose arm, List<Vector3> points)
         {
-            if (t < 0f || knife.model != KnifeModel.Butterfly) return Vector3.zero;
-            float active = Plateau(t, 0.3f, 0.45f, 2.3f, 2.5f);
-            float beat = (t - 0.35f) * Mathf.PI / WeaponParts.FlipPeriod;
-            return new Vector3(Mathf.Sin(beat * 0.5f) * 0.02f, -Mathf.Abs(Mathf.Sin(beat)) * 0.01f, 0f) * active;
-        }
-
-        // Sword kata: two cuts, then to the hip and into the sheath, held there with both hands
-        // (the sheath rides up into view), then drawn back out when F is released
-        void PoseSwordInspect(float t)
-        {
-            float present = Ease(t, KataCut * 2f, KataSheathe);
-            if (swordRelease >= 0f) present *= 1f - Ease(swordRelease, 0.35f, KataDraw);
-            sheath.SetLocalPositionAndRotation(Vector3.Lerp(SheathMouth, PresentMouth, present), Quaternion.Slerp(SheathRotation, PresentSheath, present));
-            var (atHilt, hiltPosition, pulled) = HiltPose();
-            Vector3 p;
-            Quaternion r;
-            bool inSheath = false;
-            float fade = 1f;
-
-            if (t < KataCut * 2f)
+            Vector3 a = arm.p + arm.q * new Vector3(0f, GloveSize.y * 0.5f, 0f);
+            Vector3 b = arm.p + arm.q * new Vector3(0f, -0.07f - ArmLength, 0f);
+            float alpha = 1f;
+            foreach (var p in points)
             {
-                // Two cuts: first from the right, then back from the left
-                float c = t < KataCut ? t : t - KataCut;
-                var (sp, sr) = Sample(SlashKeys, c * SlashKeys[^1].t / KataCut);
-                float side = t < KataCut ? 1f : -1f;
-                sp = new Vector3(sp.x * side, sp.y, sp.z) * 1.3f;
-                sr = new Vector3(sr.x, sr.y * side, sr.z * side) * 1.3f;
-                p = RightIdle + sp;
-                r = Quaternion.Euler(sr) * ForwardIdle;
-                leftHand.root.gameObject.SetActive(false);
-            }
-            else if (t < KataSheathe)
-            {
-                // To the hip; the blade slides home along the sheath at the end
-                float a = Ease(t, KataCut * 2f, KataSeated);
-                p = Vector3.Lerp(RightIdle, hiltPosition, a);
-                r = Quaternion.Slerp(ForwardIdle, atHilt, a);
-                inSheath = t >= KataSeated;
-                fade = 0.35f;
-            }
-            else
-            {
-                // Held on the hilt, breathing
-                p = hiltPosition + new Vector3(0f, Mathf.Sin(t * 2f) * 0.002f, 0f);
-                r = atHilt;
-                inSheath = true;
-            }
-
-            if (swordRelease >= 0f)
-            {
-                // Drawn back out: grip, pull clear along the sheath, swing up to ready
-                float s = swordRelease;
-                inSheath = s < 0.22f;
-                fade = 0.35f;
-                if (s < 0.22f) { p = hiltPosition; r = atHilt; }
-                else if (s < 0.45f) { p = Vector3.Lerp(hiltPosition, pulled, Ease(s, 0.22f, 0.45f)); r = atHilt; }
-                else
+                if (p.z <= 0.01f) continue;
+                Vector2 P = new(p.x / p.z, p.y / p.z);
+                // Closest point on the arm, on screen
+                float best = float.MaxValue, depth = 0f;
+                for (int k = 0; k <= 8; k++)
                 {
-                    float a = Ease(s, 0.45f, KataDraw);
-                    p = Vector3.Lerp(pulled, RightIdle, a) + Vector3.up * (Mathf.Sin(a * Mathf.PI) * 0.05f);
-                    r = Quaternion.Slerp(atHilt, ForwardIdle, a);
-                    fade = Mathf.Lerp(0.35f, 1f, a);
+                    Vector3 q = Vector3.Lerp(a, b, k / 8f);
+                    if (q.z <= 0.01f) continue;
+                    float d = Vector2.Distance(P, new Vector2(q.x / q.z, q.y / q.z));
+                    if (d < best) { best = d; depth = q.z; }
                 }
+                if (p.z < depth - 0.03f) continue; // the knife is in front of the arm
+                alpha = Mathf.Min(alpha, Mathf.Lerp(0.3f, 1f, Ease(best, 0.12f, 0.3f)));
             }
-
-            hand.localPosition = p;
-            hand.localRotation = r;
-            sheathed.root.gameObject.SetActive(inSheath);
-            knife.root.gameObject.SetActive(!inSheath);
-            SetArmAlpha(fade);
-
-            // The left hand takes the scabbard just below the mouth while the sword is sheathed
-            bool leftOn = t >= KataCut * 2f;
-            leftHand.root.gameObject.SetActive(leftOn);
-            if (leftOn)
-            {
-                Transform rig = hand.parent;
-                Vector3 onSheath = rig.InverseTransformPoint(sheath.TransformPoint(new Vector3(0f, 0.07f, 0f)));
-                leftHand.root.SetLocalPositionAndRotation(onSheath - LeftOnSheath * GripFront, LeftOnSheath);
-            }
+            return alpha;
         }
 
         // Shows a moment of the knife inspect in edit mode, for photos (negative: at rest)
         public void PreviewKnifeInspect(float time)
         {
             if (weapons == null) return;
-            talonSpin = Mathf.Max(0f, time - TalonSpinStart) * TalonSpinSpeed;
-            talonLower = swordRelease = -1f;
+            routine = RoutineFor(knife);
+            sustainExtra = 0f;
             PoseKnife(Vector3.zero, Vector3.zero, time);
-            talonSpin = 0f;
             if (time < 0f) UpdateSheath();
         }
 
-        // ------------------------------------------------------------------ see-through arm
+        // ------------------------------------------------------------------ blade trail
+
+        LineRenderer trail;
+        Material trailMat;
+        Texture2D trailFade;
+        readonly List<(float t, Vector3 p)> trailPoints = new();
+        const float TrailLife = 0.14f;
+
+        void UpdateTrail(bool active)
+        {
+            if (!Application.isPlaying) return;
+            if (!trail)
+            {
+                trailFade = new Texture2D(64, 1, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+                for (int x = 0; x < 64; x++) trailFade.SetPixel(x, 0, new Color(1f, 1f, 1f, Mathf.Pow(1f - x / 63f, 1.5f)));
+                trailFade.Apply();
+                trailMat = fadeTemplate ? new Material(fadeTemplate) : MakeTransparent(new Material(template));
+                trailMat.SetTexture("_BaseMap", trailFade);
+                trailMat.SetColor("_BaseColor", new Color(1f, 1f, 1f, 0.75f));
+                trailMat.EnableKeyword("_EMISSION");
+                trailMat.SetColor("_EmissionColor", Color.white * 1.2f);
+                materials.Add(trailMat);
+                trail = new GameObject("Blade Trail").AddComponent<LineRenderer>();
+                trail.gameObject.layer = Layer;
+                trail.useWorldSpace = false;
+                trail.sharedMaterial = trailMat;
+                trail.textureMode = LineTextureMode.Stretch;
+                trail.shadowCastingMode = ShadowCastingMode.Off;
+                trail.receiveShadows = false;
+                trail.numCapVertices = 2;
+                trail.widthCurve = new AnimationCurve(new Keyframe(0f, 0.014f), new Keyframe(1f, 0f));
+            }
+            Transform rig = hand.parent;
+            if (trail.transform.parent != rig) trail.transform.SetParent(rig, false);
+            float now = Time.time;
+            trailPoints.RemoveAll(e => now - e.t > TrailLife);
+            if (active && knife.tip && knife.root.gameObject.activeInHierarchy)
+                trailPoints.Insert(0, (now, rig.InverseTransformPoint(knife.tip.position)));
+            trail.enabled = trailPoints.Count >= 2;
+            if (!trail.enabled) return;
+            trail.positionCount = trailPoints.Count;
+            for (int i = 0; i < trailPoints.Count; i++) trail.SetPosition(i, trailPoints[i].p);
+        }
+
+        // ------------------------------------------------------------------ see-through arms
 
         class ArmPart
         {
@@ -337,32 +487,41 @@ namespace VoidFlow
             public Material solid, clear;
         }
 
-        readonly List<ArmPart> armParts = new();
-        float armAlpha = 1f;
+        readonly List<ArmPart> armParts = new(), leftArmParts = new();
+        float armAlpha = 1f, leftAlpha = 1f;
 
-        // Gives the right arm its own solid and see-through materials
+        // Gives both knife arms their own solid and see-through materials
         void SetupArmFade()
         {
-            foreach (var r in rightHand.root.GetComponentsInChildren<MeshRenderer>(true))
+            Setup(rightHand, armParts);
+            Setup(leftHand, leftArmParts);
+
+            void Setup(BlockArm arm, List<ArmPart> parts)
             {
-                var solid = new Material(r.sharedMaterial);
-                materials.Add(solid);
-                var clear = fadeTemplate ? new Material(fadeTemplate) : MakeTransparent(new Material(template));
-                clear.SetTexture("_BaseMap", solid.GetTexture("_BaseMap"));
-                clear.SetColor("_BaseColor", solid.GetColor("_BaseColor"));
-                clear.SetFloat("_Smoothness", solid.GetFloat("_Smoothness"));
-                clear.SetFloat("_Metallic", solid.GetFloat("_Metallic"));
-                materials.Add(clear);
-                r.sharedMaterial = solid;
-                armParts.Add(new ArmPart { renderer = r, solid = solid, clear = clear });
+                foreach (var r in arm.root.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    var solid = new Material(r.sharedMaterial);
+                    materials.Add(solid);
+                    var clear = fadeTemplate ? new Material(fadeTemplate) : MakeTransparent(new Material(template));
+                    clear.SetTexture("_BaseMap", solid.GetTexture("_BaseMap"));
+                    clear.SetColor("_BaseColor", solid.GetColor("_BaseColor"));
+                    clear.SetFloat("_Smoothness", solid.GetFloat("_Smoothness"));
+                    clear.SetFloat("_Metallic", solid.GetFloat("_Metallic"));
+                    materials.Add(clear);
+                    r.sharedMaterial = solid;
+                    parts.Add(new ArmPart { renderer = r, solid = solid, clear = clear });
+                }
             }
         }
 
-        void SetArmAlpha(float alpha)
+        void SetArmAlpha(float alpha) => ApplyAlpha(armParts, ref armAlpha, alpha);
+        void SetLeftAlpha(float alpha) => ApplyAlpha(leftArmParts, ref leftAlpha, alpha);
+
+        static void ApplyAlpha(List<ArmPart> parts, ref float current, float alpha)
         {
-            if (Mathf.Abs(alpha - armAlpha) < 0.001f) return;
-            armAlpha = alpha;
-            foreach (var part in armParts)
+            if (Mathf.Abs(alpha - current) < 0.001f) return;
+            current = alpha;
+            foreach (var part in parts)
             {
                 if (alpha > 0.995f) { part.renderer.sharedMaterial = part.solid; continue; }
                 Color c = part.solid.GetColor("_BaseColor");

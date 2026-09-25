@@ -11,6 +11,7 @@ namespace VoidFlow
         public KnifeModel model;
         public SkinRarity rarity;
         public Transform blade, swingHandle, aura, bolt, magazine; // butterfly / Void / rifle parts
+        public Transform tip; // the blade's point (knives), for motion trails
         public Vector3 ringCenter, boltRest, magRest;
         public float ringSpin; // talon knife: degrees spun around the finger ring (set by the view)
         public readonly List<Material> glowMaterials = new();
@@ -200,6 +201,7 @@ namespace VoidFlow
                 edge[i] = c - outward * w * 0.5f;
             }
             MeshPart(t, finish, RailBlade(spine, edge, 0.0028f, 0.0003f), Vector3.zero, Quaternion.identity);
+            parts.tip = Tip(t, spine[^1]);
             // Jimping: little notches along the spine near the bolster
             for (int k = 0; k < 5; k++)
             {
@@ -253,6 +255,7 @@ namespace VoidFlow
                 edge[i] = new Vector2(-0.0125f * (1f - k * k), y);
             }
             MeshPart(parts.blade, finish, RailBlade(spine, edge, 0.0024f, 0.0003f), Vector3.zero, Quaternion.identity);
+            parts.tip = Tip(parts.blade, spine[^1]);
         }
 
         // A curved katana blade: spine on +X, gentle curve toward the spine, rounded tip
@@ -300,6 +303,7 @@ namespace VoidFlow
             }
             var (spine, edge) = Katana(0.25f, 0.022f, 0.022f, 0.03f, 0.006f);
             MeshPart(t, finish, RailBlade(spine, edge, 0.0028f, 0.0005f), Vector3.zero, Quaternion.identity);
+            parts.tip = Tip(t, spine[^1]);
         }
 
         // Red diamonds peeking through black wrap, on all four sides of the grip
@@ -331,6 +335,7 @@ namespace VoidFlow
             Part(t, PrimitiveType.Cube, gold, new Vector3(0f, 0.008f, 0f), new Vector3(0.026f, 0.01f, 0.008f));
             var (spine, edge) = Katana(0.23f, 0.024f, 0.012f, 0.035f, 0.01f);
             MeshPart(t, finish, RailBlade(spine, edge, 0.003f, 0.0005f), Vector3.zero, Quaternion.identity);
+            parts.tip = Tip(t, spine[^1]);
         }
 
         // A huge cleaver in miniature: broad straight blade with a chisel tip, two holes with
@@ -357,6 +362,7 @@ namespace VoidFlow
                 edge[i] = new Vector2(s < 0.82f ? -0.034f : Mathf.Lerp(-0.034f, 0.02f, (s - 0.82f) / 0.18f), s < 0.82f ? ey : Mathf.Lerp(0.011f + 0.82f * 0.2f, 0.211f, (s - 0.82f) / 0.18f));
             }
             MeshPart(t, finish, RailBlade(spine, edge, 0.0034f, 0.0006f), Vector3.zero, Quaternion.identity);
+            parts.tip = Tip(t, spine[^1]);
 
             var orbColors = new[] { new Color(0.3f, 1f, 0.6f), new Color(0.6f, 0.3f, 1f) };
             for (int i = 0; i < 2; i++)
@@ -560,6 +566,14 @@ namespace VoidFlow
             go.transform.localScale = scale;
             Finish(go.GetComponent<MeshRenderer>(), mat);
             return go.transform;
+        }
+
+        static Transform Tip(Transform parent, Vector2 at)
+        {
+            var t = new GameObject("Tip").transform;
+            t.SetParent(parent, false);
+            t.localPosition = at;
+            return t;
         }
 
         // A cylinder from one point to another
