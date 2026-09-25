@@ -372,7 +372,7 @@ namespace VoidFlow
             // The right hand leaves the grip to work the bolt
             Vector3 knob = bolt.localPosition + bolt.localRotation * new Vector3(0.05f, -0.014f, 0f);
             Quaternion atBolt = fistRestRotation * Quaternion.Euler(0f, 0f, 25f);
-            Vector3 onKnob = knob + new Vector3(0.045f, -0.01f, -0.02f);
+            Vector3 onKnob = knob - atBolt * GripFront;
             rightFist.SetLocalPositionAndRotation(Vector3.Lerp(fistRest, onKnob, toBolt), Quaternion.Slerp(fistRestRotation, atBolt, toBolt));
         }
 
@@ -438,11 +438,13 @@ namespace VoidFlow
             // sleeves running back to the bottom corners
             var right = BuildBlockArm(t, "Right Arm");
             rightFist = right.root;
-            fistRest = new Vector3(0f, -0.058f, -0.035f);
+            // Each glove sits just behind what it holds, so the weapon rests on its front edge
             fistRestRotation = FingersBack(new Vector3(-0.3f, 0.35f, 1f), new Vector3(1f, 0f, 0.3f));
+            fistRest = new Vector3(0f, -0.058f, -0.035f) - fistRestRotation * GripFront;
             rightFist.SetLocalPositionAndRotation(fistRest, fistRestRotation);
             var left = BuildBlockArm(t, "Left Arm");
-            left.root.SetLocalPositionAndRotation(new Vector3(0f, -0.07f, 0.29f), FingersBack(new Vector3(0.25f, 0.75f, 0.6f), new Vector3(-1f, 0f, 0.3f)));
+            Quaternion leftRotation = FingersBack(new Vector3(0.25f, 0.75f, 0.6f), new Vector3(-1f, 0f, 0.3f));
+            left.root.SetLocalPositionAndRotation(new Vector3(0f, -0.035f, 0.29f) - leftRotation * GripFront, leftRotation);
             return root;
         }
     }
