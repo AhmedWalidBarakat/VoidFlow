@@ -29,6 +29,8 @@ namespace VoidFlow
         public float fieldOfView = 58f;
         [Tooltip("Optional: a clip to use for the sniper shot instead of the generated one")]
         public AudioClip sniperShotClip;
+        [Tooltip("The particle effects (for the muzzle flash and scorch sprites)")]
+        public FxLibrary fx;
 
         const int Layer = 30; // drawn only by the viewmodel camera
         public const int KnifeSlot = 0, SniperSlot = 1;

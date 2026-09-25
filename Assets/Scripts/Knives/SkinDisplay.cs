@@ -28,6 +28,11 @@ namespace VoidFlow
         public Skins.Skin Skin => sniper ? Skins.Snipers[Mathf.Clamp(skinIndex, 0, Skins.Snipers.Length - 1)] : Skins.Knives[Mathf.Clamp(skinIndex, 0, Skins.Knives.Length - 1)];
 
         void OnEnable() => Build();
+
+        void Start()
+        {
+            if (Application.isPlaying) FxLibrary.Sparkle(transform, Skins.RarityColor(Skin.rarity), 0.4f, 2.5f);
+        }
         void OnDisable() => Clear();
 
         void Build()

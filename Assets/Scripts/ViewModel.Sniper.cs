@@ -208,13 +208,22 @@ namespace VoidFlow
             // Tracer from roughly the muzzle to the hit
             Transform v = view.transform;
             ShowTracer(v.position + v.right * 0.1f - v.up * 0.07f + v.forward * 0.8f, end);
+            FxLibrary.MuzzleSmoke(v.position + v.right * 0.12f - v.up * 0.08f + v.forward * 1.1f, v.forward);
         }
 
         void Impact(RaycastHit hit)
         {
             if (!holeMat)
             {
-                holeMat = Make(new Color(0.03f, 0.03f, 0.03f), 0.05f, 0f);
+                // A scorch mark sprite if the effects are around, otherwise a plain dark square
+                var scorch = fx && fx.scorch ? fx.scorch.GetTexture("_BaseMap") : null;
+                holeMat = scorch ? MakeTransparent(new Material(fadeTemplate ? fadeTemplate : template)) : Make(new Color(0.03f, 0.03f, 0.03f), 0.05f, 0f);
+                if (scorch)
+                {
+                    holeMat.SetTexture("_BaseMap", scorch);
+                    holeMat.SetColor("_BaseColor", new Color(0.04f, 0.03f, 0.03f, 0.95f));
+                    materials.Add(holeMat);
+                }
                 sparkMat = MakeGlow(new Color(1f, 0.7f, 0.3f), 4f);
             }
             // Bullet hole, stuck to whatever was hit so it moves with it
@@ -223,12 +232,13 @@ namespace VoidFlow
             hole.GetComponent<MeshRenderer>().sharedMaterial = holeMat;
             hole.transform.SetPositionAndRotation(hit.point + hit.normal * 0.01f,
                 Quaternion.LookRotation(-hit.normal) * Quaternion.Euler(0f, 0f, Random.Range(0f, 360f)));
-            hole.transform.localScale = Vector3.one * 0.14f;
+            hole.transform.localScale = Vector3.one * 0.3f;
             hole.transform.SetParent(hit.collider.transform, true);
             holes.Enqueue(hole);
             while (holes.Count > 30) Destroy(holes.Dequeue());
 
-            // Sparks and a flash
+            // Sparks, a flash and smoke
+            if (FxLibrary.Instance) { FxLibrary.Impact(hit.point, hit.normal); return; }
             for (int i = 0; i < 8; i++)
             {
                 var spark = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -238,11 +248,6 @@ namespace VoidFlow
                 Vector3 dir = (hit.normal + Random.insideUnitSphere * 0.9f).normalized;
                 effects.Add(new Effect { t = spark.transform, velocity = dir * Random.Range(4f, 9f), scale = Vector3.one * 0.05f, life = Random.Range(0.2f, 0.4f) });
             }
-            var puff = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Destroy(puff.GetComponent<Collider>());
-            puff.GetComponent<MeshRenderer>().sharedMaterial = sparkMat;
-            puff.transform.position = hit.point + hit.normal * 0.05f;
-            effects.Add(new Effect { t = puff.transform, scale = Vector3.one * 0.35f, life = 0.1f });
         }
 
         void ShowTracer(Vector3 from, Vector3 to)
@@ -442,14 +447,35 @@ namespace VoidFlow
             var t = gun;
 
             // Muzzle flash, shown for a moment after each shot
-            Material fire = MakeGlow(new Color(1f, 0.65f, 0.25f), 6f);
             flash = new GameObject("Muzzle Flash").transform;
             flash.SetParent(t, false);
             flash.localPosition = new Vector3(0f, 0.018f, 0.93f);
-            Part(flash, PrimitiveType.Sphere, fire, Vector3.zero, Vector3.one * 0.05f);
-            Part(flash, PrimitiveType.Cube, fire, new Vector3(0f, 0f, 0.05f), new Vector3(0.012f, 0.012f, 0.12f));
-            Part(flash, PrimitiveType.Cube, fire, Vector3.zero, new Vector3(0.14f, 0.01f, 0.01f));
-            Part(flash, PrimitiveType.Cube, fire, Vector3.zero, new Vector3(0.01f, 0.14f, 0.01f));
+            var muzzleTex = fx && fx.muzzle ? fx.muzzle.GetTexture("_BaseMap") : null;
+            var flareTex = fx && fx.flare ? fx.flare.GetTexture("_BaseMap") : null;
+            if (muzzleTex && flareTex)
+            {
+                // Flash sprites: a star-burst facing you, and two flame tongues along the barrel
+                Material Sprite(Texture tex, float glow)
+                {
+                    var m = MakeTransparent(new Material(fadeTemplate ? fadeTemplate : template));
+                    m.SetTexture("_BaseMap", tex);
+                    m.SetColor("_BaseColor", new Color(1f, 0.75f, 0.4f, 1f));
+                    m.EnableKeyword("_EMISSION");
+                    m.SetTexture("_EmissionMap", tex);
+                    m.SetColor("_EmissionColor", new Color(1f, 0.6f, 0.25f) * glow);
+                    materials.Add(m);
+                    return m;
+                }
+                Material burst = Sprite(flareTex, 5f), tongue = Sprite(muzzleTex, 4f);
+                Part(flash, PrimitiveType.Quad, burst, Vector3.zero, Vector3.one * 0.3f, Quaternion.identity);
+                Part(flash, PrimitiveType.Quad, tongue, new Vector3(0f, 0f, 0.08f), new Vector3(0.09f, 0.2f, 1f), Quaternion.LookRotation(Vector3.right, Vector3.forward));
+                Part(flash, PrimitiveType.Quad, tongue, new Vector3(0f, 0f, 0.08f), new Vector3(0.09f, 0.2f, 1f), Quaternion.LookRotation(Vector3.up, Vector3.forward));
+            }
+            else
+            {
+                Material fire = MakeGlow(new Color(1f, 0.65f, 0.25f), 6f);
+                Part(flash, PrimitiveType.Sphere, fire, Vector3.zero, Vector3.one * 0.05f);
+            }
             flash.gameObject.SetActive(false);
 
             // Block arms: the right glove on the pistol grip, the left one under the forend,

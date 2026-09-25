@@ -20,6 +20,7 @@ namespace VoidFlow
         const float BannerSeconds = 3f;
 
         bool running;
+        public bool Running => running;
         float startTime, best;
         float lastRun;
         string banner;

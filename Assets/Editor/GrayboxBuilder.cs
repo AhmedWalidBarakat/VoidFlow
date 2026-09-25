@@ -66,6 +66,24 @@ namespace VoidFlow.EditorTools
             timer.startZone = startZone;
             timer.spawnPoint = spawn;
 
+            // Particle effects (CC0 sprites from Kenney's Particle Pack, Assets/Fx)
+            var fx = new GameObject("Fx").AddComponent<FxLibrary>();
+            fx.spark = FxMaterial("Spark", "circle_05", true, Color.white);
+            fx.flare = FxMaterial("Flare", "flare_01", true, Color.white);
+            fx.star = FxMaterial("Star", "star_04", true, Color.white);
+            fx.smoke = FxMaterial("Smoke", "smoke_07", false, Color.white);
+            fx.dirt = FxMaterial("Dirt", "dirt_01", false, Color.white);
+            fx.magic = FxMaterial("Magic", "magic_04", true, Color.white);
+            fx.mote = FxMaterial("Mote", "circle_05", true, Color.white);
+            fx.ring = FxMaterial("Ring", "light_02", true, Color.white);
+            fx.streak = FxMaterial("Streak", "trace_02", true, Color.white);
+            fx.muzzle = FxMaterial("Muzzle", "muzzle_01", true, Color.white);
+            fx.scorch = FxMaterial("Scorch", "scorch_01", false, Color.white);
+            fx.player = player;
+            fx.course = course;
+            fx.timer = timer;
+            player.cameraPivot.GetComponent<ViewModel>().fx = fx;
+
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();
@@ -73,6 +91,25 @@ namespace VoidFlow.EditorTools
         }
 
         static Vector3 WithY(this Vector3 v, float y) => new(v.x, y, v.z);
+
+        // A URP particle material around one of the Fx sprites: additive for anything that
+        // glows, alpha-blended for smoke, dirt and scorch marks
+        static Material FxMaterial(string name, string texture, bool additive, Color color)
+        {
+            var m = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit"));
+            m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Fx/{texture}.png"));
+            m.SetColor("_BaseColor", color);
+            m.SetFloat("_Surface", 1f);
+            m.SetFloat("_Blend", additive ? 2f : 0f);
+            m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", (float)(additive ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha));
+            m.SetFloat("_ZWrite", 0f);
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            AssetDatabase.CreateAsset(m, $"{Root}/Fx_{name}.mat");
+            return m;
+        }
 
         // Painted textures, made at the start of Build and used by the hall and biomes
         static Texture2D tiles, stone, metal, wood, ice;

@@ -34,6 +34,15 @@ namespace VoidFlow
 
         void OnEnable() => Build();
 
+        void Start()
+        {
+            if (!Application.isPlaying) return;
+            var at = new GameObject("Sparkle Spot").transform;
+            at.SetParent(transform, false);
+            at.localPosition = new Vector3(0f, 1.3f, 0f);
+            FxLibrary.Sparkle(at, rayColor, 0.9f, 6f);
+        }
+
         void OnDisable()
         {
             Clear();
@@ -232,6 +241,7 @@ namespace VoidFlow
                 else viewModel.EquipKnifeSkin(winner);
             }
             Play(Pool[winner].rarity == SkinRarity.Void ? WeaponSounds.VoidReveal : WeaponSounds.Reveal, 0.8f);
+            FxLibrary.Celebrate(transform.position + Vector3.up * 1.8f, Skins.RarityColor(Pool[winner].rarity), Pool[winner].rarity == SkinRarity.Void);
         }
 
         void Play(AudioClip clip, float volume)

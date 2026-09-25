@@ -81,7 +81,8 @@ namespace VoidFlow
                 if (d.t.position.y < floor)
                 {
                     misses++;
-                    Burst(d.t.position, 4, 3f);
+                    if (FxLibrary.Instance) FxLibrary.Puff(d.t.position, new Color(0.9f, 0.5f, 0.2f, 0.8f));
+                    else Burst(d.t.position, 4, 3f);
                     Destroy(d.t.gameObject);
                     discs.RemoveAt(i);
                 }
@@ -150,6 +151,7 @@ namespace VoidFlow
             disc.AddComponent<SkeetTarget>().range = this;
             discs.Add(new Disc { t = disc.transform, velocity = velocity, spin = Random.Range(600f, 900f) });
             Play(WeaponSounds.Launch, 0.8f);
+            FxLibrary.MuzzleSmoke(launcher.position, velocity.normalized);
         }
 
         public void Hit(SkeetTarget target)
@@ -157,7 +159,8 @@ namespace VoidFlow
             int i = discs.FindIndex(d => d.t == target.transform);
             if (i < 0) return;
             hits++;
-            Burst(target.transform.position, 10, 6f);
+            if (FxLibrary.Instance) FxLibrary.Shatter(target.transform.position, new Color(1f, 0.5f, 0.15f));
+            else Burst(target.transform.position, 10, 6f);
             Play(WeaponSounds.Shatter, 0.9f);
             Destroy(target.gameObject);
             discs.RemoveAt(i);
