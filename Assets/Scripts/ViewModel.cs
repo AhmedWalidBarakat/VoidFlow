@@ -366,6 +366,8 @@ namespace VoidFlow
             hand.localRotation = Quaternion.Euler(rot) * Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, show, w);
             if (reverse) SetGrip(rightHand, true, -90f * w);
             leftHand.root.localPosition = LeftIdle + LeftHandAway * w;
+            // During a sword inspect the left arm disappears so it never blocks the show
+            leftHand.root.gameObject.SetActive(!(knife.IsSword && inspect >= 0f));
             knife.Animate(Application.isPlaying ? Time.time : 0f, inspect);
         }
 

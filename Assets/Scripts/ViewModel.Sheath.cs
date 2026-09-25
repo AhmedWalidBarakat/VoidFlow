@@ -119,6 +119,7 @@ namespace VoidFlow
                 hand.localRotation = Quaternion.Slerp(atHilt, ForwardIdle, a);
             }
             leftHand.root.localPosition = LeftIdle;
+            leftHand.root.gameObject.SetActive(true);
             return true;
         }
     }
