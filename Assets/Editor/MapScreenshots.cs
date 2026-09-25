@@ -72,7 +72,7 @@ namespace VoidFlow.EditorTools
                     viewModel.PreviewKnifeInspect(-1f);
                 }
                 // Per-knife inspects, mid-move
-                foreach (var (skin, t) in new[] { (0, 0.45f), (0, 0.55f), (4, 0.5f), (4, 0.62f), (7, 0.2f), (7, 0.36f), (7, 0.55f), (7, 1.2f) })
+                foreach (var (skin, t) in new[] { (0, 0.45f), (0, 0.55f), (4, 0.5f), (4, 0.62f), (4, 0.9f), (4, 1.15f), (7, 0.8f), (7, 1.2f) })
                 {
                     viewModel.EquipKnifeSkin(skin);
                     viewModel.PreviewKnifeInspect(t);

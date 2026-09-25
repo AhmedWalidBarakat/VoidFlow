@@ -9,11 +9,12 @@ namespace VoidFlow
     // Whenever a move could pass through the right arm, that arm fades to see-through so the
     // knife always reads cleanly.
     //
-    //  - Talon knife: hold F and it spins around the index finger through its ring, seen at an
-    //    angle; let go and it finishes the turn and settles.
-    //  - Butterfly knife: Counter Blox style flips through the fist, seen at an angle.
+    //  - Talon knife: hold F and it spins face-on around the index finger through its ring;
+    //    let go and it finishes the turn and settles.
+    //  - Butterfly knife: Counter Blox style flips standing up on the fist, the wrist rolling
+    //    between flips so each is seen from a new angle.
     //  - Void swords: hold F to slide the sword back into the hip sheath, draw it out again and
-    //    point it straight ahead at the crosshair; it stays pointed until you let go.
+    //    point it onward: arm and blade in one line toward the crosshair, held until you let go.
     public partial class ViewModel
     {
         [Tooltip("A transparent URP Lit material; see-through copies of the arm are made from it")]
@@ -29,16 +30,26 @@ namespace VoidFlow
         static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.3f, 0.5f, 1f), new Vector3(-0.1f, 0.6f, -0.7f));
         static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
 
-        // Trick pose (talon spin, butterfly flips): fist raised upright, the index finger (arm
-        // +X) pointing back toward you and to the left, so the knife turns in a plane you see
-        // at an angle. The knife sits on the finger at the top of the glove.
-        static readonly Vector3 TrickSpot = new(0.075f, -0.07f, 0.37f);
-        static readonly Quaternion TrickRotation = FromXY(new Vector3(-0.6f, 0.1f, -0.8f), new Vector3(0.1f, 1f, 0f));
+        // Talon spin: fist raised upright with the index finger (arm +X) pointing straight back
+        // at you, so the knife spins face-on around it. The ring sits on the finger at the top
+        // of the glove.
+        static readonly Vector3 TalonSpot = new(0.06f, -0.07f, 0.37f);
+        static readonly Quaternion TalonRotation = FromXY(new Vector3(-0.08f, 0.05f, -1f), new Vector3(0.05f, 1f, 0f));
         static readonly Vector3 FingerPoint = new(0f, 0.038f, 0f);
 
-        // Sword point: arm out to the lower right, blade aimed at the crosshair
-        static readonly Vector3 PointSpot = new(0.12f, -0.085f, 0.3f);
-        static readonly Quaternion PointRotation = FromXY(new Vector3(-0.45f, 0.28f, 0.85f), new Vector3(-0.3f, 0.9f, 0.3f));
+        // Butterfly flips, Counter Blox style: the arm reaches in from the right toward the
+        // left, back of the hand up, and the knife stands on top of the fist facing you (its
+        // held handle down through the fist). The wrist rolls between flips so each one is
+        // seen from a new angle.
+        static readonly Vector3 ButterflySpot = new(0.07f, -0.1f, 0.36f);
+        static readonly Quaternion ButterflyRotation = FingersBack(new Vector3(-0.75f, 0.3f, 0.6f), Vector3.up);
+        static readonly Vector3 HingePoint = new(0f, 0f, GloveSize.z * 0.5f + 0.035f);
+
+        // Sword point: the arm reaches out toward the crosshair and the sword carries straight
+        // on out of the front of the glove, pointing onward
+        static readonly Vector3 PointSpot = new(0.14f, -0.13f, 0.25f);
+        static readonly Quaternion PointRotation = FingersBack(new Vector3(-0.32f, 0.26f, 0.75f), Vector3.up);
+        static readonly Vector3 PointGripSpot = new(0f, GloveSize.y * 0.5f + 0.11f, 0f);
 
         // A rotation from where arm +X and arm +Y point
         static Quaternion FromXY(Vector3 x, Vector3 y)
@@ -172,8 +183,8 @@ namespace VoidFlow
             float w = inspect < 0f ? 0f
                 : reverse ? Ease(inspect, 0f, 0.3f) * (talonLower >= 0f ? 1f - Ease(talonLower, 0f, TalonLowerTime) : 1f)
                 : Plateau(inspect, 0f, 0.3f, knife.InspectLength - 0.35f, knife.InspectLength);
-            Quaternion show = TrickRotation * TrickMove(inspect);
-            hand.localPosition = Vector3.Lerp(RightIdle, TrickSpot, w) + pos + TrickBob(inspect);
+            Quaternion show = (reverse ? TalonRotation : ButterflyRotation) * TrickMove(inspect);
+            hand.localPosition = Vector3.Lerp(RightIdle, reverse ? TalonSpot : ButterflySpot, w) + pos + TrickBob(inspect);
             hand.localRotation = Quaternion.Euler(rot) * Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, show, w);
             if (w > 0f)
             {
@@ -190,15 +201,18 @@ namespace VoidFlow
             knife.Animate(time, inspect, current == KnifeSlot ? drawTime : 99f);
         }
 
-        // Where the knife sits for a trick: on the index finger at the top of the glove, its
-        // blade plane square to the finger. Pivots on the finger ring for a talon knife and on
-        // the hinge pin for a butterfly knife.
+        // Where the knife sits for a trick. Talon: on the index finger at the top of the glove,
+        // its blade plane square to the finger, pivoting on the ring. Butterfly: standing up
+        // out of the back of the fist (knife up = arm +Z, facing along the finger), pivoting
+        // on the hinge pin.
         (Vector3, Quaternion) FingerGrip()
         {
-            Quaternion r = Quaternion.Euler(0f, 90f, 0f); // knife Z runs along the finger (arm +X)
-            Vector3 pivot = knife.model == KnifeModel.Talon ? knife.ringCenter : Vector3.zero;
-            Vector3 at = knife.model == KnifeModel.Talon ? FingerPoint : FingerPoint + new Vector3(0f, 0.02f, 0f);
-            return (at - r * pivot, r);
+            if (knife.model == KnifeModel.Talon)
+            {
+                Quaternion r = Quaternion.Euler(0f, 90f, 0f); // knife Z runs along the finger (arm +X)
+                return (FingerPoint - r * knife.ringCenter, r);
+            }
+            return (HingePoint, Quaternion.LookRotation(Vector3.right, Vector3.forward));
         }
 
         // Small wrist motion on top of the trick pose
@@ -206,9 +220,11 @@ namespace VoidFlow
         {
             if (t < 0f) return Quaternion.identity;
             if (knife.model == KnifeModel.Talon)
-                return Quaternion.Euler(Mathf.Sin(talonSpin * Mathf.Deg2Rad) * 4f, 0f, 0f);
+                return Quaternion.Euler(0f, Mathf.Sin(talonSpin * Mathf.Deg2Rad) * 3f, 0f);
+            // Butterfly: the wrist rolls around the forearm between flips (one way, then back)
             float flips = Plateau(t, 0.3f, 0.45f, 2f, 2.2f);
-            return Quaternion.Euler(Mathf.Sin((t - 0.35f) * Mathf.PI / WeaponParts.FlipPeriod) * 9f * flips, 0f, 0f);
+            float roll = Mathf.Sin((t - 0.35f) * Mathf.PI / (2f * WeaponParts.FlipPeriod)) * 35f;
+            return Quaternion.Euler(0f, roll * flips, 0f);
         }
 
         // The butterfly arm sways side to side and dips with each flip while it shows off
@@ -254,14 +270,21 @@ namespace VoidFlow
                 p = Vector3.Lerp(pulled, PointSpot, a) + Vector3.up * (Mathf.Sin(a * Mathf.PI) * 0.05f) + breathe * a;
                 r = Quaternion.Slerp(atHilt, PointRotation, a);
             }
+            // While pointing, the sword turns in the hand to carry straight on out of the front
+            // of the glove, in line with the arm
+            float onward = t < SwordOut ? 0f : Ease(t, SwordOut, SwordPointed);
             if (swordRelease >= 0f)
             {
                 float a = Ease(swordRelease, 0f, SwordReturn);
                 p = Vector3.Lerp(p, RightIdle, a);
                 r = Quaternion.Slerp(r, ForwardIdle, a);
+                onward *= 1f - a;
             }
             hand.localPosition = p;
             hand.localRotation = r;
+            if (onward > 0f)
+                rightHand.grip.SetLocalPositionAndRotation(
+                    Vector3.Lerp(rightHand.grip.localPosition, PointGripSpot, onward), Quaternion.Slerp(rightHand.grip.localRotation, Quaternion.identity, onward));
             sheathed.root.gameObject.SetActive(inSheath);
             knife.root.gameObject.SetActive(!inSheath);
             // The arm crosses the body to the hip: see-through until the point is set
