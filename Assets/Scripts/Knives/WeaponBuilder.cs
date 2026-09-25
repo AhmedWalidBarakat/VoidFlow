@@ -504,7 +504,9 @@ namespace VoidFlow
         Material FinishMaterial(KnifeFinish finish, WeaponParts parts)
         {
             var look = KnifeFinishes.Get(finish);
-            var m = Mat(look.tint, look.smoothness, look.metallic);
+            // Every finish is polished metal: mirror-smooth and fully metallic, so each one
+            // flashes and reflects like the golds do
+            var m = Mat(look.tint, Mathf.Max(look.smoothness, 0.95f), Mathf.Max(look.metallic, 0.9f));
             if (look.albedo) m.SetTexture("_BaseMap", look.albedo);
             var emission = look.emission ? look.emission : look.photo ? KnifeFinishes.Glitter : null;
             if (emission)

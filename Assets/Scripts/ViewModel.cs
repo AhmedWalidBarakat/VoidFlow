@@ -167,8 +167,6 @@ namespace VoidFlow
             Kill(panel);
             Kill(dot);
             Kill(gloveTexture);
-            Kill(arcTexture);
-            Kill(arcMesh);
             Kill(trailFade);
             Kill(sleeveTexture);
             Kill(scopeTexture);
@@ -309,7 +307,6 @@ namespace VoidFlow
             if (current == KnifeSlot) UpdateKnife(kb, mouse, locked, ready, dt);
             else UpdateSniper(kb, mouse, locked, ready, dt);
             UpdateEffects(dt);
-            UpdateArcs(dt);
 
             if (player) player.maxSpeed = (current == SniperSlot && zoom > 0 ? 100f : weapon.speed) * PlayerMovement.SourceUnit;
         }
