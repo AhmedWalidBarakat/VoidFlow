@@ -211,7 +211,7 @@ namespace VoidFlow
             ShowTracer(muzzle, end);
             // Void rifles fire their own kind of round: a railgun beam or a trail of fire
             var skin = Skins.Snipers[sniperSkin];
-            var style = skin.model == KnifeModel.Railgun ? FxLibrary.ShotStyle.Beam
+            var style = skin.model is KnifeModel.Railgun or KnifeModel.Lance ? FxLibrary.ShotStyle.Beam
                 : skin.model == KnifeModel.Hellfire ? FxLibrary.ShotStyle.Fire
                 : skin.rarity == SkinRarity.Void ? FxLibrary.ShotStyle.Glow : FxLibrary.ShotStyle.Normal;
             Color tint = rifle != null ? rifle.hue : Color.white;

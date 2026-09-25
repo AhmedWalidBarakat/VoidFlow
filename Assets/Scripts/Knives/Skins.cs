@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace VoidFlow
 {
-    public enum KnifeModel { Talon, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle, Reaper, Saber, Shardfang, Railgun, Hellfire }
+    public enum KnifeModel { Talon, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle, Reaper, Saber, Shardfang, Railgun, Hellfire, Kukri, Claws, Axe, Sai, Spear, Kris, Prism, Bone, Lance, Seraph }
 
     // Finishes. Most are painted in code (our own takes on the classic flashy knife finishes,
     // and the glowing Void ones); the stone, carbon and metal ones use CC0 photo textures from
@@ -13,6 +13,7 @@ namespace VoidFlow
         TidewaterOnyx, SmokeOnyx, PearlOnyx, GreyMarble, BlackMarble, WhiteMarble, Carbon, Gunmetal, DiamondPlate, Saddle,
         DesertOnyx, CaramelSwirl, GlacierOnyx, AmberOnyx, CrimsonOnyx, StormOnyx, VioletOnyx, Obsidian, Confetti, MagmaVein, Molten, LavaFlow, Plasma, Toxic, VoidFlare, Frostbite, ShatteredIce, Sapphire, Amethyst, Ruby, Chrome, Gold, Copper, AntiqueGold, Holographic,
         SoulReaper, FrostReaper, NovaSaber, CrimsonSaber, Shardfang, Singularity, FrostRail, Hellfire,
+        SerpentFang, DragonClaw, DoomAxe, StormSai, Starlance, WraithKris, InfernoReaper, VoidSaber, SolarSaber, EmeraldShard, EventHorizon, TempestRail, Inferno, AbyssalFire, PrismRifle, AmethystPrism, Deathwhisper, PlasmaLance, CrimsonLance, Seraph,
     }
 
     public enum SkinRarity { Default, Mythic, Void }
@@ -41,6 +42,9 @@ namespace VoidFlow
             }
         }
 
+        public static bool IsRifle(KnifeModel m) => m is KnifeModel.Rifle or KnifeModel.Railgun or KnifeModel.Hellfire
+            or KnifeModel.Prism or KnifeModel.Bone or KnifeModel.Lance or KnifeModel.Seraph;
+
         public static readonly Skin[] Knives =
         {
             new("Talon Knife", KnifeModel.Talon, KnifeFinish.Tempered, SkinRarity.Default),
@@ -58,6 +62,16 @@ namespace VoidFlow
             new("Nova Saber", KnifeModel.Saber, KnifeFinish.NovaSaber, SkinRarity.Void),
             new("Crimson Saber", KnifeModel.Saber, KnifeFinish.CrimsonSaber, SkinRarity.Void),
             new("Shardfang", KnifeModel.Shardfang, KnifeFinish.Shardfang, SkinRarity.Void),
+            new("Serpent Fang", KnifeModel.Kukri, KnifeFinish.SerpentFang, SkinRarity.Void),
+            new("Dragon Claw", KnifeModel.Claws, KnifeFinish.DragonClaw, SkinRarity.Void),
+            new("Doom Axe", KnifeModel.Axe, KnifeFinish.DoomAxe, SkinRarity.Void),
+            new("Storm Sai", KnifeModel.Sai, KnifeFinish.StormSai, SkinRarity.Void),
+            new("Starlance", KnifeModel.Spear, KnifeFinish.Starlance, SkinRarity.Void),
+            new("Wraith Kris", KnifeModel.Kris, KnifeFinish.WraithKris, SkinRarity.Void),
+            new("Inferno Reaper", KnifeModel.Reaper, KnifeFinish.InfernoReaper, SkinRarity.Void),
+            new("Void Saber", KnifeModel.Saber, KnifeFinish.VoidSaber, SkinRarity.Void),
+            new("Solar Saber", KnifeModel.Saber, KnifeFinish.SolarSaber, SkinRarity.Void),
+            new("Emerald Shard", KnifeModel.Shardfang, KnifeFinish.EmeraldShard, SkinRarity.Void),
             new("Talon Knife | Tidewater Onyx", KnifeModel.Talon, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
             new("Talon Knife | Carbon", KnifeModel.Talon, KnifeFinish.Carbon, SkinRarity.Mythic),
             new("Butterfly | Black Marble", KnifeModel.Butterfly, KnifeFinish.BlackMarble, SkinRarity.Mythic),
@@ -118,6 +132,16 @@ namespace VoidFlow
             new("Singularity", KnifeModel.Railgun, KnifeFinish.Singularity, SkinRarity.Void),
             new("Frostbite Railgun", KnifeModel.Railgun, KnifeFinish.FrostRail, SkinRarity.Void),
             new("Hellfire", KnifeModel.Hellfire, KnifeFinish.Hellfire, SkinRarity.Void),
+            new("Event Horizon", KnifeModel.Railgun, KnifeFinish.EventHorizon, SkinRarity.Void),
+            new("Tempest", KnifeModel.Railgun, KnifeFinish.TempestRail, SkinRarity.Void),
+            new("Inferno", KnifeModel.Hellfire, KnifeFinish.Inferno, SkinRarity.Void),
+            new("Abyssal Fire", KnifeModel.Hellfire, KnifeFinish.AbyssalFire, SkinRarity.Void),
+            new("Prism", KnifeModel.Prism, KnifeFinish.PrismRifle, SkinRarity.Void),
+            new("Amethyst Prism", KnifeModel.Prism, KnifeFinish.AmethystPrism, SkinRarity.Void),
+            new("Deathwhisper", KnifeModel.Bone, KnifeFinish.Deathwhisper, SkinRarity.Void),
+            new("Plasma Lance", KnifeModel.Lance, KnifeFinish.PlasmaLance, SkinRarity.Void),
+            new("Crimson Lance", KnifeModel.Lance, KnifeFinish.CrimsonLance, SkinRarity.Void),
+            new("Seraph", KnifeModel.Seraph, KnifeFinish.Seraph, SkinRarity.Void),
             new("Longreach | Tidewater Onyx", KnifeModel.Rifle, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
             new("Longreach | Carbon", KnifeModel.Rifle, KnifeFinish.Carbon, SkinRarity.Mythic),
             new("Longreach | Diamond Plate", KnifeModel.Rifle, KnifeFinish.DiamondPlate, SkinRarity.Mythic),

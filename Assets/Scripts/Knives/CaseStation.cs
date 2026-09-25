@@ -705,6 +705,13 @@ namespace VoidFlow
                 KnifeModel.Shardfang => "CRYSTAL DAGGER",
                 KnifeModel.Railgun => "VOID RAILGUN",
                 KnifeModel.Hellfire => "VOID RIFLE",
+                KnifeModel.Kukri => "VOID KUKRI",
+                KnifeModel.Claws => "VOID CLAWS",
+                KnifeModel.Axe => "VOID AXE",
+                KnifeModel.Sai => "VOID SAI",
+                KnifeModel.Spear => "VOID SPEAR",
+                KnifeModel.Kris => "VOID KRIS",
+                KnifeModel.Prism or KnifeModel.Bone or KnifeModel.Lance or KnifeModel.Seraph => "VOID RIFLE",
                 _ => "VOID BLADE",
             };
             tileTop.normal.textColor = Color.white;

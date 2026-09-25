@@ -175,7 +175,9 @@ namespace VoidFlow
             KnifeModel.Butterfly => ButterflyRoutine(),
             KnifeModel.Reaper => ReaperRoutine(),
             KnifeModel.Saber => SaberRoutine(),
-            KnifeModel.Shardfang => ShardRoutine(),
+            KnifeModel.Shardfang or KnifeModel.Sai or KnifeModel.Kris => ShardRoutine(),
+            KnifeModel.Axe or KnifeModel.Spear => ReaperRoutine(),
+            KnifeModel.Kukri or KnifeModel.Claws => SaberRoutine(),
             _ => SwordRoutine(),
         };
 
@@ -400,6 +402,7 @@ namespace VoidFlow
             KnifeModel.Butterfly => Vector3.zero,
             KnifeModel.Reaper => new Vector3(0f, -0.03f, 0f),
             KnifeModel.Saber => new Vector3(0f, 0.02f, 0f),
+            KnifeModel.Axe or KnifeModel.Spear => new Vector3(0f, 0.06f, 0f),
             _ => new Vector3(0f, -0.055f, 0f),
         };
 
