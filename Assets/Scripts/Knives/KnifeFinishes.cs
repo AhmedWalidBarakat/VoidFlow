@@ -63,6 +63,31 @@ namespace VoidFlow
             KnifeFinish.Gunmetal => Photo("Metal038", 0.95f, 0.9f),
             KnifeFinish.DiamondPlate => Photo("DiamondPlate001", 0.95f, 0.9f),
             KnifeFinish.Saddle => Photo("Leather037", 0.2f, 0.85f),
+            KnifeFinish.DesertOnyx => Photo("Onyx002", 0.3f, 0.97f),
+            KnifeFinish.CaramelSwirl => Photo("Onyx003", 0.3f, 0.97f),
+            KnifeFinish.GlacierOnyx => Photo("Onyx006", 0.3f, 0.97f),
+            KnifeFinish.AmberOnyx => Photo("Onyx007", 0.3f, 0.97f),
+            KnifeFinish.CrimsonOnyx => Photo("Onyx010", 0.3f, 0.97f),
+            KnifeFinish.StormOnyx => Photo("Onyx014", 0.3f, 0.97f),
+            KnifeFinish.VioletOnyx => Photo("OnyxViolet", 0.3f, 0.97f),
+            KnifeFinish.Obsidian => Photo("Marble006", 0.3f, 0.97f),
+            KnifeFinish.Confetti => Photo("Terrazzo018", 0.3f, 0.97f),
+            KnifeFinish.MagmaVein => Lava("Lava001"),
+            KnifeFinish.Molten => Lava("Lava004"),
+            KnifeFinish.LavaFlow => Lava("Lava005"),
+            KnifeFinish.Plasma => Lava("LavaPlasma"),
+            KnifeFinish.Toxic => Lava("LavaToxic"),
+            KnifeFinish.VoidFlare => Lava("LavaVoid"),
+            KnifeFinish.Frostbite => Gem("Ice002"),
+            KnifeFinish.ShatteredIce => Gem("Ice004"),
+            KnifeFinish.Sapphire => Gem("IceSapphire"),
+            KnifeFinish.Amethyst => Gem("IceAmethyst"),
+            KnifeFinish.Ruby => Gem("IceRuby"),
+            KnifeFinish.Chrome => Photo("Foil001", 1f, 0.95f),
+            KnifeFinish.Gold => Photo("Metal034", 1f, 0.95f),
+            KnifeFinish.Copper => Photo("GoldRose", 1f, 0.95f),
+            KnifeFinish.AntiqueGold => Photo("Metal007", 1f, 0.95f),
+            KnifeFinish.Holographic => Holo("FoilHolo"),
             KnifeFinish.Tempered => new Look { albedo = Paint(f, Tempered), tint = Color.white, metallic = 0.85f, smoothness = 0.93f },
             // Mirror polished steel
             _ => new Look { tint = new Color(0.93f, 0.94f, 0.97f), metallic = 0.8f, smoothness = 0.95f },
@@ -105,6 +130,31 @@ namespace VoidFlow
         {
             albedo = Resources.Load<Texture2D>("SkinTextures/" + texture), tint = Color.white, metallic = metallic, smoothness = smoothness, photo = true,
         };
+
+        // Glowing molten finishes: the texture itself glows
+        static Look Lava(string texture)
+        {
+            var look = Photo(texture, 0.1f, 0.85f);
+            look.emission = look.albedo;
+            look.glow = Color.white * 1.6f;
+            return look;
+        }
+
+        // Gemstones: glass-smooth, a little metallic so they catch the light, with glitter
+        static Look Gem(string texture)
+        {
+            var look = Photo(texture, 0.45f, 1f);
+            return look;
+        }
+
+        // Holographic foil: mirror metal with the rainbow faintly glowing through
+        static Look Holo(string texture)
+        {
+            var look = Photo(texture, 0.9f, 0.97f);
+            look.emission = look.albedo;
+            look.glow = Color.white * 0.45f;
+            return look;
+        }
 
         static Look Candy(Texture2D albedo) => new() { albedo = albedo, tint = Color.white, metallic = 0.7f, smoothness = 0.92f };
 

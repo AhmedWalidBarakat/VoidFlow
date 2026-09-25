@@ -27,13 +27,40 @@ namespace VoidFlow
 
         public Skins.Skin Skin => sniper ? Skins.Snipers[Mathf.Clamp(skinIndex, 0, Skins.Snipers.Length - 1)] : Skins.Knives[Mathf.Clamp(skinIndex, 0, Skins.Knives.Length - 1)];
 
-        void OnEnable() => Build();
+        static readonly List<SkinDisplay> all = new();
+
+        void OnEnable()
+        {
+            all.Add(this);
+            Build();
+        }
 
         void Start()
         {
             if (Application.isPlaying) FxLibrary.Sparkle(transform, Skins.RarityColor(Skin.rarity), 0.4f, 2.5f);
         }
-        void OnDisable() => Clear();
+        void OnDisable()
+        {
+            all.Remove(this);
+            Clear();
+        }
+
+        // Only the display nearest you (within range) answers to E
+        bool IsNearest(Vector3 p)
+        {
+            float mine = Flat(p);
+            if (mine > useRange) return false;
+            foreach (var d in all)
+                if (d != this && d.Flat(p) < mine) return false;
+            return true;
+        }
+
+        float Flat(Vector3 p)
+        {
+            Vector3 d = p - transform.position;
+            d.y = 0f;
+            return d.magnitude;
+        }
 
         void Build()
         {
@@ -69,9 +96,7 @@ namespace VoidFlow
 
             if (!player) player = FindAnyObjectByType<PlayerMovement>();
             if (!player) return;
-            Vector3 d = player.Position - transform.position;
-            d.y = 0f;
-            near = d.magnitude < useRange && !ViewModel.InputBlocked;
+            near = IsNearest(player.Position) && !ViewModel.InputBlocked;
             var kb = Keyboard.current;
             if (near && kb != null && kb.eKey.wasPressedThisFrame)
             {

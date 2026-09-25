@@ -70,6 +70,8 @@ namespace VoidFlow
 
         // True while something else (like opening a case) has the mouse
         public static bool InputBlocked;
+        // True while a case reveal is on screen: the weapons are tucked away
+        public static bool HideWeapons;
 
         void Awake()
         {
@@ -242,6 +244,8 @@ namespace VoidFlow
 
         void Update()
         {
+            anchor.gameObject.SetActive(!HideWeapons);
+            if (sheath) sheath.gameObject.SetActive(!HideWeapons);
             var kb = InputBlocked ? null : Keyboard.current;
             var mouse = InputBlocked ? null : Mouse.current;
             bool locked = Cursor.lockState == CursorLockMode.Locked;

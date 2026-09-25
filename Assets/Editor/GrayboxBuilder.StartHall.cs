@@ -90,25 +90,31 @@ namespace VoidFlow.EditorTools
             }
             Label("DROP IN", hall, new Vector3(lane, 0.02f, HallFront - 2.5f), 0f, 0.9f, new Color(0.85f, 0.5f, 1f), pitch: 90f);
 
-            // Knife wall on the left: every Mythic and Void knife spinning over a pedestal
-            float knifeX = left + 3f;
+            // Knife wall on the left: every Mythic and Void knife spinning over a pedestal, in two
+            // staggered rows
+            int perRow = Mathf.CeilToInt((Skins.Knives.Length - 1) / 2f);
+            float spacing = 38f / Mathf.Max(1, perRow - 1);
             for (int k = 1; k < Skins.Knives.Length; k++)
             {
                 var skin = Skins.Knives[k];
-                float z = HallBack + 5f + (k - 1) * 36f / Mathf.Max(1, Skins.Knives.Length - 2);
+                int row = (k - 1) % 2, place = (k - 1) / 2;
+                float knifeX = left + 2.4f + row * 3.6f;
+                float z = HallBack + 3.5f + place * spacing + row * spacing * 0.5f;
                 Color color = skin.rarity == SkinRarity.Void ? new Color(0.6f, 0.25f, 1f) : Skins.RarityColor(skin.rarity);
                 Material glow = MakeGlow($"Glow{Skins.RarityName(skin.rarity)}", color, 1.4f);
-                Box($"KnifePedestal{k}", new Vector3(knifeX, 0.6f, z), new Vector3(1.2f, 1.2f, 1.2f), metal, hall);
-                Deco("PedestalRim", hall, new Vector3(knifeX, 1.22f, z), new Vector3(1.3f, 0.06f, 1.3f), Quaternion.identity, glow);
+                Box($"KnifePedestal{k}", new Vector3(knifeX, 0.5f, z), new Vector3(0.8f, 1f, 0.8f), metal, hall);
+                Deco("PedestalRim", hall, new Vector3(knifeX, 1.02f, z), new Vector3(0.88f, 0.05f, 0.88f), Quaternion.identity, glow);
 
                 var display = new GameObject($"Display {skin.name}").AddComponent<SkinDisplay>();
                 display.transform.SetParent(hall, false);
-                display.transform.position = new Vector3(knifeX, 2.9f, z);
+                display.transform.position = new Vector3(knifeX, 2.2f, z);
+                display.scale = 5f;
+                display.useRange = 1.8f;
                 display.skinIndex = k;
                 display.template = rampMat;
 
                 string name = skin.name.Replace(" | ", "\n");
-                Label($"{name}\n{Skins.RarityName(skin.rarity).ToUpper()}", hall, new Vector3(knifeX + 0.62f, 0.7f, z), -90f, 0.2f, color);
+                Label($"{name}\n{Skins.RarityName(skin.rarity).ToUpper()}", hall, new Vector3(knifeX + 0.42f, 0.6f, z), -90f, 0.13f, color);
             }
             Label("KNIVES\nwalk up + E to try on", hall, new Vector3(left + 0.15f, 7.5f, HallBack + 22f), -90f, 1f, Color.white);
 

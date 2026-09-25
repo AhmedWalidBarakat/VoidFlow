@@ -159,18 +159,38 @@ namespace VoidFlow
         }
 
         // ------------------------------------------------------------------ opening
+        //
+        // The show: the screen dims and a ray burst spins up behind the strip; tiles (each
+        // showing a swatch of its finish) race past with ticks that drop in pitch as it slows,
+        // the strip shaking with speed. A Void drop makes the screen throb purple as it creeps
+        // to a stop. Then: a white flash, the winning weapon spinning big in front of you on
+        // counter-rotating ray bursts with a glowing shockwave, confetti, and the rarity banner
+        // sliding in. The sniper case locks on with closing crosshairs first. Close it and the
+        // new skin is drawn into your hands.
 
         PlayerMovement player;
         ViewModel viewModel;
         AudioSource audioSource;
-        GUIStyle promptStyle, tileTop, tileName, bigStyle, smallStyle;
+        GUIStyle promptStyle, tileTop, tileName, bigStyle, smallStyle, bannerStyle;
         bool near, opening, revealed;
-        float openTime, scrollTarget;
+        float openTime, revealTime, scrollTarget;
         int lastTick, winner;
         readonly List<int> strip = new();
 
-        const int StripLength = 50, WinnerSlot = 42;
-        const float TileWidth = 170f, TileHeight = 120f, Gap = 8f, SpinTime = 5.5f;
+        const int StripLength = 60, WinnerSlot = 52;
+        const float TileWidth = 170f, TileHeight = 130f, Gap = 8f, IntroTime = 0.55f, SpinTime = 6.5f;
+
+        static Texture2D burst, edgeFade;
+        Transform stage, stageModel;
+        WeaponParts stageParts;
+        readonly List<Material> stageMaterials = new();
+        readonly List<Renderer> stageRays = new();
+
+        class Bit { public Vector2 p, v; public float rot, spin, size, life, age; public Color color; public bool star; }
+        readonly List<Bit> confetti = new();
+
+        float Spin => Mathf.Clamp01((Time.time - openTime - IntroTime) / SpinTime);
+        bool IsVoid => Pool[winner].rarity == SkinRarity.Void;
 
         void Update()
         {
@@ -192,18 +212,26 @@ namespace VoidFlow
             bool ePressed = kb != null && kb.eKey.wasPressedThisFrame;
             if (opening)
             {
-                float s = (Time.time - openTime) / SpinTime;
                 if (!revealed)
                 {
+                    float s = Spin;
                     int tick = Mathf.FloorToInt(Scroll(s) / (TileWidth + Gap));
-                    if (tick != lastTick) { lastTick = tick; Play(WeaponSounds.Tick, 0.5f); }
+                    if (tick != lastTick)
+                    {
+                        lastTick = tick;
+                        // Ticks drop in pitch as the strip slows
+                        float speed = 1f - s;
+                        Play(WeaponSounds.Tick, 0.55f, Mathf.Lerp(0.8f, 1.5f, speed * speed));
+                    }
                     if (s >= 1f) Reveal();
                 }
-                else if (ePressed || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame))
+                else
                 {
-                    opening = false;
-                    ViewModel.InputBlocked = false;
+                    UpdateStage(Time.time - revealTime);
+                    bool click = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+                    if ((ePressed || click) && Time.time - revealTime > 0.9f) Close();
                 }
+                UpdateConfetti(Time.deltaTime);
                 return;
             }
             if (!player) return;
@@ -220,31 +248,50 @@ namespace VoidFlow
             for (int i = 0; i < StripLength; i++) strip.Add(Skins.Roll(Pool));
             winner = Skins.Roll(Pool);
             strip[WinnerSlot] = winner;
-            scrollTarget = WinnerSlot * (TileWidth + Gap) + TileWidth * Random.Range(0.1f, 0.9f);
+            scrollTarget = WinnerSlot * (TileWidth + Gap) + TileWidth * Random.Range(0.08f, 0.92f);
             openTime = Time.time;
             lastTick = 0;
             opening = true;
             revealed = false;
+            confetti.Clear();
             ViewModel.InputBlocked = true;
+            Play(WeaponSounds.BoltBack, 0.8f, 0.8f);
+            Play(WeaponSounds.Slash, 0.6f, 0.7f);
         }
 
         // How far the strip has moved at s (0..1 of the spin): fast, then a long slow-down
-        float Scroll(float s) => scrollTarget * (1f - Mathf.Pow(1f - Mathf.Clamp01(s), 4f));
+        float Scroll(float s) => scrollTarget * (1f - Mathf.Pow(1f - Mathf.Clamp01(s), 4.5f));
 
         void Reveal()
         {
             revealed = true;
+            revealTime = Time.time;
+            ViewModel.HideWeapons = true;
+            Color color = Skins.RarityColor(Pool[winner].rarity);
+            Play(WeaponSounds.Launch, 1f, 0.7f);
+            Play(IsVoid ? WeaponSounds.VoidReveal : WeaponSounds.Reveal, 0.9f);
+            if (IsVoid) Play(WeaponSounds.Shatter, 0.7f, 0.6f);
+            BuildStage(color);
+            SpawnConfetti(IsVoid ? 170 : 100, color);
+            FxLibrary.Celebrate(transform.position + Vector3.up * 1.8f, color, IsVoid);
+        }
+
+        void Close()
+        {
+            opening = false;
+            ViewModel.InputBlocked = false;
+            ViewModel.HideWeapons = false;
+            ClearStage();
+            confetti.Clear();
             if (!viewModel) viewModel = FindAnyObjectByType<ViewModel>();
             if (viewModel)
             {
                 if (sniperCase) viewModel.EquipSniperSkin(winner);
                 else viewModel.EquipKnifeSkin(winner);
             }
-            Play(Pool[winner].rarity == SkinRarity.Void ? WeaponSounds.VoidReveal : WeaponSounds.Reveal, 0.8f);
-            FxLibrary.Celebrate(transform.position + Vector3.up * 1.8f, Skins.RarityColor(Pool[winner].rarity), Pool[winner].rarity == SkinRarity.Void);
         }
 
-        void Play(AudioClip clip, float volume)
+        void Play(AudioClip clip, float volume, float pitch = 1f)
         {
             if (!audioSource)
             {
@@ -252,12 +299,232 @@ namespace VoidFlow
                 audioSource.playOnAwake = false;
                 audioSource.spatialBlend = 0f;
             }
-            audioSource.PlayOneShot(clip, volume);
+            if (!clip) return;
+            if (Mathf.Approximately(pitch, 1f)) { audioSource.PlayOneShot(clip, volume); return; }
+            // A pitched one-shot on its own little source, so it doesn't bend other sounds
+            var one = gameObject.AddComponent<AudioSource>();
+            one.spatialBlend = 0f;
+            one.pitch = pitch;
+            one.PlayOneShot(clip, volume);
+            Destroy(one, clip.length / pitch + 0.1f);
         }
+
+        // ------------------------------------------------------------------ 3D reveal stage
+
+        static Texture2D Burst()
+        {
+            if (burst) return burst;
+            const int size = 256;
+            burst = new Texture2D(size, size, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                Vector2 d = new Vector2(x + 0.5f - size / 2f, y + 0.5f - size / 2f) / (size / 2f);
+                float r = d.magnitude, a = Mathf.Atan2(d.y, d.x);
+                float spokes = Mathf.Pow(Mathf.Max(0f, Mathf.Cos(a * 8f)), 6f);
+                float glow = Mathf.Clamp01(1f - r) * Mathf.Clamp01(1f - r);
+                float alpha = Mathf.Clamp01(spokes * Mathf.Clamp01(1f - r) * 1.3f + glow * 0.6f);
+                burst.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+            }
+            burst.Apply();
+            return burst;
+        }
+
+        static Texture2D EdgeFade()
+        {
+            if (edgeFade) return edgeFade;
+            edgeFade = new Texture2D(64, 1, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            for (int x = 0; x < 64; x++) edgeFade.SetPixel(x, 0, new Color(0f, 0f, 0f, 1f - x / 63f));
+            edgeFade.Apply();
+            return edgeFade;
+        }
+
+        Material SeeThrough(Texture tex, Color color, float glow)
+        {
+            var m = ViewModel.MakeTransparent(new Material(template));
+            m.SetTexture("_BaseMap", tex);
+            m.SetColor("_BaseColor", color);
+            if (glow > 0f)
+            {
+                m.EnableKeyword("_EMISSION");
+                m.SetTexture("_EmissionMap", tex);
+                m.SetColor("_EmissionColor", new Color(color.r, color.g, color.b) * glow);
+            }
+            stageMaterials.Add(m);
+            return m;
+        }
+
+        // Everything lives on the view model layer in front of the camera, drawn over the world
+        void BuildStage(Color color)
+        {
+            ClearStage();
+            var cam = Camera.main;
+            if (!cam || !template) return;
+            const int layer = 30;
+            stage = new GameObject("Case Reveal").transform;
+            stage.SetParent(cam.transform, false);
+            stage.localPosition = new Vector3(0f, 0.02f, 0.7f);
+
+            Transform Quad(string name, Material mat, Vector3 at, float size)
+            {
+                var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                q.name = name;
+                WeaponBuilder.Kill(q.GetComponent<Collider>());
+                q.layer = layer;
+                q.transform.SetParent(stage, false);
+                q.transform.localPosition = at;
+                q.transform.localScale = Vector3.one * size;
+                var r = q.GetComponent<MeshRenderer>();
+                r.sharedMaterial = mat;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                return q.transform;
+            }
+
+            // Dim the world behind it all
+            var dim = Quad("Dim", SeeThrough(Texture2D.whiteTexture, new Color(0f, 0f, 0f, 0.8f), 0f), new Vector3(0f, 0f, 1.6f), 1f);
+            dim.localScale = new Vector3(9f, 5f, 1f);
+            // Two counter-rotating ray bursts, a soft halo and a shockwave, in the rarity color
+            stageRays.Clear();
+            stageRays.Add(Quad("Rays", SeeThrough(Burst(), color, 0.9f), new Vector3(0f, 0f, 0.35f), 1.5f).GetComponent<Renderer>());
+            stageRays.Add(Quad("Rays 2", SeeThrough(Burst(), Color.Lerp(color, Color.white, 0.35f), 0.6f), new Vector3(0f, 0f, 0.33f), 1.1f).GetComponent<Renderer>());
+            var halo = FxLibrary.Instance && FxLibrary.Instance.mote ? FxLibrary.Instance.mote.GetTexture("_BaseMap") : null;
+            if (halo) stageRays.Add(Quad("Halo", SeeThrough(halo, color, 0.9f), new Vector3(0f, 0f, 0.3f), 0.7f).GetComponent<Renderer>());
+            var ring = FxLibrary.Instance && FxLibrary.Instance.ring ? FxLibrary.Instance.ring.GetTexture("_BaseMap") : null;
+            if (ring) stageRays.Add(Quad("Shockwave", SeeThrough(ring, color, 1.2f), new Vector3(0f, 0f, 0.2f), 0.1f).GetComponent<Renderer>());
+
+            // The weapon, centered and sized to fit, spinning
+            stageModel = new GameObject("Model").transform;
+            stageModel.SetParent(stage, false);
+            var holder = new GameObject("Holder").transform;
+            holder.SetParent(stageModel, false);
+            var builder = new WeaponBuilder(template, layer, false, stageMaterials);
+            var skin = Pool[winner];
+            stageParts = sniperCase ? builder.Rifle(skin, holder) : builder.Knife(skin, holder);
+            if (sniperCase) holder.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            var bounds = new Bounds();
+            bool first = true;
+            // Measure from the meshes themselves (new renderers have no bounds until drawn)
+            foreach (var mf in holder.GetComponentsInChildren<MeshFilter>())
+            {
+                if (!mf.sharedMesh) continue;
+                var mb = mf.sharedMesh.bounds;
+                var toModel = stageModel.worldToLocalMatrix * mf.transform.localToWorldMatrix;
+                for (int c = 0; c < 8; c++)
+                {
+                    var corner = mb.center + Vector3.Scale(mb.extents, new Vector3((c & 1) == 0 ? -1 : 1, (c & 2) == 0 ? -1 : 1, (c & 4) == 0 ? -1 : 1));
+                    var p = toModel.MultiplyPoint3x4(corner);
+                    if (first) { bounds = new Bounds(p, Vector3.zero); first = false; } else bounds.Encapsulate(p);
+                }
+            }
+            float big = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
+            holder.localPosition -= bounds.center;
+            stageModel.localScale = Vector3.one * ((sniperCase ? 0.6f : 0.42f) / Mathf.Max(big, 0.01f));
+
+            // A light so it shines
+            var light = new GameObject("Light").AddComponent<Light>();
+            light.transform.SetParent(stage, false);
+            light.transform.localPosition = new Vector3(0.15f, 0.2f, -0.3f);
+            light.type = LightType.Point;
+            light.range = 1.5f;
+            light.intensity = 4f;
+            light.color = Color.Lerp(color, Color.white, 0.6f);
+            UpdateStage(0f);
+        }
+
+        void UpdateStage(float t)
+        {
+            if (!stage) return;
+            // The weapon pops in with an overshoot, whirls, then turns slowly and bobs
+            float pop = t < 0.5f ? ElasticOut(t / 0.5f) : 1f;
+            stage.localScale = Vector3.one * Mathf.Max(0.01f, pop);
+            float whirl = (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 0.8f))) * 720f;
+            // Knives turn round and round; a rifle sways side-on so you always see all of it
+            float yaw = sniperCase ? Mathf.Sin(t * 1.2f) * 28f + whirl : t * 80f + whirl;
+            stageModel.localRotation = Quaternion.Euler(sniperCase ? 8f : 12f, yaw, sniperCase ? 0f : -8f);
+            stageModel.localPosition = new Vector3(0f, Mathf.Sin(t * 2f) * 0.008f, 0f);
+            stageParts?.Animate(Time.time, -1f);
+            // Rays spin opposite ways and breathe; the shockwave rushes out and fades
+            for (int i = 0; i < stageRays.Count; i++)
+            {
+                var r = stageRays[i];
+                if (!r) continue;
+                if (r.name == "Shockwave")
+                {
+                    float k = Mathf.Clamp01(t / 0.7f);
+                    r.transform.localScale = Vector3.one * Mathf.Lerp(0.1f, IsVoid ? 3f : 2.2f, 1f - Mathf.Pow(1f - k, 3f));
+                    var c = r.sharedMaterial.GetColor("_BaseColor");
+                    c.a = 1f - k;
+                    r.sharedMaterial.SetColor("_BaseColor", c);
+                    continue;
+                }
+                if (r.name == "Halo") { r.transform.localScale = Vector3.one * (0.7f + Mathf.Sin(t * 4f) * 0.06f); continue; }
+                float dir = i == 0 ? 1f : -1f, speed = IsVoid ? 45f : 28f;
+                r.transform.localRotation = Quaternion.Euler(0f, 0f, dir * t * speed);
+                float breathe = 1f + Mathf.Sin(t * 3f + i) * 0.05f;
+                r.transform.localScale = Vector3.one * (i == 0 ? 1.5f : 1.1f) * breathe;
+            }
+        }
+
+        static float ElasticOut(float x) => x >= 1f ? 1f : Mathf.Pow(2f, -10f * x) * Mathf.Sin((x * 10f - 0.75f) * (2f * Mathf.PI / 3f)) + 1f;
+
+        void ClearStage()
+        {
+            if (stage) WeaponBuilder.Kill(stage.gameObject);
+            stage = stageModel = null;
+            stageParts = null;
+            stageRays.Clear();
+            foreach (var m in stageMaterials) WeaponBuilder.Kill(m);
+            stageMaterials.Clear();
+        }
+
+        void OnDestroy()
+        {
+            ClearStage();
+            if (opening) { ViewModel.InputBlocked = false; ViewModel.HideWeapons = false; }
+        }
+
+        // ------------------------------------------------------------------ confetti (GUI)
+
+        void SpawnConfetti(int count, Color color)
+        {
+            var center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            float scale = Screen.height / 1080f;
+            Color[] palette = { color, Color.Lerp(color, Color.white, 0.5f), Color.white, new Color(1f, 0.85f, 0.3f), rayColor };
+            for (int i = 0; i < count; i++)
+            {
+                float a = Random.Range(0f, Mathf.PI * 2f), speed = Random.Range(250f, 950f) * scale;
+                confetti.Add(new Bit
+                {
+                    p = center + Random.insideUnitCircle * 30f,
+                    v = new Vector2(Mathf.Cos(a), Mathf.Sin(a) - 0.6f) * speed,
+                    rot = Random.Range(0f, 360f), spin = Random.Range(-600f, 600f),
+                    size = Random.Range(8f, 22f) * scale, life = Random.Range(1.6f, 3f),
+                    color = palette[Random.Range(0, palette.Length)], star = Random.value < 0.45f,
+                });
+            }
+        }
+
+        void UpdateConfetti(float dt)
+        {
+            float scale = Screen.height / 1080f;
+            for (int i = confetti.Count - 1; i >= 0; i--)
+            {
+                var b = confetti[i];
+                b.age += dt;
+                if (b.age > b.life) { confetti.RemoveAt(i); continue; }
+                b.v.y += 900f * scale * dt;
+                b.v *= 1f - 0.8f * dt;
+                b.p += b.v * dt;
+                b.rot += b.spin * dt;
+            }
+        }
+
+        // ------------------------------------------------------------------ GUI
 
         void OnGUI()
         {
             if (!Application.isPlaying) return;
+            GUI.depth = -10;
             promptStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             if (!opening)
             {
@@ -267,79 +534,181 @@ namespace VoidFlow
                 return;
             }
 
-            tileTop ??= new GUIStyle(GUI.skin.label) { fontSize = 11, alignment = TextAnchor.UpperLeft, normal = { textColor = new Color(0.7f, 0.72f, 0.78f) } };
-            tileName ??= new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft, wordWrap = true, normal = { textColor = Color.white } };
-            bigStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            smallStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.85f, 0.86f, 0.9f) } };
+            tileTop ??= new GUIStyle(GUI.skin.label) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperLeft, normal = { textColor = Color.white } };
+            tileName ??= new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.LowerLeft, wordWrap = true, normal = { textColor = Color.white } };
+            bigStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            smallStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.9f, 0.9f, 0.95f) } };
+            bannerStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = Color.white } };
 
             var old = GUI.color;
-            GUI.color = new Color(0f, 0f, 0f, 0.65f);
-            GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
+            var oldMatrix = GUI.matrix;
+            float w = Screen.width, h = Screen.height, now = Time.time;
+            if (!revealed) DrawSpin(now - openTime, w, h);
+            else DrawReveal(now - revealTime, w, h);
 
+            // Confetti over everything
+            var star = FxLibrary.Instance && FxLibrary.Instance.star ? FxLibrary.Instance.star.GetTexture("_BaseMap") : null;
+            foreach (var b in confetti)
+            {
+                float fade = Mathf.Clamp01((b.life - b.age) / 0.5f);
+                GUI.color = new Color(b.color.r, b.color.g, b.color.b, fade);
+                GUIUtility.RotateAroundPivot(b.rot, b.p);
+                if (b.star && star) GUI.DrawTexture(new Rect(b.p.x - b.size, b.p.y - b.size, b.size * 2f, b.size * 2f), star);
+                else GUI.DrawTexture(new Rect(b.p.x - b.size * 0.5f, b.p.y - b.size * 0.25f, b.size, b.size * 0.5f), Texture2D.whiteTexture);
+                GUI.matrix = oldMatrix;
+            }
+            GUI.color = old;
+        }
+
+        void DrawSpin(float t, float w, float h)
+        {
+            float intro = Mathf.Clamp01(t / IntroTime), s = Spin, speed = 1f - s;
+            GUI.color = new Color(0f, 0f, 0f, 0.75f * intro);
+            GUI.DrawTexture(new Rect(0f, 0f, w, h), Texture2D.whiteTexture);
+
+            // A slow ray burst in the case color behind the strip
+            var matrix = GUI.matrix;
+            float size = h * 1.4f;
+            GUI.color = new Color(rayColor.r, rayColor.g, rayColor.b, 0.35f * intro);
+            GUIUtility.RotateAroundPivot(t * 25f, new Vector2(w / 2f, h / 2f));
+            GUI.DrawTexture(new Rect(w / 2f - size / 2f, h / 2f - size / 2f, size, size), Burst());
+            GUI.matrix = matrix;
+
+            // A Void win makes the screen throb purple while it creeps to a stop
+            if (IsVoid && s > 0.7f)
+            {
+                float beat = Mathf.Pow(Mathf.Abs(Mathf.Sin(t * 5f)), 6f) * Mathf.InverseLerp(0.7f, 1f, s);
+                GUI.color = new Color(0.55f, 0.15f, 1f, 0.35f * beat);
+                GUI.DrawTexture(new Rect(0f, 0f, w, h), Texture2D.whiteTexture);
+            }
+
+            // The title slams in
+            float slam = Mathf.Lerp(2.2f, 1f, Mathf.SmoothStep(0f, 1f, intro));
+            GUI.color = new Color(1f, 1f, 1f, intro);
             promptStyle.normal.textColor = rayColor;
-            GUI.color = Color.white;
-            GUI.Label(new Rect(0f, Screen.height * 0.5f - TileHeight / 2f - 60f, Screen.width, 30f), title, promptStyle);
+            GUIUtility.ScaleAroundPivot(Vector2.one * slam, new Vector2(w / 2f, h * 0.5f - TileHeight / 2f - 55f));
+            GUI.Label(new Rect(0f, h * 0.5f - TileHeight / 2f - 70f, w, 30f), title, promptStyle);
+            GUI.matrix = matrix;
 
-            // The strip, clipped to a window with a marker down the middle
-            float stripWidth = Mathf.Min(Screen.width * 0.92f, 1150f);
-            var window = new Rect((Screen.width - stripWidth) / 2f, Screen.height * 0.5f - TileHeight / 2f, stripWidth, TileHeight);
-            GUI.color = new Color(0.02f, 0.02f, 0.03f, 0.9f);
+            // The strip slides up into place and shakes with speed
+            float stripWidth = Mathf.Min(w * 0.94f, 1250f);
+            float rise = (1f - Mathf.SmoothStep(0f, 1f, intro)) * 80f;
+            Vector2 shake = Random.insideUnitCircle * (speed * speed * 3f);
+            var window = new Rect((w - stripWidth) / 2f + shake.x, h * 0.5f - TileHeight / 2f + rise + shake.y, stripWidth, TileHeight);
+            GUI.color = new Color(0.02f, 0.02f, 0.03f, 0.92f * intro);
             GUI.DrawTexture(new Rect(window.x - 6f, window.y - 6f, window.width + 12f, window.height + 12f), Texture2D.whiteTexture);
-            float scroll = Scroll((Time.time - openTime) / SpinTime) - stripWidth / 2f;
+            float scroll = Scroll(s) - stripWidth / 2f;
             GUI.BeginGroup(window);
             for (int i = 0; i < strip.Count; i++)
             {
                 float x = i * (TileWidth + Gap) - scroll;
                 if (x > stripWidth || x + TileWidth < 0f) continue;
-                DrawTile(new Rect(x, 0f, TileWidth, TileHeight), Pool[strip[i]]);
+                DrawTile(new Rect(x, 0f, TileWidth, TileHeight), Pool[strip[i]], intro);
             }
+            // Edges fade into the dark
+            GUI.color = Color.white;
+            GUI.DrawTexture(new Rect(0f, 0f, 120f, TileHeight), EdgeFade());
+            GUI.DrawTextureWithTexCoords(new Rect(stripWidth - 120f, 0f, 120f, TileHeight), EdgeFade(), new Rect(1f, 0f, -1f, 1f));
             GUI.EndGroup();
-            GUI.color = rayColor;
-            GUI.DrawTexture(new Rect(Screen.width / 2f - 1.5f, window.y - 12f, 3f, window.height + 24f), Texture2D.whiteTexture);
 
-            if (revealed)
-            {
-                var skin = Pool[winner];
-                float since = Time.time - openTime - SpinTime;
-                if (skin.rarity == SkinRarity.Void && since < 1.2f)
-                {
-                    GUI.color = new Color(0.6f, 0.25f, 1f, 0.5f * (1f - since / 1.2f));
-                    GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
-                }
-                GUI.color = Color.white;
-                bigStyle.normal.textColor = Skins.RarityColor(skin.rarity);
-                float y = window.yMax + 30f;
-                GUI.Label(new Rect(0f, y, Screen.width, 40f), $"★ {skin.name}", bigStyle);
-                GUI.Label(new Rect(0f, y + 42f, Screen.width, 24f), $"{Skins.RarityName(skin.rarity).ToUpper()}   ·   equipped", smallStyle);
-                GUI.Label(new Rect(0f, y + 70f, Screen.width, 24f), "[E] or click to close", smallStyle);
-            }
-            GUI.color = old;
+            // Glowing marker down the middle
+            float glow = 0.6f + 0.4f * Mathf.Sin(t * 12f);
+            GUI.color = new Color(rayColor.r, rayColor.g, rayColor.b, 0.3f * glow);
+            GUI.DrawTexture(new Rect(w / 2f - 7f, window.y - 18f, 14f, window.height + 36f), Texture2D.whiteTexture);
+            GUI.color = Color.Lerp(rayColor, Color.white, 0.5f);
+            GUI.DrawTexture(new Rect(w / 2f - 1.5f, window.y - 18f, 3f, window.height + 36f), Texture2D.whiteTexture);
         }
 
-        void DrawTile(Rect r, Skins.Skin skin)
+        void DrawReveal(float t, float w, float h)
+        {
+            var skin = Pool[winner];
+            Color color = Skins.RarityColor(skin.rarity);
+            var matrix = GUI.matrix;
+
+            // Sniper case: crosshairs close in and lock on
+            if (sniperCase && t < 0.45f)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / 0.45f), gap = Mathf.Lerp(h * 0.45f, 18f, k);
+                GUI.color = rayColor;
+                GUI.DrawTexture(new Rect(w / 2f - gap - 60f, h / 2f - 1.5f, 60f, 3f), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(w / 2f + gap, h / 2f - 1.5f, 60f, 3f), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(w / 2f - 1.5f, h / 2f - gap - 60f, 3f, 60f), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(w / 2f - 1.5f, h / 2f + gap, 3f, 60f), Texture2D.whiteTexture);
+            }
+
+            // A white flash, and a purple wash for Void
+            float flash = 1f - Mathf.Clamp01(t / 0.35f);
+            if (flash > 0f)
+            {
+                GUI.color = new Color(1f, 1f, 1f, flash * 0.9f);
+                GUI.DrawTexture(new Rect(0f, 0f, w, h), Texture2D.whiteTexture);
+            }
+            if (IsVoid && t < 1.5f)
+            {
+                GUI.color = new Color(0.45f, 0.1f, 0.9f, 0.4f * (1f - t / 1.5f));
+                GUI.DrawTexture(new Rect(0f, 0f, w, h), Texture2D.whiteTexture);
+            }
+
+            // The rarity banner slides across
+            float slide = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - 0.25f) / 0.35f));
+            float by = h * 0.72f;
+            GUI.color = new Color(color.r, color.g, color.b, 0.85f);
+            GUI.DrawTexture(new Rect(-w + slide * w, by, w, 44f), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(-w + slide * w, by, w, 44f), $"{Skins.RarityName(skin.rarity).ToUpper()}  ·  {(sniperCase ? "SNIPER" : "KNIFE")} UNBOXED", bannerStyle);
+
+            // The name pops in
+            float pop = t < 0.3f ? 0f : ElasticOut(Mathf.Clamp01((t - 0.3f) / 0.5f));
+            if (pop > 0.01f)
+            {
+                GUIUtility.ScaleAroundPivot(Vector2.one * pop, new Vector2(w / 2f, h * 0.2f));
+                bigStyle.normal.textColor = color;
+                GUI.color = Color.white;
+                GUI.Label(new Rect(0f, h * 0.2f - 25f, w, 50f), $"★ {skin.name}", bigStyle);
+                GUI.matrix = matrix;
+            }
+            if (t > 0.9f)
+            {
+                GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01((t - 0.9f) * 3f) * (0.6f + 0.4f * Mathf.Sin(t * 4f)));
+                GUI.Label(new Rect(0f, by + 56f, w, 24f), "[E] or click to equip", smallStyle);
+            }
+        }
+
+        void DrawTile(Rect r, Skins.Skin skin, float alpha)
         {
             Color rarity = Skins.RarityColor(skin.rarity);
-            GUI.color = skin.rarity == SkinRarity.Void ? new Color(0.16f, 0.06f, 0.28f, 1f) : new Color(0.1f, 0.1f, 0.13f, 1f);
+            // A swatch of the finish fills the tile
+            var look = KnifeFinishes.Get(skin.finish);
+            Texture swatch = look.albedo ? look.albedo : look.emission;
+            GUI.color = new Color(0.12f, 0.12f, 0.15f, alpha);
             GUI.DrawTexture(r, Texture2D.whiteTexture);
-            GUI.color = rarity * new Color(1f, 1f, 1f, 0.18f);
-            GUI.DrawTexture(new Rect(r.x, r.y + r.height * 0.55f, r.width, r.height * 0.45f), Texture2D.whiteTexture);
-            GUI.color = rarity;
+            if (swatch)
+            {
+                GUI.color = skin.rarity == SkinRarity.Void ? new Color(rarity.r, rarity.g, rarity.b, alpha) : new Color(1f, 1f, 1f, alpha);
+                GUI.DrawTextureWithTexCoords(r, swatch, new Rect(0.1f, 0.1f, 0.5f, 0.5f * r.height / r.width));
+            }
+            // Darken the bottom for the text, rarity glow along it
+            GUI.color = new Color(0f, 0f, 0f, 0.55f * alpha);
+            GUI.DrawTexture(new Rect(r.x, r.y + r.height * 0.45f, r.width, r.height * 0.55f), Texture2D.whiteTexture);
+            GUI.color = new Color(rarity.r, rarity.g, rarity.b, 0.35f * alpha);
+            GUI.DrawTexture(new Rect(r.x, r.yMax - 18f, r.width, 12f), Texture2D.whiteTexture);
+            GUI.color = new Color(rarity.r, rarity.g, rarity.b, alpha);
             GUI.DrawTexture(new Rect(r.x, r.yMax - 6f, r.width, 6f), Texture2D.whiteTexture);
-            GUI.color = Color.white;
+            GUI.color = new Color(1f, 1f, 1f, alpha);
             string kind = skin.model switch
             {
                 KnifeModel.Talon => "TALON KNIFE",
-                KnifeModel.Butterfly => "BUTTERFLY KNIFE",
-                KnifeModel.Rifle => "LONGREACH SNIPER",
+                KnifeModel.Butterfly => "BUTTERFLY",
+                KnifeModel.Rifle => "LONGREACH",
                 _ => "VOID BLADE",
             };
-            GUI.Label(new Rect(r.x + 10f, r.y + 8f, r.width - 20f, 18f), $"★ {kind}", tileTop);
+            tileTop.normal.textColor = Color.white;
+            GUI.Label(new Rect(r.x + 8f, r.y + 6f, r.width - 16f, 18f), $"★ {kind}", tileTop);
             int bar = skin.name.IndexOf('|');
             string finish = bar >= 0 ? skin.name.Substring(bar + 1).Trim() : skin.name;
-            GUI.Label(new Rect(r.x + 10f, r.y + 28f, r.width - 20f, 60f), finish, tileName);
+            GUI.Label(new Rect(r.x + 8f, r.y + 40f, r.width - 16f, r.height - 62f), finish, tileName);
             tileTop.normal.textColor = rarity;
-            GUI.Label(new Rect(r.x + 10f, r.yMax - 28f, r.width - 20f, 18f), Skins.RarityName(skin.rarity).ToUpper(), tileTop);
-            tileTop.normal.textColor = new Color(0.7f, 0.72f, 0.78f);
+            GUI.Label(new Rect(r.x + 8f, r.yMax - 24f, r.width - 16f, 18f), Skins.RarityName(skin.rarity).ToUpper(), tileTop);
         }
     }
 }

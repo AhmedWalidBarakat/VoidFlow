@@ -4,3 +4,9 @@ publish, commercially too, with no attribution required. Credit is given here an
 
 Onyx011, Onyx013, Onyx015, Marble012, Marble016, Marble021, Fabric004, Metal038,
 DiamondPlate001, Leather037 — color maps only, resized to 512x512.
+
+Added later (also CC0 from ambientCG, color maps only, 512x512, contrast/color boosted):
+Onyx002, Onyx003, Onyx006, Onyx007, Onyx010, Onyx014, Lava001, Lava004, Lava005, Ice002, Ice004,
+Foil001, Foil002, Metal034, Metal048A, Metal007, Terrazzo018, Marble006.
+Derived recolors made from those: IceSapphire, IceAmethyst, IceRuby, LavaPlasma, LavaToxic,
+LavaVoid, OnyxViolet, GoldRose, FoilHolo (rainbow over Foil002).
