@@ -67,7 +67,7 @@ namespace VoidFlow.EditorTools
                 {
                     viewModel.EquipKnifeSkin(i);
                     Shoot($"skin_knife_{i}", new Vector3(0f, 0f, 8f), Vector3.zero);
-                    viewModel.PreviewKnifeInspect(1.0f);
+                    viewModel.PreviewKnifeInspect(0.6f);
                     Shoot($"skin_knife_{i}_inspect", new Vector3(0f, 0f, 8f), Vector3.zero);
                     viewModel.PreviewKnifeInspect(-1f);
                 }

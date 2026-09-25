@@ -6,8 +6,8 @@ namespace VoidFlow
 {
     // The sniper: a heavy bolt-action rifle with a big scope, held in fingerless gloves. It
     // plays by the AWP's rules from CS: a 1.46 s bolt cycle between shots, a 5 round magazine
-    // with a 3.67 s reload, right click cycles 40 then 10 degree zoom, firing kicks you out of
-    // the scope and puts you back once the bolt is home, and you move at 200 (100 scoped).
+    // with a 3.67 s reload, right click toggles a single 30 degree scope, firing kicks you out of
+    // the scope (right click again to scope back in), and you move at 200 (100 scoped).
     // Unlike CS every shot goes exactly where the center of the screen points: no spread,
     // no movement or unscoped inaccuracy, no drop and no falloff.
     public partial class ViewModel
@@ -17,7 +17,7 @@ namespace VoidFlow
 
         const int MagSize = 5;
         const float CycleTime = 1.463f, ReloadTime = 3.67f, Range = 5000f;
-        static readonly float[] ZoomFov = { 90f, 40f, 10f }; // CS field of view at each zoom level
+        static readonly float[] ZoomFov = { 0f, 30f }; // horizontal field of view when scoped (one zoom level)
 
         Transform gun, bolt, magazine, rightFist, flash;
         Vector3 boltRest, magRest, fistRest;
@@ -25,7 +25,7 @@ namespace VoidFlow
         Material holeMat, sparkMat, tracerMat;
         Texture2D scopeTexture;
 
-        int mag = MagSize, zoom, resumeZoom;
+        int mag = MagSize, zoom;
         float boltTime = -1f, reloadTime = -1f, sniperInspect = -1f, flashTime = 99f;
         float baseFov, baseSens;
 
@@ -39,8 +39,8 @@ namespace VoidFlow
 
         void SetupSniper()
         {
-            baseFov = view.fieldOfView;
             baseSens = player ? player.sensitivity : 0f;
+            ApplyFov();
 
             // Scope overlay: see-through circle with a soft dark rim, black outside
             const int size = 512;
@@ -65,13 +65,23 @@ namespace VoidFlow
         {
             if (level == zoom || baseFov <= 0f) return;
             zoom = level;
-            // Same view shrink as CS (by the tangent of half the angle), and the mouse slows
-            // by the same amount, so turning feels the same at every zoom
-            float ratio = Mathf.Tan(ZoomFov[level] * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(45f * Mathf.Deg2Rad);
-            view.fieldOfView = 2f * Mathf.Atan(Mathf.Tan(baseFov * 0.5f * Mathf.Deg2Rad) * ratio) * Mathf.Rad2Deg;
-            if (player) player.sensitivity = baseSens * ratio;
+            ApplyFov();
             overlay.cullingMask = level > 0 ? 0 : 1 << Layer;
             if (sound) Play(WeaponSounds.Zoom, 0.5f);
+        }
+
+        // The world camera's view: the chosen horizontal FOV, or the scope's when zoomed. The
+        // mouse slows by the same amount the view shrinks (the tangent of half the angle), so
+        // aiming feels the same at every zoom.
+        void ApplyFov()
+        {
+            if (!view) return;
+            float aspect = view.aspect > 0f ? view.aspect : 16f / 9f;
+            baseFov = Camera.HorizontalToVerticalFieldOfView(horizontalFov, aspect);
+            float h = zoom > 0 ? ZoomFov[zoom] : horizontalFov;
+            view.fieldOfView = Camera.HorizontalToVerticalFieldOfView(h, aspect);
+            if (player && baseSens > 0f)
+                player.sensitivity = baseSens * Mathf.Tan(h * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(horizontalFov * 0.5f * Mathf.Deg2Rad);
         }
 
         void DrawScope()
@@ -113,8 +123,6 @@ namespace VoidFlow
                 {
                     boltTime = -1f;
                     if (mag == 0) StartReload();
-                    else SetZoom(resumeZoom, false);
-                    resumeZoom = 0;
                 }
             }
 
@@ -124,8 +132,7 @@ namespace VoidFlow
                 if (mouse.rightButton.wasPressedThisFrame && reloadTime < 0f)
                 {
                     sniperInspect = -1f;
-                    if (boltTime >= 0f) resumeZoom = (resumeZoom + 1) % ZoomFov.Length;
-                    else SetZoom((zoom + 1) % ZoomFov.Length);
+                    SetZoom(zoom == 0 ? 1 : 0);
                 }
                 if (mouse.leftButton.wasPressedThisFrame && idle)
                 {
@@ -149,7 +156,6 @@ namespace VoidFlow
         void StartReload()
         {
             SetZoom(0, false);
-            resumeZoom = 0;
             sniperInspect = -1f;
             reloadTime = 0f;
         }
@@ -157,8 +163,7 @@ namespace VoidFlow
         void Fire()
         {
             mag--;
-            resumeZoom = zoom;
-            SetZoom(0, false);
+            SetZoom(0, false); // firing always kicks you out of the scope
             boltTime = 0f;
             sniperInspect = -1f;
             flashTime = 0f;

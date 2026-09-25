@@ -18,13 +18,13 @@ namespace VoidFlow
 
         public bool IsSword => model is KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus;
 
-        // Karambit spins on its ring, the butterfly knife flips open, Void swords get the
-        // big flip from the hand plus a burst of glow
+        // The hand raises every knife to show it off (see ViewModel); on top of that the
+        // butterfly knife flips open and Void swords burst with glow
         public float InspectLength => model switch
         {
-            KnifeModel.Karambit => 2.6f,
-            KnifeModel.Butterfly => 2.2f,
-            _ => 2.9f,
+            KnifeModel.Karambit => 1.3f,
+            KnifeModel.Butterfly => 2f,
+            _ => 2.4f,
         };
 
         // Keeps the model alive: aura motes drift, glow pulses, inspect moves parts.
@@ -49,13 +49,6 @@ namespace VoidFlow
                 }
             }
 
-            if (model == KnifeModel.Karambit && root)
-            {
-                // Twirl around the finger ring, twice
-                float a = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.75f, 1.85f, inspect)) * 720f : 0f;
-                var spin = Quaternion.Euler(0f, 0f, a);
-                root.SetLocalPositionAndRotation(ringCenter - spin * ringCenter, spin);
-            }
             if (model == KnifeModel.Butterfly && blade && swingHandle)
             {
                 // The loose handle swings open, the blade flips around the pivot twice, and

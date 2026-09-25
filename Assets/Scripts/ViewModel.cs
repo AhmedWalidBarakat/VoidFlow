@@ -23,6 +23,9 @@ namespace VoidFlow
         public PlayerMovement player;
         [Tooltip("Any URP Lit material; the weapon and glove materials are made from it")]
         public Material template;
+        [Tooltip("Field of view of the world, horizontal like CS (the same on any screen shape)")]
+        public float horizontalFov = 120f;
+        [Tooltip("Field of view of the hands and weapon (vertical), kept separate so they never stretch")]
         public float fieldOfView = 58f;
         [Tooltip("Optional: a clip to use for the sniper shot instead of the generated one")]
         public AudioClip sniperShotClip;
@@ -44,8 +47,6 @@ namespace VoidFlow
         float drawTime = 99f;
 
         // Resting spot of the knife hand, relative to the camera (right, down, forward)
-        static readonly Vector3 KnifeRest = new(0.17f, -0.15f, 0.4f);
-        static readonly Vector3 KarambitRest = new(0.1f, -0.11f, 0.33f);
 
         Camera view, overlay;
         AudioSource audioSource;
@@ -114,7 +115,7 @@ namespace VoidFlow
             sniperSkin = Skins.EquippedSniper;
             weapons = new[]
             {
-                new Weapon { speed = 250f, drawTime = 0.6f, root = BuildKnifeRig(), restPosition = KnifeRestFor(knife), restRotation = Quaternion.identity },
+                new Weapon { speed = 250f, drawTime = 0.6f, root = BuildKnifeRig(), restPosition = Vector3.zero, restRotation = Quaternion.identity },
                 new Weapon { speed = 200f, drawTime = 1.1f, root = BuildSniper(), restPosition = SniperRest, restRotation = SniperRestRotation },
             };
             foreach (var w in weapons)
@@ -240,6 +241,7 @@ namespace VoidFlow
             bool locked = Cursor.lockState == CursorLockMode.Locked;
             float dt = Time.deltaTime;
 
+            ApplyFov();
             probeTimer -= dt;
             if (probeTimer <= 0f && probe)
             {
@@ -324,54 +326,41 @@ namespace VoidFlow
             PoseKnife(pos, rot, inspectTime);
         }
 
-        // Places the hand for the current knife: its resting hold plus the slash offset
+        // Knife hands, CS2 style, in camera space: both hands low in the middle of the
+        // screen, the left one open and palm-down, the right one a palm-down fist holding
+        // the knife (a karambit comes out under the pinky and curls up to the right)
+        static readonly Vector3 RightIdle = new(0.078f, -0.058f, 0.33f);
+        static readonly Vector3 LeftIdle = new(-0.105f, -0.06f, 0.34f);
+        static readonly Quaternion ReverseIdle = FingersBack(new Vector3(-0.12f, -0.4f, 1f), new Vector3(0.05f, 1f, 0.4f));
+        static readonly Quaternion ForwardIdle = FingersBack(new Vector3(0.05f, -0.35f, 1f), new Vector3(0.7f, 0.7f, 0.25f));
+        static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.12f, -0.4f, 1f), new Vector3(-0.15f, 1f, 0.4f));
+        // Inspect, like CS2: the hand comes up to the middle and turns upright with the palm
+        // toward you, turns slowly to show the knife off, then goes back down, while the left
+        // hand drops away. A forward-grip blade stands up out of the fist; the karambit rolls
+        // in the fingers so it hangs below, curling out to the left.
+        static readonly Vector3 InspectSpot = new(0.035f, -0.015f, 0.31f);
+        static readonly Quaternion InspectRotation = FingersBack(new Vector3(-1f, 0f, 0.3f), new Vector3(0.3f, 0f, 1f));
+        static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
+
+        // Places the hands for the current knife: the resting hold plus the slash offset
         // (pos, rot), blended into the inspect pose while inspecting (inspect >= 0)
         void PoseKnife(Vector3 pos, Vector3 rot, float inspect)
         {
-            if (knife.model == KnifeModel.Karambit)
-            {
-                // CS2 style: the hand comes up and turns upright, blade hanging down, and
-                // twirls the karambit around the ring finger
-                float w = inspect >= 0f ? Plateau(inspect, 0f, 0.55f, 1.95f, 2.55f) : 0f;
-                hand.localPosition = pos + KarambitInspectOffset * w + new Vector3(0f, Mathf.Sin(inspect * 3f) * 0.004f * w, 0f);
-                hand.localRotation = Quaternion.Slerp(KarambitHold, KarambitInspect, w) * Quaternion.Euler(rot);
-            }
-            else
-            {
-                if (inspect >= 0f)
-                {
-                    var keys = knife.IsSword ? InspectKeys : HoldUpKeys;
-                    var (ip, ir) = Sample(keys, inspect * keys[^1].t / knife.InspectLength);
-                    pos += ip;
-                    rot += ir;
-                }
-                hand.localPosition = pos;
-                hand.localRotation = HoldRotation * Quaternion.Euler(rot);
-            }
+            bool reverse = knife.model == KnifeModel.Karambit;
+            float length = knife.InspectLength;
+            // Up in 0.3 s, hold, back down over the last 0.35 s
+            float w = inspect >= 0f ? Plateau(inspect, 0f, 0.3f, length - 0.35f, length) : 0f;
+            float turn = Mathf.Lerp(-12f, 14f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.25f, length - 0.3f, inspect)));
+            hand.localPosition = Vector3.Lerp(RightIdle, InspectSpot, w) + pos;
+            hand.localRotation = Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, InspectRotation * Quaternion.Euler(turn, 0f, 0f), w) * Quaternion.Euler(rot);
+            if (reverse) SetGrip(rightHand, true, -90f * w);
+            leftHand.root.localPosition = LeftIdle + LeftHandAway * w;
             knife.Animate(Application.isPlaying ? Time.time : 0f, inspect);
         }
 
         // Rises from a to b, holds until c, falls back by d
         static float Plateau(float t, float a, float b, float c, float d) =>
             t < c ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t)) : 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(c, d, t));
-
-        // A hand rotation from where the forearm points (hand +X) and where the handle points
-        // from pinky to index (hand +Y), in camera space
-        static Quaternion Basis(Vector3 arm, Vector3 handle)
-        {
-            handle.Normalize();
-            arm = (arm - Vector3.Dot(arm, handle) * handle).normalized;
-            return Quaternion.LookRotation(Vector3.Cross(arm, handle), handle);
-        }
-
-        // Karambit at rest: fist palm-down in the lower right, forearm running back to the
-        // corner, the handle across toward the middle so the blade curls out to the right
-        static readonly Quaternion KarambitHold = Basis(new Vector3(0.45f, -0.9f, -0.25f), new Vector3(-0.95f, -0.1f, -0.3f));
-        // Inspect: hand upright, ring at the top, blade hanging below
-        static readonly Quaternion KarambitInspect = Basis(new Vector3(0.5f, -1f, -0.35f), new Vector3(0.1f, 1f, 0.2f));
-        static readonly Vector3 KarambitInspectOffset = new(-0.07f, 0.09f, 0.03f);
-
-        static Vector3 KnifeRestFor(WeaponParts parts) => parts != null && parts.model == KnifeModel.Karambit ? KarambitRest : KnifeRest;
 
         // Shows a moment of the knife inspect in edit mode, for photos (negative: at rest)
         public void PreviewKnifeInspect(float time)
@@ -381,25 +370,6 @@ namespace VoidFlow
         }
 
         // Keyframes: time, offset, rotation offset (degrees), smoothly blended
-        static readonly (float t, Vector3 pos, Vector3 rot)[] InspectKeys =
-        {
-            (0f, Vector3.zero, Vector3.zero),
-            (0.45f, new Vector3(-0.1f, 0.06f, 0.04f), new Vector3(0f, 0f, 35f)),
-            (1.1f, new Vector3(-0.1f, 0.07f, 0.04f), new Vector3(0f, 180f, 35f)),
-            (1.8f, new Vector3(-0.08f, 0.09f, 0.02f), new Vector3(-50f, 180f, 60f)),
-            (2.4f, new Vector3(-0.04f, 0.04f, 0.02f), new Vector3(-20f, 360f, 20f)),
-            (2.9f, Vector3.zero, new Vector3(0f, 360f, 0f)),
-        };
-
-        // Karambit and butterfly: bring the hand up and in to show off the spin or flip
-        static readonly (float t, Vector3 pos, Vector3 rot)[] HoldUpKeys =
-        {
-            (0f, Vector3.zero, Vector3.zero),
-            (0.35f, new Vector3(-0.06f, 0.05f, 0.03f), new Vector3(-15f, -20f, 20f)),
-            (1.6f, new Vector3(-0.06f, 0.055f, 0.03f), new Vector3(-15f, -25f, 22f)),
-            (2.2f, Vector3.zero, Vector3.zero),
-        };
-
         static readonly (float t, Vector3 pos, Vector3 rot)[] SlashKeys =
         {
             (0f, Vector3.zero, Vector3.zero),
@@ -419,9 +389,6 @@ namespace VoidFlow
             }
             return (keys[^1].pos, keys[^1].rot);
         }
-
-        // How the hand holds the knife: blade up and forward, slightly toward the center
-        static readonly Quaternion HoldRotation = Quaternion.Euler(55f, -5f, 10f);
 
         Material glove, leather, strap, cuff, sleeve;
         Texture2D gloveTexture;
@@ -456,60 +423,26 @@ namespace VoidFlow
 
             var root = new GameObject("Knife Rig").transform;
             root.SetParent(anchor, false);
-            hand = new GameObject("Hand").transform;
-            hand.SetParent(root, false);
-            hand.localRotation = HoldRotation;
-            leftHand = BuildLeftHand(root);
+            rightHand = BuildGloveHand(root, "Right Hand", false);
+            leftHand = BuildGloveHand(root, "Left Hand", true);
+            hand = rightHand.root;
+            PoseHand(rightHand, 1f, 1f, 0f);
+            PoseHand(leftHand, 0.22f, 0.1f, 0.6f);
+            leftHand.root.SetLocalPositionAndRotation(LeftIdle, LeftIdleRotation);
             BuildKnifeModel();
             return root;
         }
+
+        GloveHand rightHand, leftHand;
 
         void BuildKnifeModel()
         {
             if (knife != null) Kill(knife.root.gameObject);
             foreach (var m in knifeMaterials) Kill(m);
             knifeMaterials.Clear();
-            knife = new WeaponBuilder(template, Layer, false, knifeMaterials).Knife(Skins.Knives[knifeSkin], hand);
-
-            // The fist changes with the grip; the left hand only shows with the karambit
-            bool karambit = knife.model == KnifeModel.Karambit;
-            if (!fist || fistAcross != karambit)
-            {
-                if (fist) Kill(fist.gameObject);
-                fist = new GameObject("Fist").transform;
-                fist.SetParent(hand, false);
-                fistAcross = karambit;
-                Fist(fist, karambit);
-            }
-            leftHand.gameObject.SetActive(karambit);
-            if (weapons != null) weapons[KnifeSlot].restPosition = KnifeRestFor(knife);
+            SetGrip(rightHand, Skins.Knives[knifeSkin].model == KnifeModel.Karambit);
+            knife = new WeaponBuilder(template, Layer, false, knifeMaterials).Knife(Skins.Knives[knifeSkin], rightHand.grip);
             PoseKnife(Vector3.zero, Vector3.zero, -1f);
-        }
-
-        Transform fist, leftHand;
-        bool fistAcross;
-
-        // CS2 shows the empty left hand low on the left with the karambit, relaxed and open.
-        // In its own frame the palm faces +X and the fingers point along +Y.
-        Transform BuildLeftHand(Transform root)
-        {
-            var t = new GameObject("Left Hand").transform;
-            t.SetParent(root, false);
-            t.SetLocalPositionAndRotation(new Vector3(-0.19f, -0.145f, 0.33f) - KarambitRest,
-                Basis(new Vector3(0.75f, 0.25f, -0.35f), new Vector3(0.25f, 0.6f, 0.75f)));
-            Part(t, PrimitiveType.Cube, glove, Vector3.zero, new Vector3(0.026f, 0.085f, 0.078f));
-            Part(t, PrimitiveType.Cube, leather, new Vector3(-0.012f, 0.036f, 0f), new Vector3(0.01f, 0.018f, 0.076f));
-            for (int f = 0; f < 4; f++)
-            {
-                float z = -0.027f + f * 0.018f, len = f is 1 or 2 ? 0.03f : 0.026f;
-                Part(t, PrimitiveType.Capsule, glove, new Vector3(0.008f, 0.06f, z), new Vector3(0.018f, len, 0.018f), Quaternion.Euler(0f, 0f, 18f));
-                Part(t, PrimitiveType.Capsule, leather, new Vector3(0.002f, 0.058f, z), new Vector3(0.019f, 0.008f, 0.019f), Quaternion.Euler(0f, 0f, 18f));
-            }
-            Part(t, PrimitiveType.Capsule, glove, new Vector3(0.012f, 0.012f, 0.05f), new Vector3(0.02f, 0.028f, 0.02f), Quaternion.Euler(-40f, 0f, 20f));
-            Part(t, PrimitiveType.Cylinder, cuff, new Vector3(0f, -0.058f, 0f), new Vector3(0.066f, 0.022f, 0.07f));
-            Part(t, PrimitiveType.Cylinder, strap, new Vector3(0f, -0.058f, 0f), new Vector3(0.069f, 0.006f, 0.073f));
-            Part(t, PrimitiveType.Cylinder, sleeve, new Vector3(0f, -0.24f, 0f), new Vector3(0.058f, 0.16f, 0.062f));
-            return t;
         }
 
         // A gloved fist around a handle that runs along +Y (from -0.11 to 0): palm on the +X

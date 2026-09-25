@@ -144,7 +144,7 @@ namespace VoidFlow.EditorTools
             cam.transform.SetParent(go.transform, false);
             cam.transform.localPosition = new Vector3(0f, 1.63f, 0f); // 64u eye height
             var camera = cam.AddComponent<Camera>();
-            camera.fieldOfView = 74f; // ~90 horizontal at 16:9, like CS
+            camera.fieldOfView = Camera.HorizontalToVerticalFieldOfView(120f, 16f / 9f); // 120 horizontal (the ViewModel keeps it right for any screen)
             camera.nearClipPlane = 0.05f;
             camera.farClipPlane = 1000f;
             camera.clearFlags = CameraClearFlags.Skybox;
