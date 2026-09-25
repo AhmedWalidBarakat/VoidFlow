@@ -34,6 +34,7 @@ namespace VoidFlow
         // holds it at the mouth
         static readonly Vector3 AcrossMouth = new(-0.1f, -0.105f, 0.36f);
         static readonly Quaternion AcrossSheath = FingersBack(new Vector3(-0.35f, -0.3f, -0.9f), new Vector3(1f, 0f, -0.35f));
+        static readonly Vector3 FromTopRight = new Vector3(-0.5f, -0.7f, 0.5f).normalized;
         static readonly Quaternion LeftOnSheath = FingersBack(new Vector3(0.25f, 0.6f, 0.8f), new Vector3(-0.2f, 0.7f, -0.6f));
 
         static float Ease(float t, float a, float b) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t));
@@ -62,6 +63,7 @@ namespace VoidFlow
             public float slide;            // sword pulled this far out of the sheath
             public float across;           // sheath at the hip (0) or laid across the view (1)
             public bool rightOnHilt, leftOnSheath;
+            public bool fromAbove;         // on the hilt, the arm reaches in from the top right
             public Key At(float time) { var k = (Key)MemberwiseClone(); k.t = time; return k; }
         }
 
@@ -142,29 +144,24 @@ namespace VoidFlow
             };
         }
 
-        // Sword, done like iaido: noto (the blade comes down to the left hip, its tip finds the
-        // sheath mouth and it slides smoothly home until it clicks), the ready stance (right
-        // hand on the hilt, left hand on the sheath mouth, held while F is held), then
-        // nukitsuke (drawn straight forward out of the sheath into a level cut to the right)
+        // Sword: slid into the sheath at the left hip, then the right arm reaches down from the
+        // top right to the hilt and eases the blade just a little way out of the sheath, and
+        // holds it there, ready, for as long as F is held; then it's drawn back out
         static Routine SwordRoutine()
         {
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
-            // Noto: tip to the mouth, then slide it in
-            k = k.At(0.45f); k.hold = Hold.Sheath; k.across = 1f; k.slide = 0.27f; k.rightOnHilt = true; k.leftOnSheath = true; ks.Add(k);
-            k = k.At(1.0f); k.slide = 0f; ks.Add(k);
-            // Ready to strike
-            k = k.At(1.2f); ks.Add(k);
-            // Nukitsuke: out of the sheath and straight into a level cut
-            k = k.At(1.42f); k.slide = 0.27f; ks.Add(k);
-            k = k.At(1.62f); k.hold = Hold.Right; k.rightOnHilt = false; k.leftOnSheath = false; k.across = 0.4f;
-            k.rp = new(0.08f, -0.075f, 0.34f); k.rq = FB(-0.3f, 0.1f, 0.95f, 0f, -1f, 0.1f); k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
-            k = k.At(1.75f); k.rp = new(0.1f, -0.07f, 0.33f); ks.Add(k);
-            k = k.At(2.15f); k.across = 0f; k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
+            k = k.At(0.3f); k.hold = Hold.Sheath; k.across = 1f; k.slide = 0.27f; k.rightOnHilt = true; k.fromAbove = true; k.leftOnSheath = true; ks.Add(k);
+            k = k.At(0.6f); k.slide = 0f; ks.Add(k);
+            k = k.At(0.85f); k.slide = 0.045f; ks.Add(k);
+            k = k.At(1.05f); ks.Add(k);
+            k = k.At(1.35f); k.slide = 0.27f; ks.Add(k);
+            k = k.At(1.75f); k.hold = Hold.Right; k.rightOnHilt = false; k.fromAbove = false; k.leftOnSheath = false; k.across = 0f;
+            k.rp = RightIdle; k.rq = ForwardIdle; k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
             return new Routine
             {
-                keys = ks.ToArray(), sustainAt = 1.1f,
-                sounds = new[] { (0.97f, WeaponSounds.Sheathe, 0.8f), (1.3f, WeaponSounds.Unsheathe, 0.9f), (1.45f, WeaponSounds.Slash, 0.8f) },
+                keys = ks.ToArray(), sustainAt = 0.95f,
+                sounds = new[] { (0.58f, WeaponSounds.Sheathe, 0.8f), (0.8f, WeaponSounds.Tick, 0.6f), (1.15f, WeaponSounds.Unsheathe, 0.8f) },
             };
         }
 
@@ -349,6 +346,17 @@ namespace VoidFlow
             Pose RightArm(Key k)
             {
                 if (!k.rightOnHilt) return new Pose(k.rp, k.rq);
+                if (k.fromAbove)
+                {
+                    // The arm's side runs along the handle (as in the grip) and the arm itself
+                    // points down-left from the top right; the glove sits on the handle
+                    var hilt = InSheath(k);
+                    Vector3 x = hilt.q * Vector3.up;
+                    Vector3 y = (FromTopRight - Vector3.Dot(FromTopRight, x) * x).normalized;
+                    var armQ = Quaternion.LookRotation(Vector3.Cross(x, y), y);
+                    Vector3 handle = hilt.p + hilt.q * new Vector3(0f, -0.055f, 0f);
+                    return new Pose(handle - armQ * GripFront, armQ);
+                }
                 var knifePose = InSheath(k);
                 var q = knifePose.q * Quaternion.Inverse(rightGrip.q);
                 return new Pose(knifePose.p - q * rightGrip.p, q);
