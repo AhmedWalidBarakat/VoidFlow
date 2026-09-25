@@ -29,10 +29,11 @@ namespace VoidFlow
         static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.3f, 0.5f, 1f), new Vector3(-0.1f, 0.6f, -0.7f));
         static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
 
-        // The sheath laid across the bottom of the view for the sword routine (its +Y runs from
-        // the mouth into the scabbard, to the left), and how the left hand holds it
-        static readonly Vector3 AcrossMouth = new(-0.05f, -0.085f, 0.33f);
-        static readonly Quaternion AcrossSheath = FingersBack(new Vector3(-1f, 0.06f, 0.1f), new Vector3(0f, 0.25f, -1f));
+        // The sheath still on the left hip but brought up a little into view for the sword
+        // routine (its +Y runs from the mouth back into the scabbard), and how the left hand
+        // holds it at the mouth
+        static readonly Vector3 AcrossMouth = new(-0.1f, -0.105f, 0.36f);
+        static readonly Quaternion AcrossSheath = FingersBack(new Vector3(-0.35f, -0.3f, -0.9f), new Vector3(1f, 0f, -0.35f));
         static readonly Quaternion LeftOnSheath = FingersBack(new Vector3(0.25f, 0.6f, 0.8f), new Vector3(-0.2f, 0.7f, -0.6f));
 
         static float Ease(float t, float a, float b) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t));
@@ -141,32 +142,29 @@ namespace VoidFlow
             };
         }
 
-        // Sword: two cuts in opposite directions, then it's slid into the sheath laid across the
-        // view and held there, right hand on the hilt and left hand on the scabbard, like a
-        // samurai waiting to draw, for as long as F is held; then it's drawn back out
+        // Sword, done like iaido: noto (the blade comes down to the left hip, its tip finds the
+        // sheath mouth and it slides smoothly home until it clicks), the ready stance (right
+        // hand on the hilt, left hand on the sheath mouth, held while F is held), then
+        // nukitsuke (drawn straight forward out of the sheath into a level cut to the right)
         static Routine SwordRoutine()
         {
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
-            k = k.At(0.14f); k.lp = LeftIdle + LeftHandAway; k.rp = new(0.16f, 0.04f, 0.3f); k.rq = FB(-0.3f, 0.9f, 0.3f, 0.4f, 0f, -1f); ks.Add(k);
-            k = k.At(0.36f); k.rp = new(-0.07f, -0.12f, 0.34f); k.rq = FB(-0.9f, -0.4f, 0.5f, 0f, 0.6f, -0.8f); ks.Add(k);
-            k = k.At(0.46f); ks.Add(k);
-            k = k.At(0.7f); k.rp = new(0.16f, 0.05f, 0.31f); k.rq = FB(0.35f, 0.85f, 0.4f, 0.5f, -0.2f, -0.8f); ks.Add(k);
-            k = k.At(0.8f); ks.Add(k);
-            k = k.At(1.1f); k.hold = Hold.Sheath; k.across = 1f; k.slide = 0.3f; k.rightOnHilt = true; k.leftOnSheath = true; ks.Add(k);
-            k = k.At(1.4f); k.slide = 0f; ks.Add(k);
-            k = k.At(1.6f); ks.Add(k);
-            k = k.At(1.95f); k.slide = 0.3f; ks.Add(k);
-            k = k.At(2.35f); k.hold = Hold.Right; k.rightOnHilt = false; k.leftOnSheath = false; k.across = 0f;
-            k.rp = RightIdle; k.rq = ForwardIdle; k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
+            // Noto: tip to the mouth, then slide it in
+            k = k.At(0.45f); k.hold = Hold.Sheath; k.across = 1f; k.slide = 0.27f; k.rightOnHilt = true; k.leftOnSheath = true; ks.Add(k);
+            k = k.At(1.0f); k.slide = 0f; ks.Add(k);
+            // Ready to strike
+            k = k.At(1.2f); ks.Add(k);
+            // Nukitsuke: out of the sheath and straight into a level cut
+            k = k.At(1.42f); k.slide = 0.27f; ks.Add(k);
+            k = k.At(1.62f); k.hold = Hold.Right; k.rightOnHilt = false; k.leftOnSheath = false; k.across = 0.4f;
+            k.rp = new(0.08f, -0.075f, 0.34f); k.rq = FB(-0.3f, 0.1f, 0.95f, 0f, -1f, 0.1f); k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(1.75f); k.rp = new(0.1f, -0.07f, 0.33f); ks.Add(k);
+            k = k.At(2.15f); k.across = 0f; k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
             return new Routine
             {
-                keys = ks.ToArray(), sustainAt = 1.5f,
-                sounds = new[]
-                {
-                    (0.16f, WeaponSounds.Slash, 0.75f), (0.52f, WeaponSounds.Slash, 0.75f),
-                    (1.38f, WeaponSounds.Sheathe, 0.8f), (1.7f, WeaponSounds.Unsheathe, 0.8f),
-                },
+                keys = ks.ToArray(), sustainAt = 1.1f,
+                sounds = new[] { (0.97f, WeaponSounds.Sheathe, 0.8f), (1.3f, WeaponSounds.Unsheathe, 0.9f), (1.45f, WeaponSounds.Slash, 0.8f) },
             };
         }
 
@@ -358,7 +356,7 @@ namespace VoidFlow
             Pose LeftArm(Key k)
             {
                 if (!k.leftOnSheath) return new Pose(k.lp, k.lq);
-                Vector3 onSheath = sheathPose.p + sheathPose.q * new Vector3(0f, 0.08f, 0f);
+                Vector3 onSheath = sheathPose.p + sheathPose.q * new Vector3(0f, 0.035f, 0f);
                 return new Pose(onSheath - LeftOnSheath * GripFront, LeftOnSheath);
             }
             var right = Pose.Blend(RightArm(a), RightArm(b), s);
@@ -409,8 +407,10 @@ namespace VoidFlow
             // Arms turn see-through wherever the knife passes behind them
             var points = new List<Vector3> { pivotAt, knifePose.p };
             if (knife.tip) points.Add(rig.InverseTransformPoint(knife.tip.position));
-            SetArmAlpha(OverlapAlpha(right, points));
-            SetLeftAlpha(OverlapAlpha(left, points));
+            // A sheathed sword is meant to sit under the hands: keep them solid then
+            bool seated = a.hold == Hold.Sheath && b.hold == Hold.Sheath && Mathf.Lerp(a.slide, b.slide, s) < 0.06f;
+            SetArmAlpha(seated ? 1f : OverlapAlpha(right, points));
+            SetLeftAlpha(seated ? 1f : OverlapAlpha(left, points));
         }
 
         // How solid an arm can stay: see-through where any of the knife's points sit behind it
