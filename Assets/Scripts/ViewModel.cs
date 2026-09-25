@@ -256,6 +256,7 @@ namespace VoidFlow
             GUI.Label(new Rect(box.x, box.y + 6f, w - 14f, 24f), skin.rarity == SkinRarity.Default ? skin.name : "★ " + skin.name, nameStyle);
             detailStyle.normal.textColor = color;
             string detail = current == SniperSlot ? SniperStatus() : "F inspect";
+            if (AutoInspect) detail = "AUTO INSPECT  ·  double tap F to stop";
             string slot = current == SniperSlot ? "PRIMARY" : "SECONDARY";
             GUI.Label(new Rect(box.x, box.y + 30f, w - 14f, 20f), $"{slot}   ·   {Skins.RarityName(skin.rarity)}   ·   {detail}", detailStyle);
         }
@@ -513,7 +514,8 @@ namespace VoidFlow
             if (knife != null) Kill(knife.root.gameObject);
             foreach (var m in knifeMaterials) Kill(m);
             knifeMaterials.Clear();
-            SetGrip(rightHand, Skins.Knives[knifeSkin].model == KnifeModel.Talon);
+            if (Skins.Knives[knifeSkin].model == KnifeModel.Talon) SetTalonGrip(rightHand);
+            else SetGrip(rightHand, false);
             var builder = new WeaponBuilder(template, Layer, false, knifeMaterials);
             knife = builder.Knife(Skins.Knives[knifeSkin], rightHand.grip);
             BuildSheath(Skins.Knives[knifeSkin], builder);

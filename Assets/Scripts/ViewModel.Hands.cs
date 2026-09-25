@@ -55,6 +55,15 @@ namespace VoidFlow
         // Forward grip: blade out of the thumb side (+X). Reverse grip (talon knife): blade out of
         // the other side, curling toward the back of the hand. `roll` turns the knife about its
         // handle, the way fingers roll it during an inspect.
+        // The talon knife's own hold: the handle runs across the front of the glove, the finger
+        // ring out one side and the hooked blade sweeping the other way, its flat side facing
+        // away from the back of the hand (so it shows to you when the palm does)
+        static readonly Quaternion TalonGrip = Quaternion.LookRotation(Vector3.back, Vector3.right);
+        static readonly Vector3 TalonHandle = new(0f, -0.055f, 0f);
+
+        static void SetTalonGrip(BlockArm arm) =>
+            arm.grip.SetLocalPositionAndRotation(GripFront - TalonGrip * TalonHandle, TalonGrip);
+
         static void SetGrip(BlockArm arm, bool reverse, float roll = 0f)
         {
             Quaternion r = Quaternion.Euler((reverse ? 90f : 0f) + roll, 0f, 0f) * Quaternion.Euler(0f, 0f, -90f);

@@ -154,7 +154,8 @@ namespace VoidFlow
                     else { Play(WeaponSounds.Dry); StartReload(); }
                 }
             }
-            if (kb != null && kb.fKey.wasPressedThisFrame && idle && zoom == 0 && sniperInspect < 0f) sniperInspect = 0f;
+            InspectTaps(kb);
+            if (((kb != null && kb.fKey.wasPressedThisFrame) || AutoInspect) && idle && zoom == 0 && sniperInspect < 0f) sniperInspect = 0f;
             if (sniperInspect >= 0f)
             {
                 sniperInspect += dt;

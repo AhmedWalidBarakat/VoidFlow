@@ -15,6 +15,8 @@ namespace VoidFlow
         public bool glove;
         [Tooltip("Gallery piece: just to look at (shows its name up close), can't be equipped")]
         public bool gallery;
+        [Tooltip("If above 0: the shelf is this far below, and the item must fit in maxHeight above it (it's lifted and shrunk to fit, so nothing pokes through)")]
+        public float shelfBelow = -1f, maxHeight = 1f;
         [Tooltip("Any URP Lit material; the model's materials are made from it")]
         public Material template;
         public float scale = 8f;
@@ -78,7 +80,34 @@ namespace VoidFlow
             offset.localPosition = sniper ? new Vector3(0f, -0.02f, -0.25f) : glove ? new Vector3(0f, 0.12f, 0f) : new Vector3(0f, -0.06f, 0f);
             var builder = new WeaponBuilder(template, gameObject.layer, true, materials);
             parts = glove ? builder.GloveModel(Skin, offset) : sniper ? builder.Rifle(Skin, offset) : builder.Knife(Skin, offset);
+            if (shelfBelow > 0f) FitAboveShelf();
             foreach (var t in model.GetComponentsInChildren<Transform>(true)) t.gameObject.hideFlags = HideFlags.HideAndDontSave;
+        }
+
+        // Spinning about the vertical keeps its height the same, so measure it once: shrink it
+        // if it's too tall for its shelf, then lift it so its lowest point clears the shelf
+        void FitAboveShelf()
+        {
+            float low = float.MaxValue, high = float.MinValue;
+            foreach (var mf in model.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (!mf.sharedMesh || mf.name == "Flame") continue;
+                var b = mf.sharedMesh.bounds;
+                var m = transform.worldToLocalMatrix * mf.transform.localToWorldMatrix;
+                for (int c = 0; c < 8; c++)
+                {
+                    var corner = b.center + Vector3.Scale(b.extents, new Vector3((c & 1) == 0 ? -1 : 1, (c & 2) == 0 ? -1 : 1, (c & 4) == 0 ? -1 : 1));
+                    float y = m.MultiplyPoint3x4(corner).y;
+                    low = Mathf.Min(low, y);
+                    high = Mathf.Max(high, y);
+                }
+            }
+            if (low > high) return;
+            float fit = Mathf.Min(1f, maxHeight / Mathf.Max(high - low, 0.01f));
+            model.localScale *= fit;
+            low *= fit;
+            const float gap = 0.05f;
+            if (low < -shelfBelow + gap) model.localPosition += Vector3.up * (-shelfBelow + gap - low);
         }
 
         void Clear()

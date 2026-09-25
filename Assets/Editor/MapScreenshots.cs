@@ -104,7 +104,7 @@ namespace VoidFlow.EditorTools
                 File.WriteAllBytes("Logs/skeet_range.png", tex.EncodeToPNG());
             }
             // The cases, from the lane
-            foreach (var station in Object.FindObjectsByType<CaseStation>())
+            foreach (var station in System.Array.Empty<CaseStation>())
             {
                 Vector3 p = station.transform.position;
                 cam.transform.SetPositionAndRotation(p + new Vector3(-4.2f, 1.2f, -1.8f), Quaternion.LookRotation(p + Vector3.up * 1f - (p + new Vector3(-4.2f, 1.2f, -1.8f))));

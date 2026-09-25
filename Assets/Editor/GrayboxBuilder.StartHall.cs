@@ -11,7 +11,7 @@ namespace VoidFlow.EditorTools
     //  - a runway with speed gates and holographic diamonds down the lane to the drop
     //  - the Void Case gallery: every knife, sniper and glove a Void Case can drop, on lit
     //    ledges along the walls, just to look at
-    //  - the Knife, Sniper and Glove Cases on their own platforms (E to open)
+    //  - the Void Case on show, with a sign saying how to earn one
     //  - a skeet range with its own corner: snipe clay discs out of the air
     //  - a hanging "press I" inventory sign you see as you spawn
     public static partial class GrayboxBuilder
@@ -154,34 +154,39 @@ namespace VoidFlow.EditorTools
                 tiers: 2, spacing: 2.3f, depth: 1.2f, step: 0f, scale: 4f, lift: 0.5f, rampMat, metal, dark, magenta);
             Label("VOID CASE GALLERY", hall, new Vector3(lane, HallHeight - 3.2f, HallBack + 0.2f), 180f, 1.1f, new Color(0.85f, 0.6f, 1f));
 
-            // The cases, each on its own round platform either side of the lane
-            var cases = new[]
+            // The Void Case on show, on a round platform by the lane, with a sign saying how to
+            // earn one. It's only to look at: earned cases are opened from the inventory.
             {
-                ("KNIFE CASE", false, false, 2, new Vector3(lane - 9f, 0f, HallFront - 12f), new Color(0.04f, 0.03f, 0.06f), new Color(0.55f, 0.15f, 1f), new Color(0.7f, 0.35f, 1f)),
-                ("SNIPER CASE", true, false, 1, new Vector3(lane + 9f, 0f, HallFront - 12f), new Color(0.04f, 0.03f, 0.06f), new Color(0.8f, 0.5f, 1f), new Color(0.9f, 0.3f, 1f)),
-                ("GLOVE CASE", false, true, Skins.Gloves.Length - 10, new Vector3(lane - 9f, 0f, HallFront - 25f), new Color(0.04f, 0.03f, 0.06f), new Color(1f, 0.3f, 0.8f), new Color(1f, 0.45f, 0.85f)),
-            };
-            foreach (var (title, sniper, gloves, showcase, at, stripeA, stripeB, rayColor) in cases)
-            {
-                float face = at.x < lane ? -90f : 90f; // open toward the lane
-                float toLane = at.x < lane ? 1f : -1f;
-                Material rim = MakeGlow(gloves ? "GlowGloveCase" : sniper ? "GlowSniperCase" : "GlowKnifeCase", rayColor, 1.4f);
-                Shape(PrimitiveType.Cylinder, "CasePlatformRing", hall, at.WithY(0.03f), new Vector3(6.4f, 0.03f, 6.4f), rim);
-                Shape(PrimitiveType.Cylinder, "CasePlatform", hall, at.WithY(0.05f), new Vector3(6f, 0.05f, 6f), dark);
-                Box(gloves ? "GloveCasePedestal" : sniper ? "SniperCasePedestal" : "KnifeCasePedestal", at + new Vector3(0f, 0.7f, 0f), new Vector3(2.2f, 1.2f, 2.2f), metal, hall);
-                Deco("CasePedestalRim", hall, at + new Vector3(0f, 1.32f, 0f), new Vector3(2.3f, 0.06f, 2.3f), Quaternion.identity, rim);
-                var station = new GameObject(title).AddComponent<CaseStation>();
-                station.transform.SetParent(hall, false);
-                station.transform.SetPositionAndRotation(at + new Vector3(0f, 1.35f, 0f), Quaternion.Euler(0f, face, 0f));
-                station.title = title;
-                station.sniperCase = sniper;
-                station.gloveCase = gloves;
-                station.showcaseSkin = showcase;
-                station.stripeA = stripeA;
-                station.stripeB = stripeB;
-                station.rayColor = rayColor;
-                station.template = rampMat;
-                Label($"{title}\nMythic  ·  Void 6%", hall, at + new Vector3(toLane * 1.12f, 0.8f, 0f), face, 0.26f, rayColor);
+                var at = new Vector3(lane - 9f, 0f, HallFront - 14f);
+                Material pink = MakeGlow("GlowVoidCase", new Color(1f, 0.35f, 0.8f), 1.5f);
+                Shape(PrimitiveType.Cylinder, "VoidCasePlatformRing", hall, at.WithY(0.03f), new Vector3(7.4f, 0.03f, 7.4f), pink);
+                Shape(PrimitiveType.Cylinder, "VoidCasePlatform", hall, at.WithY(0.05f), new Vector3(7f, 0.05f, 7f), dark);
+                Box("VoidCasePedestal", at + new Vector3(0f, 0.6f, 0f), new Vector3(2f, 1.2f, 2f), metal, hall);
+                Deco("VoidCasePedestalRim", hall, at + new Vector3(0f, 1.22f, 0f), new Vector3(2.1f, 0.06f, 2.1f), Quaternion.identity, pink);
+                var show = new GameObject("VoidCaseDisplay").AddComponent<VoidCaseDisplay>();
+                show.transform.SetParent(hall, false);
+                show.transform.position = at + new Vector3(0f, 2.1f, 0f);
+                show.template = rampMat;
+                show.scale = 1.6f;
+                PointLight("VoidCaseLight", hall, at + new Vector3(0f, 4f, 0f), new Color(1f, 0.4f, 0.85f), 1.4f, 10f);
+
+                // The sign stands on the far side of the case, facing the lane (its back to the
+                // wall: 3D text shows through from behind)
+                var sign = new GameObject("VoidCaseSign").transform;
+                sign.SetParent(hall, false);
+                sign.SetPositionAndRotation(at + new Vector3(-4.3f, 4.8f, 0f), Quaternion.Euler(0f, -90f, 0f));
+                Deco("Panel", sign, new Vector3(0f, 0f, 0.06f), new Vector3(7f, 4.4f, 0.12f), Quaternion.identity, dark, local: true);
+                foreach (float y in new[] { -2.25f, 2.25f })
+                    Deco("Edge", sign, new Vector3(0f, y, -0.02f), new Vector3(7.2f, 0.08f, 0.1f), Quaternion.identity, pink, local: true);
+                foreach (float x in new[] { -3.55f, 3.55f })
+                    Deco("Edge", sign, new Vector3(x, 0f, -0.02f), new Vector3(0.08f, 4.5f, 0.1f), Quaternion.identity, purple, local: true);
+                Deco("Leg", sign, new Vector3(0f, -3.5f, 0.06f), new Vector3(0.3f, 2.6f, 0.12f), Quaternion.identity, metal, local: true);
+                Label("VOID CASE", sign, new Vector3(0f, 1.55f, -0.03f), 0f, 0.8f, Color.white, local: true);
+                Label("knives  ·  snipers  ·  gloves   ·   Void 6%", sign, new Vector3(0f, 0.95f, -0.03f), 0f, 0.26f, new Color(1f, 0.6f, 0.9f), local: true);
+                Label("HOW TO EARN ONE", sign, new Vector3(0f, 0.35f, -0.03f), 0f, 0.3f, new Color(0.55f, 0.85f, 1f), local: true);
+                Label("snipe a Void Beast out on the course\nhit 4 of 10 at the skeet range\ncollect 25 Void Shards",
+                    sign, new Vector3(0f, -0.65f, -0.03f), 0f, 0.3f, Color.white, local: true);
+                Label("open them from your inventory  ( I )", sign, new Vector3(0f, -1.75f, -0.03f), 0f, 0.24f, new Color(1f, 0.6f, 0.9f), local: true);
             }
 
             // "Press I for inventory": a glowing sign hung over the runway, facing you as you
@@ -339,6 +344,8 @@ namespace VoidFlow.EditorTools
                 display.transform.SetParent(hall, false);
                 display.transform.position = at + Vector3.up * (y + lift);
                 display.gallery = true;
+                display.shelfBelow = lift - 0.06f;
+                display.maxHeight = tierHeight - 0.3f;
                 display.sniper = slot == ItemSlot.Primary;
                 display.glove = slot == ItemSlot.Hands;
                 display.scale = scale;
