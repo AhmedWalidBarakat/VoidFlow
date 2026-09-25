@@ -12,6 +12,7 @@ namespace VoidFlow
         public SkinRarity rarity;
         public Transform blade, swingHandle, aura, bolt, magazine; // butterfly / Void / rifle parts
         public Vector3 ringCenter, boltRest, magRest;
+        public float ringSpin; // talon knife: degrees spun around the finger ring (set by the view)
         public readonly List<Material> glowMaterials = new();
         public readonly List<Color> glowColors = new();
         public readonly List<(Transform t, Vector3 home, float phase)> motes = new();
@@ -20,11 +21,11 @@ namespace VoidFlow
         public bool IsSword => model is KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus;
 
         // The hand raises every knife to show it off (see ViewModel); on top of that the
-        // karambit twirls on its finger ring, the butterfly knife does flip tricks, and Void
+        // talon knife twirls on its finger ring, the butterfly knife does flip tricks, and Void
         // swords flare with glow and twirl in the grip
         public float InspectLength => model switch
         {
-            KnifeModel.Karambit => 2.4f,
+            KnifeModel.Talon => 2.4f,
             KnifeModel.Butterfly => 2.6f,
             _ => 2.9f,
         };
@@ -75,11 +76,11 @@ namespace VoidFlow
                 }
             }
 
-            if (model == KnifeModel.Karambit && root)
+            if (model == KnifeModel.Talon && root)
             {
-                // Twirl around the finger ring, twice
-                float a = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 1.6f, inspect)) * 720f : 0f;
-                var spin = Quaternion.Euler(0f, 0f, a);
+                // Spinning around the finger ring (how far is driven by the view: it keeps
+                // going for as long as inspect is held)
+                var spin = Quaternion.Euler(0f, 0f, inspect >= 0f ? -ringSpin : 0f);
                 root.SetLocalPositionAndRotation(ringCenter - spin * ringCenter, spin);
             }
             if (IsSword && root)
@@ -149,7 +150,7 @@ namespace VoidFlow
                 case KnifeModel.HollowMoon: HollowMoon(parts, finish); break;
                 case KnifeModel.Tidebreaker: Tidebreaker(parts, finish); break;
                 case KnifeModel.Colossus: Colossus(parts, finish); break;
-                default: Karambit(parts, finish); break;
+                default: Talon(parts, finish); break;
             }
             if (skin.rarity == SkinRarity.Void) Aura(parts, skin.finish);
             if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, finish, 6);
@@ -160,7 +161,7 @@ namespace VoidFlow
         // Held in reverse grip like CS: the finger ring sits above the index finger (top of
         // the handle), and the curved claw blade comes out under the pinky (bottom), curling
         // toward the edge side. Black grip with a brass bolster, pins and ring.
-        void Karambit(WeaponParts parts, Material finish)
+        void Talon(WeaponParts parts, Material finish)
         {
             var t = parts.root;
             Material grip = Mat(new Color(0.05f, 0.05f, 0.055f), 0.45f, 0f);

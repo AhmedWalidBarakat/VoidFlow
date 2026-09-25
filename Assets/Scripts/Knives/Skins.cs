@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace VoidFlow
 {
-    public enum KnifeModel { Karambit, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle }
+    public enum KnifeModel { Talon, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle }
 
     // Finishes. Most are painted in code (our own takes on the classic flashy knife finishes,
     // and the glowing Void ones); the stone, carbon and metal ones use CC0 photo textures from
@@ -16,7 +16,7 @@ namespace VoidFlow
     public enum SkinRarity { Default, Mythic, Void }
 
     // Every weapon skin in the game. Besides the defaults there are two rarities: Mythic and
-    // Void. Mythic knives are a karambit or butterfly knife with a flashy finish; Void knives
+    // Void. Mythic knives are a talon knife or butterfly knife with a flashy finish; Void knives
     // are knife-sized takes on legendary swords with glowing edges, an aura and their own
     // inspect. Cases drop Void 6% of the time.
     public static class Skins
@@ -41,21 +41,21 @@ namespace VoidFlow
 
         public static readonly Skin[] Knives =
         {
-            new("Karambit", KnifeModel.Karambit, KnifeFinish.Tempered, SkinRarity.Default),
-            new("Karambit | Nebula", KnifeModel.Karambit, KnifeFinish.Nebula, SkinRarity.Mythic),
-            new("Karambit | Amber Stripe", KnifeModel.Karambit, KnifeFinish.AmberStripe, SkinRarity.Mythic),
-            new("Karambit | Red Web", KnifeModel.Karambit, KnifeFinish.RedWeb, SkinRarity.Mythic),
+            new("Talon Knife", KnifeModel.Talon, KnifeFinish.Tempered, SkinRarity.Default),
+            new("Talon Knife | Nebula", KnifeModel.Talon, KnifeFinish.Nebula, SkinRarity.Mythic),
+            new("Talon Knife | Amber Stripe", KnifeModel.Talon, KnifeFinish.AmberStripe, SkinRarity.Mythic),
+            new("Talon Knife | Red Web", KnifeModel.Talon, KnifeFinish.RedWeb, SkinRarity.Mythic),
             new("Butterfly | Sunset Fade", KnifeModel.Butterfly, KnifeFinish.SunsetFade, SkinRarity.Mythic),
             new("Butterfly | Candy Swirl", KnifeModel.Butterfly, KnifeFinish.CandySwirl, SkinRarity.Mythic),
             new("Butterfly | Emerald Nebula", KnifeModel.Butterfly, KnifeFinish.EmeraldNebula, SkinRarity.Mythic),
             new("Hollow Moon", KnifeModel.HollowMoon, KnifeFinish.HollowMoon, SkinRarity.Void),
             new("Tidebreaker", KnifeModel.Tidebreaker, KnifeFinish.Tidebreaker, SkinRarity.Void),
             new("Colossus", KnifeModel.Colossus, KnifeFinish.Colossus, SkinRarity.Void),
-            new("Karambit | Tidewater Onyx", KnifeModel.Karambit, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
-            new("Karambit | Carbon", KnifeModel.Karambit, KnifeFinish.Carbon, SkinRarity.Mythic),
+            new("Talon Knife | Tidewater Onyx", KnifeModel.Talon, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
+            new("Talon Knife | Carbon", KnifeModel.Talon, KnifeFinish.Carbon, SkinRarity.Mythic),
             new("Butterfly | Black Marble", KnifeModel.Butterfly, KnifeFinish.BlackMarble, SkinRarity.Mythic),
             new("Butterfly | Smoke Onyx", KnifeModel.Butterfly, KnifeFinish.SmokeOnyx, SkinRarity.Mythic),
-            new("Karambit | Pearl Onyx", KnifeModel.Karambit, KnifeFinish.PearlOnyx, SkinRarity.Mythic),
+            new("Talon Knife | Pearl Onyx", KnifeModel.Talon, KnifeFinish.PearlOnyx, SkinRarity.Mythic),
         };
 
         public static readonly Skin[] Snipers =

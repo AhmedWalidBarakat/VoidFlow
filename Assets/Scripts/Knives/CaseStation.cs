@@ -318,7 +318,7 @@ namespace VoidFlow
             GUI.color = Color.white;
             string kind = skin.model switch
             {
-                KnifeModel.Karambit => "KARAMBIT",
+                KnifeModel.Talon => "TALON KNIFE",
                 KnifeModel.Butterfly => "BUTTERFLY KNIFE",
                 KnifeModel.Rifle => "LONGREACH SNIPER",
                 _ => "VOID BLADE",

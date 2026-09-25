@@ -305,12 +305,14 @@ namespace VoidFlow
 
         void UpdateKnife(Keyboard kb, Mouse mouse, bool locked, bool ready, float dt)
         {
-            if (kb != null && kb.fKey.wasPressedThisFrame && inspectTime < 0f) inspectTime = 0f;
+            if (kb != null && kb.fKey.wasPressedThisFrame && inspectTime < 0f) { inspectTime = 0f; talonSpin = 0f; talonLower = -1f; }
             if (ready && locked && mouse != null && mouse.leftButton.wasPressedThisFrame && (slashTime < 0f || slashTime > 0.3f))
             {
                 slashTime = 0f;
                 slashSide = -slashSide;
                 inspectTime = -1f;
+                talonSpin = 0f;
+                talonLower = -1f;
                 Play(WeaponSounds.Slash, 0.7f);
             }
 
@@ -328,6 +330,8 @@ namespace VoidFlow
                 rot = new Vector3(rot.x, rot.y * slashSide, rot.z * slashSide) * reach;
                 if (slashTime > SlashKeys[^1].t) slashTime = -1f;
             }
+            else if (inspectTime >= 0f && knife.model == KnifeModel.Talon)
+                UpdateTalonSpin(kb != null && kb.fKey.isPressed, dt);
             else if (inspectTime >= 0f)
             {
                 inspectTime += dt;
@@ -336,8 +340,41 @@ namespace VoidFlow
             PoseKnife(pos, rot, inspectTime);
         }
 
+        // Talon knife inspect, CS style: the hand comes up and the knife spins around the
+        // finger ring for as long as inspect is held. Let go and it finishes the turn it's on
+        // (at least one full turn), stops cleanly and the hand goes back down.
+        const float TalonSpinSpeed = 1080f, TalonSpinStart = 0.35f, TalonLowerTime = 0.35f;
+        float talonSpin, talonLower = -1f;
+
+        void UpdateTalonSpin(bool held, float dt)
+        {
+            inspectTime += dt;
+            if (talonLower >= 0f)
+            {
+                talonLower += dt;
+                if (talonLower > TalonLowerTime) { inspectTime = -1f; talonSpin = 0f; talonLower = -1f; }
+                return;
+            }
+            if (inspectTime < TalonSpinStart) return;
+            // Spin up quickly over the first half turn, then full speed
+            float speed = TalonSpinSpeed * Mathf.Clamp01(0.3f + talonSpin / 180f);
+            float stopAt = held ? float.MaxValue : Mathf.Max(360f, Mathf.Ceil(talonSpin / 360f) * 360f);
+            talonSpin = Mathf.Min(talonSpin + speed * dt, stopAt);
+            if (talonSpin >= stopAt) talonLower = 0f;
+        }
+
+        // How far the hand is raised for an inspect (0 down, 1 up)
+        float InspectRaise(float inspect)
+        {
+            if (inspect < 0f) return 0f;
+            if (knife.model == KnifeModel.Talon)
+                return Ease(inspect, 0f, 0.3f) * (talonLower >= 0f ? 1f - Ease(talonLower, 0f, TalonLowerTime) : 1f);
+            float length = knife.InspectLength;
+            return knife.IsSword ? Plateau(inspect, 0f, 0.35f, length - 0.5f, length) : Plateau(inspect, 0f, 0.3f, length - 0.35f, length);
+        }
+
         // Knife arms in camera space: two block arms coming in from the bottom corners, the
-        // left glove empty, the right one holding the knife (a karambit comes out the far
+        // left glove empty, the right one holding the knife (a talon knife comes out the far
         // side and curls up to the right)
         static readonly Vector3 RightIdle = new(0.11f, -0.1f, 0.3f);
         static readonly Vector3 LeftIdle = new(-0.125f, -0.105f, 0.31f);
@@ -346,7 +383,7 @@ namespace VoidFlow
         static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.3f, 0.5f, 1f), new Vector3(-0.1f, 0.6f, -0.7f));
         // Inspect, like CS2: the hand comes up to the middle and turns upright with the palm
         // toward you, turns slowly to show the knife off, then goes back down, while the left
-        // hand drops away. A forward-grip blade stands up out of the fist; the karambit rolls
+        // hand drops away. A forward-grip blade stands up out of the fist; the talon knife rolls
         // in the fingers so it hangs below, curling out to the left.
         static readonly Vector3 InspectSpot = new(0.06f, -0.035f, 0.33f);
         static readonly Quaternion InspectRotation = FingersBack(new Vector3(-1f, 0f, 0.3f), new Vector3(0.3f, 0f, 1f));
@@ -363,12 +400,11 @@ namespace VoidFlow
         // (camera space pos, rot), blended into the inspect pose while inspecting (inspect >= 0)
         void PoseKnife(Vector3 pos, Vector3 rot, float inspect)
         {
-            bool reverse = knife.model == KnifeModel.Karambit;
+            bool reverse = knife.model == KnifeModel.Talon;
             if (PoseSwordDraw()) { knife.Animate(Application.isPlaying ? Time.time : 0f, -1f); return; }
-            float length = knife.InspectLength;
-            // Up in 0.3 s, hold, back down over the last 0.35 s
             bool sword = knife.IsSword;
-            float w = inspect >= 0f ? Plateau(inspect, 0f, sword ? 0.35f : 0.3f, length - (sword ? 0.5f : 0.35f), length) : 0f;
+            float w = InspectRaise(inspect);
+            knife.ringSpin = talonSpin;
             Quaternion show = PalmRotation * InspectMove(inspect);
             hand.localPosition = Vector3.Lerp(RightIdle, sword ? SwordInspectSpot : TrickSpot, w) + pos + InspectBob(inspect);
             hand.localRotation = Quaternion.Euler(rot) * Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, show, w);
@@ -395,11 +431,10 @@ namespace VoidFlow
             if (t < 0f) return Quaternion.identity;
             switch (knife.model)
             {
-                case KnifeModel.Karambit:
-                    // The CS finger-ring twirl (the spin is in WeaponParts): the wrist rolls and
-                    // bobs in time with it, then settles
-                    float twirl = Plateau(t, 0.45f, 0.6f, 1.55f, 1.8f);
-                    return Quaternion.Euler(0f, 0f, Mathf.Sin(t * 12f) * 4f * twirl);
+                case KnifeModel.Talon:
+                    // The wrist rocks a little with each turn of the knife (the spin itself is
+                    // in WeaponParts)
+                    return Quaternion.Euler(0f, 0f, Mathf.Sin(talonSpin * Mathf.Deg2Rad) * 4f);
                 case KnifeModel.Butterfly:
                     // Counter Blox style flips: the wrist rocks with every flip
                     float flips = Plateau(t, 0.3f, 0.45f, 2f, 2.2f);
@@ -433,7 +468,10 @@ namespace VoidFlow
         public void PreviewKnifeInspect(float time)
         {
             if (weapons == null) return;
+            talonSpin = Mathf.Max(0f, time - TalonSpinStart) * TalonSpinSpeed;
+            talonLower = -1f;
             PoseKnife(Vector3.zero, Vector3.zero, time);
+            talonSpin = 0f;
         }
 
         // Keyframes: time, offset, rotation offset (degrees), smoothly blended
@@ -524,7 +562,7 @@ namespace VoidFlow
             if (knife != null) Kill(knife.root.gameObject);
             foreach (var m in knifeMaterials) Kill(m);
             knifeMaterials.Clear();
-            SetGrip(rightHand, Skins.Knives[knifeSkin].model == KnifeModel.Karambit);
+            SetGrip(rightHand, Skins.Knives[knifeSkin].model == KnifeModel.Talon);
             var builder = new WeaponBuilder(template, Layer, false, knifeMaterials);
             knife = builder.Knife(Skins.Knives[knifeSkin], rightHand.grip);
             BuildSheath(Skins.Knives[knifeSkin], builder);
