@@ -36,7 +36,7 @@ namespace VoidFlow
         LineRenderer tracer;
         float tracerTime = 99f;
 
-        string SniperStatus() => reloadTime >= 0f ? "RELOADING" : $"{mag} / ∞   ·   RMB scope";
+        string SniperStatus() => "∞   ·   RMB scope"; // unlimited ammo, never reloads
 
         void SetupSniper()
         {
@@ -167,7 +167,6 @@ namespace VoidFlow
 
         void Fire()
         {
-            mag--;
             SetZoom(0, false); // firing always kicks you out of the scope
             waitForRelease = true;
             boltTime = 0f;
@@ -207,7 +206,9 @@ namespace VoidFlow
 
             // Tracer from roughly the muzzle to the hit
             Transform v = view.transform;
-            ShowTracer(v.position + v.right * 0.1f - v.up * 0.07f + v.forward * 0.8f, end);
+            Vector3 muzzle = v.position + v.right * 0.1f - v.up * 0.07f + v.forward * 0.8f;
+            ShowTracer(muzzle, end);
+            FxLibrary.BulletTrail(muzzle, end, disc || bestDistance < float.MaxValue);
             FxLibrary.MuzzleSmoke(v.position + v.right * 0.12f - v.up * 0.08f + v.forward * 1.1f, v.forward);
         }
 
@@ -265,6 +266,7 @@ namespace VoidFlow
             tracer.SetPosition(0, from);
             tracer.SetPosition(1, to);
             tracer.enabled = true;
+            tracer.widthMultiplier = 1f;
             tracerTime = 0f;
         }
 
@@ -285,7 +287,12 @@ namespace VoidFlow
                 e.t.localScale = e.scale * (1f - e.age / e.life);
             }
             tracerTime += dt;
-            if (tracer) tracer.enabled = tracerTime < 0.06f;
+            // The tracer burns bright, then thins away
+            if (tracer)
+            {
+                tracer.enabled = tracerTime < 0.3f;
+                tracer.widthMultiplier = Mathf.Lerp(1.6f, 0f, Mathf.Clamp01(tracerTime / 0.3f));
+            }
             if (flash) flash.gameObject.SetActive(flashTime < 0.05f);
         }
 

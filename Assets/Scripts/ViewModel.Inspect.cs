@@ -184,6 +184,7 @@ namespace VoidFlow
                 slashSide = -slashSide;
                 StopInspect();
                 Play(WeaponSounds.Slash, 0.7f);
+                SwingFx(slashSide);
             }
 
             var (pos, rot) = (Vector3.zero, Vector3.zero);

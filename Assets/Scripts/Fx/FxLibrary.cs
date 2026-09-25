@@ -22,7 +22,7 @@ namespace VoidFlow
         public EndlessCourse course;
         public RunTimer timer;
 
-        ParticleSystem sparks, flares, stars, smokes, dirts, ambient, ambientGlow, speedLines;
+        ParticleSystem sparks, flares, stars, smokes, dirts, rings, ambient, ambientGlow, speedLines;
         string profile;
         Transform view;
 
@@ -34,6 +34,9 @@ namespace VoidFlow
             stars = Make("Stars", star, 120, gravity: 0.3f);
             smokes = Make("Smoke", smoke, 80, gravity: -0.05f);
             dirts = Make("Dirt", dirt, 40, gravity: 0.6f);
+            rings = Make("Rings", ring, 20);
+            var ringSize = rings.sizeOverLifetime;
+            ringSize.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.3f), new Keyframe(1f, 2.5f)));
             ambient = Make("Ambient", mote, 220);
             ambientGlow = Make("Ambient Glow", magic, 60);
             view = player ? player.cameraPivot : null;
@@ -154,6 +157,40 @@ namespace VoidFlow
                 Emit(fx.stars, at, Random.onUnitSphere * Random.Range(1f, 3f), Random.Range(0.25f, 0.45f), Color.Lerp(color, Color.white, 0.5f), Random.Range(0.4f, 0.8f), Random.Range(-180f, 180f));
             Emit(fx.flares, at, Vector3.zero, 2.2f, color, 0.18f);
             Emit(fx.smokes, at, Vector3.up * 0.4f, 1.1f, new Color(0.5f, 0.45f, 0.45f, 0.5f), 1.2f);
+        }
+
+        // One glittering spark flung from a knife swing
+        public static void Sparkle(Vector3 at, Vector3 velocity, Color color)
+        {
+            var fx = Instance;
+            if (!fx) return;
+            Emit(fx.stars, at, velocity, Random.Range(0.08f, 0.16f), Color.Lerp(color, Color.white, 0.3f), Random.Range(0.25f, 0.5f), Random.Range(-360f, 360f));
+            Emit(fx.sparks, at, velocity * 1.3f, Random.Range(0.03f, 0.05f), color, Random.Range(0.15f, 0.3f));
+        }
+
+        // A sniper round's wake: a line of glowing embers and wispy smoke left hanging in the
+        // air along its path, a ring of pressure at the muzzle, and a bright spark at the hit
+        public static void BulletTrail(Vector3 from, Vector3 to, bool hit)
+        {
+            var fx = Instance;
+            if (!fx) return;
+            Vector3 d = to - from;
+            float length = d.magnitude;
+            if (length < 0.1f) return;
+            Vector3 dir = d / length;
+            int steps = Mathf.Min(60, Mathf.CeilToInt(length / 1.2f));
+            for (int i = 1; i <= steps; i++)
+            {
+                Vector3 p = from + dir * (length * i / steps);
+                float near = 1f - (float)i / steps;
+                Emit(fx.smokes, p, Random.insideUnitSphere * 0.25f + Vector3.up * 0.15f, Random.Range(0.18f, 0.32f),
+                    new Color(0.85f, 0.85f, 0.9f, 0.18f + 0.12f * near), Random.Range(0.6f, 1.1f), Random.Range(-40f, 40f));
+                if (i % 2 == 0)
+                    Emit(fx.sparks, p, dir * Random.Range(1f, 4f) + Random.insideUnitSphere * 0.6f, Random.Range(0.025f, 0.045f),
+                        new Color(1f, Random.Range(0.6f, 0.85f), 0.35f), Random.Range(0.15f, 0.35f));
+            }
+            Emit(fx.rings, from + dir * 0.3f, dir * 3f, 0.25f, new Color(1f, 0.85f, 0.6f, 0.7f), 0.18f);
+            if (hit) Emit(fx.flares, to, Vector3.zero, 1.4f, new Color(1f, 0.85f, 0.55f), 0.1f);
         }
 
         // A puff of dust where something hits the floor
