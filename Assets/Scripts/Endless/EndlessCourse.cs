@@ -19,7 +19,9 @@ namespace VoidFlow
     // each have their own character (all original designs): Classic zig-zag blades, Winding
     // S-bends, Spiral turns that keep going the same way, Rollercoaster waves and dives,
     // Canyon holes and corners, Big Air flights, Twin Peaks (ramps side by side, pick your
-    // line). A glowing gate marks where each stage starts.
+    // line), and the Curved Room (after the curved rooms of classic flowing maps: ramp after
+    // ramp sweeping round the same way at a steady rate, each one leading into the next). A
+    // glowing gate marks where each stage starts.
     //
     // Moves: each ramp is one of
     //  - catch:  a wide prism that catches you and dives to rebuild speed (every 4th-5th ramp)
@@ -32,6 +34,9 @@ namespace VoidFlow
     //  - winding: a prism that sweeps one way then back the other in a long S
     //  - spiral: a long slab that keeps turning into its face as it descends
     //  - twin:   a blade with an identical one alongside
+    //  - sweep:  a long prism curving steadily one way, usually into its face, sometimes away
+    //            from it (the kind you hold the opposite key on)
+    // Plain blades also bend a little once the course gets going, so it's rarely dead straight.
     // and any flight can be big air: extra long, with a glowing ring at the top to fly
     // through. Harder moves unlock as you go.
     //
@@ -113,7 +118,7 @@ namespace VoidFlow
         public int ImpossibleRamps { get; private set; }  // ramps still failing after every rebuild (should stay 0)
         public event Action<Biome> BiomeEntered;
 
-        public static readonly string[] Themes = { "CLASSIC", "WINDING", "SPIRAL", "ROLLERCOASTER", "CANYON", "BIG AIR", "TWIN PEAKS" };
+        public static readonly string[] Themes = { "CLASSIC", "WINDING", "SPIRAL", "ROLLERCOASTER", "CANYON", "BIG AIR", "TWIN PEAKS", "CURVED ROOM" };
         readonly Dictionary<int, string> stageThemes = new();
         readonly Dictionary<int, float> stageTurn = new();
         public enum Tier { Beginner, Intermediate, Advanced, Technical }
@@ -144,6 +149,7 @@ namespace VoidFlow
             {
                 float t = Difficulty(stage * rampsPerBiome);
                 var open = new List<string> { "CLASSIC", "ROLLERCOASTER", "TWIN PEAKS" };
+                if (t >= 0.15f) open.Add("CURVED ROOM");
                 if (t >= 0.28f) open.Add("WINDING");
                 if (t >= 0.28f) open.Add("CANYON");
                 if (t >= 0.42f) open.Add("BIG AIR");
@@ -571,7 +577,7 @@ namespace VoidFlow
         float ShiftSign(int i, string theme, int stage) => theme switch
         {
             "CLASSIC" => i % 2 == 0 ? 1f : -1f,
-            "SPIRAL" => stageTurn[stage],
+            "SPIRAL" or "CURVED ROOM" => stageTurn[stage],
             _ => rng.Next(2) == 0 ? -1f : 1f,
         };
 
@@ -587,18 +593,19 @@ namespace VoidFlow
 
             var options = theme switch
             {
-                "WINDING" => new List<(string, float)> { ("winding", 5f), ("blade", 1f) },
+                "WINDING" => new List<(string, float)> { ("winding", 5f), ("sweep", 2f), ("blade", 1f) },
+                "CURVED ROOM" => new List<(string, float)> { ("sweep", 6f), ("spiral", 1f), ("corner", 1f) },
                 "SPIRAL" => new List<(string, float)> { ("spiral", 5f), ("corner", 1f) },
-                "ROLLERCOASTER" => new List<(string, float)> { ("wave", 4f), ("plunge", 2f), ("climb", 2f) },
-                "CANYON" => new List<(string, float)> { ("hole", 4f), ("corner", 2f) },
+                "ROLLERCOASTER" => new List<(string, float)> { ("wave", 4f), ("plunge", 2f), ("climb", 2f), ("sweep", 1.5f) },
+                "CANYON" => new List<(string, float)> { ("hole", 4f), ("corner", 2f), ("sweep", 1f) },
                 "TWIN PEAKS" => new List<(string, float)> { ("twin", 5f), ("blade", 1f) },
-                "BIG AIR" => new List<(string, float)> { ("blade", 3f), ("plunge", 2f), ("climb", 2f) },
-                _ => new List<(string, float)> { ("blade", 4f), ("plunge", 1f), ("climb", 1f) },
+                "BIG AIR" => new List<(string, float)> { ("blade", 3f), ("plunge", 2f), ("climb", 2f), ("sweep", 1f) },
+                _ => new List<(string, float)> { ("blade", 4f), ("sweep", 2.5f), ("plunge", 1f), ("climb", 1f) },
             };
             // Advanced adds speed sections (plunges); technical throws every move it has in
             if (tier == Tier.Advanced) options.Add(("plunge", 3f));
             if (tier == Tier.Technical)
-                options.AddRange(new[] { ("twin", 3f), ("plunge", 1.5f), ("wave", 1f), ("corner", 1f), ("climb", 1f), ("winding", 1f), ("hole", 1f) });
+                options.AddRange(new[] { ("twin", 3f), ("sweep", 2f), ("plunge", 1.5f), ("wave", 1f), ("corner", 1f), ("climb", 1f), ("winding", 1f), ("hole", 1f) });
             float total = 0f;
             foreach (var o in options) total += o.Item2;
             float pick = Rand(0f, total);
@@ -609,7 +616,7 @@ namespace VoidFlow
                 pick -= o.Item2;
             }
 
-            bool calm = name is "hole" or "spiral" or "winding";
+            bool calm = name is "hole" or "spiral" or "winding" or "sweep";
             double airChance = theme == "BIG AIR" ? 0.7 : tier switch { Tier.Beginner => 0.0, Tier.Advanced or Tier.Technical => 0.4, _ => 0.2 };
             var m = new Move { name = name, bigAir = t >= 0.08f && !calm && rng.NextDouble() < airChance };
             switch (name)
@@ -666,16 +673,33 @@ namespace VoidFlow
                     m.bend = new[] { (30f, 0f), (flat + 30f, degrees), (flat + 40f, degrees) };
                     break;
                 }
+                case "sweep": // a long prism curving round at a steady rate
+                {
+                    m.kind = RampShapes.Kind.Prism;
+                    m.width = Mathf.Lerp(10f, 7f, t);
+                    float length = Rand(200f, 260f);
+                    m.shape = new[] { (40f, -0.1f), (length - 30f, -0.1f), (length, 0.07f) };
+                    // Into the face, mostly; in the Curved Room always, so the turns keep flowing
+                    float way = theme == "CURVED ROOM" || rng.NextDouble() < 0.7 ? 1f : -1f;
+                    float degrees = Mathf.Lerp(35f, 75f, t) * Rand(0.8f, 1f) * way;
+                    m.bend = new[] { (20f, 0f), (length - 30f, degrees), (length, degrees) };
+                    break;
+                }
                 case "twin": // a blade with an identical one alongside
                     m.kind = RampShapes.Kind.Prism;
                     m.width = Mathf.Lerp(8f, 6f, t);
                     m.shape = blade;
                     m.twin = true;
                     break;
-                default: // blade
+                default: // blade, with a gentle bend once the course gets going
                     m.kind = RampShapes.Kind.Prism;
                     m.width = Mathf.Lerp(7f, 5f, t);
                     m.shape = blade;
+                    if (t > 0.1f)
+                    {
+                        float degrees = Rand(8f, 22f) * (rng.NextDouble() < 0.6 ? 1f : -1f);
+                        m.bend = new[] { (30f, 0f), (flat + 30f, degrees), (flat + 40f, degrees) };
+                    }
                     break;
             }
             // Wide ramps for beginners, tiny ones for advanced
