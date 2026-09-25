@@ -12,8 +12,11 @@ namespace VoidFlow
     // no movement or unscoped inaccuracy, no drop and no falloff.
     public partial class ViewModel
     {
-        static readonly Vector3 SniperRest = new(0.25f, -0.1f, 0.47f);
-        static readonly Quaternion SniperRestRotation = Quaternion.Euler(-3f, -15f, -4f);
+        // The barrel points straight along the view: parallel lines meet at the middle of the
+        // screen, so it lines up exactly with the crosshair, the muzzle stopping short of it
+        static readonly Vector3 SniperRest = new(0.2f, -0.095f, 0.45f);
+        static readonly Quaternion SniperRestRotation = Quaternion.Euler(0f, 0f, -4f);
+        const float SniperScale = 0.82f;
 
         const int MagSize = 5;
         const float CycleTime = 1.463f, ReloadTime = 3.67f, Range = 5000f;
@@ -545,6 +548,7 @@ namespace VoidFlow
 
             var root = new GameObject("Sniper Rig").transform;
             root.SetParent(anchor, false);
+            root.localScale = Vector3.one * SniperScale;
             gun = new GameObject("Rifle").transform;
             gun.SetParent(root, false);
             BuildRifleModel();
