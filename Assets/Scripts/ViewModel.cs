@@ -10,7 +10,7 @@ namespace VoidFlow
     // they never clip into ramps or walls. Built from simple shapes at startup, with the
     // equipped skins (see Skins.cs and WeaponBuilder.cs).
     //
-    // Slot 2 is the sniper (see ViewModel.Sniper.cs), slot 3 the knife; Q swaps to the last
+    // Slot 1 is the knife, slot 2 the sniper (see ViewModel.Sniper.cs); Q swaps to the last
     // weapon and the mouse wheel toggles. The held weapon sways and lags behind your mouse,
     // bobs with your speed, tilts when you strafe and breathes a little at rest. A small
     // see-through panel in the bottom right shows which weapon you're holding.
@@ -115,7 +115,7 @@ namespace VoidFlow
             sniperSkin = Skins.EquippedSniper;
             weapons = new[]
             {
-                new Weapon { speed = 250f, drawTime = 0.6f, root = BuildKnifeRig(), restPosition = Vector3.zero, restRotation = Quaternion.identity },
+                new Weapon { speed = 250f, root = BuildKnifeRig(), drawTime = knife.IsSword ? SwordDrawTime : 0.6f, restPosition = Vector3.zero, restRotation = Quaternion.identity },
                 new Weapon { speed = 200f, drawTime = 1.1f, root = BuildSniper(), restPosition = SniperRest, restRotation = SniperRestRotation },
             };
             foreach (var w in weapons)
@@ -138,6 +138,7 @@ namespace VoidFlow
             current = slot;
             drawTime = Application.isPlaying ? 0f : 99f;
             foreach (var w in weapons) w.root.gameObject.SetActive(w == Current);
+            UpdateSheath();
             Play(WeaponSounds.Draw, 0.6f);
         }
 
@@ -250,11 +251,11 @@ namespace VoidFlow
                 probe.RenderProbe();
             }
 
-            // Weapon switching: 2 sniper, 3 knife, Q last weapon, wheel toggles
+            // Weapon switching: 1 knife, 2 sniper, Q last weapon, wheel toggles
             if (kb != null)
             {
-                if (kb.digit2Key.wasPressedThisFrame) Equip(SniperSlot);
-                else if (kb.digit3Key.wasPressedThisFrame) Equip(KnifeSlot);
+                if (kb.digit1Key.wasPressedThisFrame) Equip(KnifeSlot);
+                else if (kb.digit2Key.wasPressedThisFrame) Equip(SniperSlot);
                 else if (kb.qKey.wasPressedThisFrame) Equip(previous);
             }
             if (locked && mouse != null && mouse.scroll.ReadValue().y != 0f) Equip(current == KnifeSlot ? SniperSlot : KnifeSlot);
@@ -288,11 +289,13 @@ namespace VoidFlow
             // Draw: the new weapon comes up from below the screen
             var weapon = Current;
             float up = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(drawTime / (weapon.drawTime * 0.6f)));
+            if (current == KnifeSlot && knife.IsSword) up = 1f; // drawn from the sheath instead
             weapon.root.SetLocalPositionAndRotation(
                 weapon.restPosition + new Vector3(0f, -0.16f, -0.04f) * (1f - up),
                 weapon.restRotation * Quaternion.Euler(40f * (1f - up), 0f, 0f));
             bool ready = drawTime >= weapon.drawTime;
 
+            UpdateSheath();
             if (current == KnifeSlot) UpdateKnife(kb, mouse, locked, ready, dt);
             else UpdateSniper(kb, mouse, locked, ready, dt);
             UpdateEffects(dt);
@@ -303,9 +306,10 @@ namespace VoidFlow
         void UpdateKnife(Keyboard kb, Mouse mouse, bool locked, bool ready, float dt)
         {
             if (kb != null && kb.fKey.wasPressedThisFrame && inspectTime < 0f) inspectTime = 0f;
-            if (ready && locked && mouse != null && mouse.leftButton.wasPressedThisFrame)
+            if (ready && locked && mouse != null && mouse.leftButton.wasPressedThisFrame && (slashTime < 0f || slashTime > 0.3f))
             {
                 slashTime = 0f;
+                slashSide = -slashSide;
                 inspectTime = -1f;
                 Play(WeaponSounds.Slash, 0.7f);
             }
@@ -317,6 +321,11 @@ namespace VoidFlow
             {
                 slashTime += dt;
                 (pos, rot) = Sample(SlashKeys, slashTime);
+                // Every other swing mirrors, so cuts alternate right-to-left and left-to-right;
+                // swords swing wider
+                float reach = knife.IsSword ? 1.3f : 1f;
+                pos = new Vector3(pos.x * slashSide, pos.y, pos.z) * reach;
+                rot = new Vector3(rot.x, rot.y * slashSide, rot.z * slashSide) * reach;
                 if (slashTime > SlashKeys[^1].t) slashTime = -1f;
             }
             else if (inspectTime >= 0f)
@@ -344,20 +353,47 @@ namespace VoidFlow
         static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
 
         // Places the hands for the current knife: the resting hold plus the slash offset
-        // (pos, rot), blended into the inspect pose while inspecting (inspect >= 0)
+        // (camera space pos, rot), blended into the inspect pose while inspecting (inspect >= 0)
         void PoseKnife(Vector3 pos, Vector3 rot, float inspect)
         {
             bool reverse = knife.model == KnifeModel.Karambit;
+            if (PoseSwordDraw()) { knife.Animate(Application.isPlaying ? Time.time : 0f, -1f); return; }
             float length = knife.InspectLength;
             // Up in 0.3 s, hold, back down over the last 0.35 s
             float w = inspect >= 0f ? Plateau(inspect, 0f, 0.3f, length - 0.35f, length) : 0f;
-            float turn = Mathf.Lerp(-12f, 14f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.25f, length - 0.3f, inspect)));
+            Quaternion show = InspectRotation * InspectMove(inspect);
             hand.localPosition = Vector3.Lerp(RightIdle, InspectSpot, w) + pos;
-            hand.localRotation = Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, InspectRotation * Quaternion.Euler(turn, 0f, 0f), w) * Quaternion.Euler(rot);
+            hand.localRotation = Quaternion.Euler(rot) * Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, show, w);
             if (reverse) SetGrip(rightHand, true, -90f * w);
             leftHand.root.localPosition = LeftIdle + LeftHandAway * w;
             knife.Animate(Application.isPlaying ? Time.time : 0f, inspect);
         }
+
+        // Each kind of knife shows itself off its own way, on top of the raised hand (hand
+        // space: X runs along a forward-grip blade, Z out of the back of the hand)
+        Quaternion InspectMove(float t)
+        {
+            if (t < 0f) return Quaternion.identity;
+            switch (knife.model)
+            {
+                case KnifeModel.Karambit:
+                    // The CS finger-ring twirl (the spin is in WeaponParts): the wrist rolls and
+                    // bobs in time with it, then settles
+                    float twirl = Plateau(t, 0.45f, 0.6f, 1.55f, 1.8f);
+                    return Quaternion.Euler(Mathf.Sin(t * 12f) * 7f * twirl, 0f, Mathf.Lerp(-12f, 14f, Ease(t, 0.3f, 2.1f)));
+                case KnifeModel.Butterfly:
+                    // Flip tricks: the wrist snaps with every flip of the blade
+                    float flips = Plateau(t, 0.4f, 0.5f, 1.55f, 1.75f);
+                    return Quaternion.Euler(Mathf.Sin((t - 0.45f) * Mathf.PI * 2f / 0.4f) * 14f * flips, 0f, -8f + 10f * Ease(t, 0.3f, 2f));
+                default:
+                    // Swords: blade-up salute, a slow roll of the wrist to show off the flats while
+                    // the edge flares, then the sword twirls in the grip (see WeaponParts)
+                    float roll = Mathf.Sin(Ease(t, 0.35f, 1.35f) * Mathf.PI * 2f) * 55f;
+                    return Quaternion.Euler(0f, roll, 0f);
+            }
+        }
+
+        static float Ease(float t, float a, float b) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t));
 
         // Rises from a to b, holds until c, falls back by d
         static float Plateau(float t, float a, float b, float c, float d) =>
@@ -371,13 +407,17 @@ namespace VoidFlow
         }
 
         // Keyframes: time, offset, rotation offset (degrees), smoothly blended
+        // A diagonal cut in camera space: wind up high on the right, sweep down through the
+        // middle to the lower left, hold the follow-through a moment, recover
         static readonly (float t, Vector3 pos, Vector3 rot)[] SlashKeys =
         {
             (0f, Vector3.zero, Vector3.zero),
-            (0.07f, new Vector3(0.04f, 0.04f, -0.02f), new Vector3(-15f, 0f, -25f)),
-            (0.18f, new Vector3(-0.14f, -0.06f, 0.12f), new Vector3(45f, 0f, 70f)),
-            (0.4f, Vector3.zero, Vector3.zero),
+            (0.07f, new Vector3(0.05f, 0.05f, -0.02f), new Vector3(-20f, 15f, -25f)),
+            (0.17f, new Vector3(-0.15f, -0.07f, 0.07f), new Vector3(30f, -35f, 45f)),
+            (0.26f, new Vector3(-0.13f, -0.08f, 0.05f), new Vector3(26f, -30f, 40f)),
+            (0.45f, Vector3.zero, Vector3.zero),
         };
+        float slashSide = -1f;
 
         static (Vector3, Vector3) Sample((float t, Vector3 pos, Vector3 rot)[] keys, float t)
         {
@@ -455,7 +495,11 @@ namespace VoidFlow
             foreach (var m in knifeMaterials) Kill(m);
             knifeMaterials.Clear();
             SetGrip(rightHand, Skins.Knives[knifeSkin].model == KnifeModel.Karambit);
-            knife = new WeaponBuilder(template, Layer, false, knifeMaterials).Knife(Skins.Knives[knifeSkin], rightHand.grip);
+            var builder = new WeaponBuilder(template, Layer, false, knifeMaterials);
+            knife = builder.Knife(Skins.Knives[knifeSkin], rightHand.grip);
+            BuildSheath(Skins.Knives[knifeSkin], builder);
+            if (weapons != null) weapons[KnifeSlot].drawTime = knife.IsSword ? SwordDrawTime : 0.6f;
+            UpdateSheath();
             PoseKnife(Vector3.zero, Vector3.zero, -1f);
         }
 

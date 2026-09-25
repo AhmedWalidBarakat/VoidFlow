@@ -4,9 +4,9 @@ using UnityEngine.InputSystem;
 namespace VoidFlow
 {
     // Runs the endless mode and draws the HUD. The run starts when you leave the start
-    // hall. Fall off and you're put back on the ramp you were on (it counts as a fall);
-    // R restarts from the hall with a fresh course. Tracks distance, time, and your best
-    // distance, and announces each biome as you enter it.
+    // hall. Fall off (or press R) and it's over: you're back in the hall with a fresh course.
+    // Tracks distance, time, your last and best distance, and announces each biome as you
+    // enter it.
     public class RunTimer : MonoBehaviour
     {
         public PlayerMovement player;
@@ -21,7 +21,7 @@ namespace VoidFlow
 
         bool running;
         float startTime, best;
-        int falls;
+        float lastRun;
         string banner;
         float bannerTime = -99f;
         GUIStyle bigStyle, smallStyle, centeredStyle, bannerStyle;
@@ -38,7 +38,6 @@ namespace VoidFlow
             course.ResetCourse();
             player.Teleport(spawnPoint.position, spawnPoint.eulerAngles.y);
             running = false;
-            falls = 0;
         }
 
         void Update()
@@ -62,8 +61,15 @@ namespace VoidFlow
 
             if (course.IsFallen(p))
             {
-                falls++;
-                course.RespawnPlayer(player);
+                // No checkpoints: a fall ends the run
+                if (running)
+                {
+                    lastRun = course.Progress;
+                    banner = "FELL  ·  " + Distance(lastRun);
+                    bannerTime = Time.time;
+                }
+                Restart();
+                return;
             }
 
             if (running && course.Progress > best)
@@ -93,7 +99,7 @@ namespace VoidFlow
             {
                 GUI.Label(new Rect(0, 16, w, 40), Distance(course.Progress), bigStyle);
                 GUI.Label(new Rect(0, 52, w, 24),
-                    $"ramp {course.CurrentRamp + 1}   ·   level {course.Level + 1}   ·   {course.CurrentBiome.name}   ·   {Format(Time.time - startTime)}   ·   falls {falls}",
+                    $"ramp {course.CurrentRamp + 1}   ·   level {course.Level + 1}   ·   {course.CurrentBiome.name}   ·   {Format(Time.time - startTime)}",
                     centeredStyle);
             }
             else
@@ -114,9 +120,10 @@ namespace VoidFlow
             GUI.Label(new Rect(0, h - 90, w, 40), $"{speed:0} u/s", bigStyle);
 
             if (best > 0f) GUI.Label(new Rect(w - 200, 20, 190, 24), "Best  " + Distance(best), smallStyle);
+            if (lastRun > 0f) GUI.Label(new Rect(w - 200, 40, 190, 24), "Last  " + Distance(lastRun), smallStyle);
 
             string help = Cursor.lockState == CursorLockMode.Locked
-                ? "WASD move · Space jump (hold to bhop) · R restart · Esc release mouse\n2 sniper · 3 knife · Q last weapon · Click fire · Right click scope · F inspect · E use\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
+                ? "WASD move · Space jump (hold to bhop) · R restart · Esc release mouse\n1 knife · 2 sniper · Q last weapon · Click fire · Right click scope · F inspect · E use\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
                 : "Click to capture the mouse";
             GUI.Label(new Rect(12, h - 66, w - 24, 62), help, smallStyle);
         }

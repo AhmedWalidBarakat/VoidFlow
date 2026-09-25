@@ -20,19 +20,20 @@ namespace VoidFlow
         public bool IsSword => model is KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus;
 
         // The hand raises every knife to show it off (see ViewModel); on top of that the
-        // butterfly knife flips open and Void swords burst with glow
+        // karambit twirls on its finger ring, the butterfly knife does flip tricks, and Void
+        // swords flare with glow and twirl in the grip
         public float InspectLength => model switch
         {
-            KnifeModel.Karambit => 1.3f,
-            KnifeModel.Butterfly => 2f,
-            _ => 2.4f,
+            KnifeModel.Karambit => 2.4f,
+            KnifeModel.Butterfly => 2.3f,
+            _ => 2.6f,
         };
 
         // Keeps the model alive: aura motes drift, glow pulses, inspect moves parts.
         // `inspect` is seconds into the inspect, or negative when not inspecting.
         public void Animate(float time, float inspect)
         {
-            float burst = inspect >= 0f ? Bump(inspect, 0.8f, 1.3f, 2.2f) : 0f;
+            float burst = inspect >= 0f ? Bump(inspect, 0.5f, 1f, 2f) : 0f;
             for (int i = 0; i < glowMaterials.Count; i++)
             {
                 if (!glowMaterials[i]) continue;
@@ -58,12 +59,27 @@ namespace VoidFlow
                 }
             }
 
+            if (model == KnifeModel.Karambit && root)
+            {
+                // Twirl around the finger ring, twice
+                float a = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 1.6f, inspect)) * 720f : 0f;
+                var spin = Quaternion.Euler(0f, 0f, a);
+                root.SetLocalPositionAndRotation(ringCenter - spin * ringCenter, spin);
+            }
+            if (IsSword && root)
+            {
+                // A full propeller twirl in the grip, pivoting on the middle of the handle
+                float a = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.45f, 2.05f, inspect)) * 360f : 0f;
+                var spin = Quaternion.Euler(0f, 0f, a);
+                var pivot = new Vector3(0f, -0.055f, 0f);
+                root.SetLocalPositionAndRotation(pivot - spin * pivot, spin);
+            }
             if (model == KnifeModel.Butterfly && blade && swingHandle)
             {
-                // The loose handle swings open, the blade flips around the pivot twice, and
-                // the handle closes again
-                float open = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 0.7f, inspect)) - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.2f, 1.55f, inspect)) : 0f;
-                float flip = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 1.4f, inspect)) * 720f : 0f;
+                // The loose handle swings open, the blade flips around the pivot three times,
+                // and the handle snaps shut again
+                float open = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.5f, inspect)) - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.65f, 1.9f, inspect)) : 0f;
+                float flip = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.45f, 1.65f, inspect)) * 1080f : 0f;
                 swingHandle.localRotation = Quaternion.Euler(0f, 0f, open * 180f);
                 blade.localRotation = Quaternion.Euler(0f, 0f, flip);
             }

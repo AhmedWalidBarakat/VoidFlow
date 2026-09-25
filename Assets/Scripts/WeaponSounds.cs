@@ -23,7 +23,12 @@ namespace VoidFlow
         public static AudioClip Dry => Get(ref dry, "Dry Fire", () => Mechanism(0.08f, (0f, 2000f, 0.6f)));
         public static AudioClip Draw => Get(ref draw, "Draw", () => Mechanism(0.25f, (0.16f, 1800f, 0.4f), slide: (0f, 0.16f, 0.2f)));
         public static AudioClip Slash => Get(ref slash, "Slash", SlashData);
-        static AudioClip tick, reveal, voidReveal;
+        static AudioClip tick, reveal, voidReveal, unsheathe, launch, shatter;
+        // Blade scraping out of the scabbard, ending in a bright ring
+        public static AudioClip Unsheathe => Get(ref unsheathe, "Unsheathe", () => Mechanism(0.6f, (0.34f, 3300f, 0.5f), (0.36f, 4700f, 0.25f), slide: (0f, 0.34f, 0.5f)));
+        // Skeet: the launcher's thump and a disc shattering
+        public static AudioClip Launch => Get(ref launch, "Launch", () => Mechanism(0.25f, (0f, 180f, 1f), (0.02f, 420f, 0.4f), slide: (0f, 0.12f, 0.3f)));
+        public static AudioClip Shatter => Get(ref shatter, "Shatter", () => Mechanism(0.35f, (0f, 2600f, 0.8f), (0.03f, 3900f, 0.6f), slide: (0f, 0.25f, 0.6f)));
         public static AudioClip Tick => Get(ref tick, "Case Tick", () => Mechanism(0.04f, (0f, 2600f, 0.3f)));
         public static AudioClip Reveal => Get(ref reveal, "Reveal", () => Chime(1.4f, 0.09f, 523.25f, 659.25f, 783.99f, 1046.5f));
         public static AudioClip VoidReveal => Get(ref voidReveal, "Void Reveal", () => Chime(2.6f, 0.14f, 196f, 293.66f, 392f, 466.16f, 587.33f, 783.99f));

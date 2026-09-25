@@ -176,7 +176,9 @@ namespace VoidFlow
             flash.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 90f));
             Play(sniperShotClip ? sniperShotClip : WeaponSounds.SniperShot);
 
-            // Perfectly accurate: straight out of the center of the screen
+            // Perfectly accurate: straight out of the center of the screen. (Sync first so
+            // things moved by script this frame, like skeet discs, are where they look.)
+            Physics.SyncTransforms();
             var ray = new Ray(view.transform.position, view.transform.forward);
             Vector3 end = ray.GetPoint(Range);
             var mask = player ? player.collisionMask : (LayerMask)~0;
@@ -187,7 +189,17 @@ namespace VoidFlow
                 if (player && hit.collider.transform.IsChildOf(player.transform)) continue;
                 if (hit.distance < bestDistance) { best = hit; bestDistance = hit.distance; }
             }
-            if (bestDistance < float.MaxValue)
+            // Skeet discs are triggers: break the nearest one in front of whatever else was hit
+            SkeetTarget disc = null;
+            float discDistance = bestDistance;
+            foreach (var hit in Physics.RaycastAll(ray, Range, ~0, QueryTriggerInteraction.Collide))
+                if (hit.distance < discDistance && hit.collider.TryGetComponent(out SkeetTarget target)) { disc = target; discDistance = hit.distance; }
+            if (disc)
+            {
+                end = ray.GetPoint(discDistance);
+                disc.Break();
+            }
+            else if (bestDistance < float.MaxValue)
             {
                 end = best.point;
                 Impact(best);

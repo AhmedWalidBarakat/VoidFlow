@@ -71,7 +71,37 @@ namespace VoidFlow.EditorTools
                     Shoot($"skin_knife_{i}_inspect", new Vector3(0f, 0f, 8f), Vector3.zero);
                     viewModel.PreviewKnifeInspect(-1f);
                 }
+                // Per-knife inspects, mid-move
+                foreach (var (skin, t) in new[] { (0, 1.0f), (0, 1.3f), (4, 0.9f), (4, 1.2f), (7, 0.9f), (7, 1.7f) })
+                {
+                    viewModel.EquipKnifeSkin(skin);
+                    viewModel.PreviewKnifeInspect(t);
+                    Shoot($"inspect_{skin}_{t:0.0}", new Vector3(0f, 0f, 8f), Vector3.zero);
+                }
+                viewModel.PreviewKnifeInspect(-1f);
+                // Sword draw from the sheath, and the sheath while holding the sniper
+                foreach (float t in new[] { 0.2f, 0.4f, 0.7f })
+                {
+                    viewModel.PreviewSwordDraw(t);
+                    Shoot($"sworddraw_{t:0.0}", new Vector3(0f, 0f, 8f), Vector3.zero);
+                }
+                viewModel.Equip(ViewModel.SniperSlot);
+                Shoot("sheath_with_sniper", new Vector3(0f, 0f, 8f), Vector3.zero);
+                viewModel.Equip(ViewModel.KnifeSlot);
                 viewModel.EquipKnifeSkin(0);
+            }
+            // The skeet range from the start button
+            var range = Object.FindAnyObjectByType<SkeetRange>();
+            if (range)
+            {
+                Vector3 from = range.startButton.position + new Vector3(-1.5f, 0.55f, 1.2f);
+                cam.transform.SetPositionAndRotation(from, Quaternion.LookRotation(range.launcher.position + Vector3.up * 1.5f - from));
+                cam.targetTexture = rt;
+                for (int warm = 0; warm < 4; warm++) cam.Render();
+                RenderTexture.active = rt;
+                tex.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0);
+                tex.Apply();
+                File.WriteAllBytes("Logs/skeet_range.png", tex.EncodeToPNG());
             }
             // The cases, from the lane
             foreach (var station in Object.FindObjectsByType<CaseStation>())

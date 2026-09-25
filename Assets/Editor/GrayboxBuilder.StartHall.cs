@@ -11,7 +11,7 @@ namespace VoidFlow.EditorTools
     //  - neon speed gates and floor arrows down the middle lane to the purple drop edge
     //  - a knife wall: every Mythic and Void knife spinning over a pedestal (E to try on)
     //  - the Knife Case and Sniper Case (E to open)
-    //  - a small practice ramp to warm up your strafes
+    //  - a skeet range: snipe clay discs out of the air
     //  - black and purple throughout: purple neon strips, a skylight, and glowing cubes scattered
     //    at random overhead
     public static partial class GrayboxBuilder
@@ -137,11 +137,29 @@ namespace VoidFlow.EditorTools
                 Label($"{title}\nMythic  ·  Void 6%", hall, new Vector3(caseX - 1.12f, 0.7f, caseZ), 90f, 0.26f, rayColor);
             }
 
-            // Practice ramp along the right wall, to warm up your strafes before dropping in
-            var practice = RampShapes.Lay(RampShapes.Kind.Prism, 4f, -1f, new Vector3(right - 4f, 5.3f, HallBack + 3f), Vector3.forward,
-                new[] { (0f, 0f), (22f, 0f) }, null);
-            SpawnMesh("PracticeRamp", practice.ridge[0], RampShapes.BuildMesh(practice, "PracticeRamp"), rampMat, hall, convex: false);
-            Label("PRACTICE RAMP", hall, new Vector3(right - 0.15f, 8.5f, HallBack + 14f), 90f, 0.9f, new Color(0.8f, 0.55f, 1f));
+            // Skeet range at the back right: a launcher throws discs up and across the hall,
+            // you snipe them before they land. Start button on a pedestal nearby.
+            var range = new GameObject("SkeetRange").AddComponent<SkeetRange>();
+            range.transform.SetParent(hall, false);
+            range.transform.position = new Vector3(right - 2.5f, 0f, HallBack + 4f);
+            range.template = rampMat;
+            Box("SkeetLauncherBase", new Vector3(right - 2.5f, 0.45f, HallBack + 4f), new Vector3(1.4f, 0.9f, 1.4f), metal, hall);
+            var aim = Quaternion.LookRotation(new Vector3(-0.85f, 0f, 0.55f));
+            Deco("SkeetLauncherArm", hall, new Vector3(right - 2.5f, 1.2f, HallBack + 4f), new Vector3(0.35f, 0.35f, 1.3f), aim * Quaternion.Euler(-40f, 0f, 0f), dark);
+            Deco("SkeetLauncherStripe", hall, new Vector3(right - 2.5f, 0.92f, HallBack + 4f), new Vector3(1.45f, 0.06f, 1.45f), Quaternion.identity, purple);
+            var launcher = new GameObject("Launcher").transform;
+            launcher.SetParent(range.transform, false);
+            launcher.SetPositionAndRotation(new Vector3(right - 2.5f, 1.6f, HallBack + 4f), aim);
+            range.launcher = launcher;
+            Box("SkeetButtonPedestal", new Vector3(right - 6f, 0.55f, HallBack + 11f), new Vector3(1f, 1.1f, 1f), metal, hall);
+            Deco("SkeetButton", hall, new Vector3(right - 6f, 1.15f, HallBack + 11f), new Vector3(0.55f, 0.1f, 0.55f), Quaternion.identity, violet);
+            var button = new GameObject("StartButton").transform;
+            button.SetParent(range.transform, false);
+            button.position = new Vector3(right - 6f, 1.1f, HallBack + 11f);
+            range.startButton = button;
+            Label("SKEET\nE to start", hall, new Vector3(right - 6.52f, 0.62f, HallBack + 11f), 90f, 0.2f, new Color(0.85f, 0.55f, 1f));
+            Label("SKEET RANGE", hall, new Vector3(right - 0.15f, 8.5f, HallBack + 14f), 90f, 0.9f, new Color(0.8f, 0.55f, 1f));
+            Label("snipe the discs before they land", hall, new Vector3(right - 0.15f, 7.3f, HallBack + 14f), 90f, 0.4f, new Color(0.8f, 0.55f, 1f));
 
             // Title over the opening, on a dark banner so it reads against the sky
             Deco("TitleBanner", hall, new Vector3(lane, 10.6f, HallFront - 0.9f), new Vector3(22f, 4.6f, 0.2f), Quaternion.identity, dark);
