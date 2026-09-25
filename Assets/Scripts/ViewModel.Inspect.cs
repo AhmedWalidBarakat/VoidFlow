@@ -282,6 +282,7 @@ namespace VoidFlow
                 UpdateSheath();
             }
             if (sheath) sheath.SetLocalPositionAndRotation(SheathMouth, SheathRotation);
+            if (flames) flames.gameObject.SetActive(false);
             leftHand.root.gameObject.SetActive(true);
             SetLeftAlpha(1f);
             if (PoseSwordDraw())
@@ -417,8 +418,14 @@ namespace VoidFlow
             if (knife.tip) points.Add(rig.InverseTransformPoint(knife.tip.position));
             // A sheathed sword is meant to sit under the hands: keep them solid then
             bool seated = a.hold == Hold.Sheath && b.hold == Hold.Sheath && Mathf.Lerp(a.slide, b.slide, s) < 0.06f;
-            SetArmAlpha(seated ? 1f : OverlapAlpha(right, points));
-            SetLeftAlpha(seated ? 1f : OverlapAlpha(left, points));
+            // Both arms go see-through while the hand is on the hilt, so the sheathed sword shows
+            // through them
+            float onHilt = (a.rightOnHilt ? 1f - s : 0f) + (b.rightOnHilt ? s : 0f);
+            SetArmAlpha(Mathf.Lerp(seated ? 1f : OverlapAlpha(right, points), 0.35f, onHilt));
+            SetLeftAlpha(Mathf.Lerp(seated ? 1f : OverlapAlpha(left, points), 0.35f, onHilt));
+
+            // Dark flames wreathe the hilt while it's held at the sheath
+            UpdateFlames(knifePose.p + knifePose.q * new Vector3(0f, -0.055f, 0f), knifePose.q, onHilt, time);
         }
 
         // How solid an arm can stay: see-through where any of the knife's points sit behind it
@@ -455,6 +462,78 @@ namespace VoidFlow
             sustainExtra = 0f;
             PoseKnife(Vector3.zero, Vector3.zero, time);
             if (time < 0f) UpdateSheath();
+        }
+
+        // ------------------------------------------------------------------ dark flames
+
+        Transform flames;
+        Material flameDark, flameEmber;
+        readonly List<(Transform t, float phase, float angle, float along, float speed, float size)> flameBits = new();
+
+        // Flickering tongues of black and deep purple fire around the handle: each one is born
+        // near the handle, drifts up and outward while it turns, and shrinks away, over and over
+        void UpdateFlames(Vector3 at, Quaternion handle, float strength, float time)
+        {
+            if (strength <= 0.01f)
+            {
+                if (flames) flames.gameObject.SetActive(false);
+                return;
+            }
+            if (!flames)
+            {
+                flames = new GameObject("Dark Flames").transform;
+                flames.SetParent(hand.parent, false);
+                Material Flame(Color color, Color glow)
+                {
+                    var m = fadeTemplate ? new Material(fadeTemplate) : MakeTransparent(new Material(template));
+                    m.SetTexture("_BaseMap", null);
+                    m.SetColor("_BaseColor", color);
+                    m.EnableKeyword("_EMISSION");
+                    m.SetColor("_EmissionColor", glow);
+                    materials.Add(m);
+                    return m;
+                }
+                var dark = flameDark = Flame(Color.black, Color.black);
+                var ember = flameEmber = Flame(Color.black, Color.black);
+                var random = new System.Random(66);
+                for (int i = 0; i < 22; i++)
+                {
+                    var bit = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    Kill(bit.GetComponent<Collider>());
+                    bit.transform.SetParent(flames, false);
+                    Finish(bit.GetComponent<MeshRenderer>(), i % 4 == 0 ? ember : dark);
+                    flameBits.Add((bit.transform, (float)random.NextDouble(), (float)random.NextDouble() * 360f,
+                        (float)random.NextDouble() * 2f - 1f, 1.1f + (float)random.NextDouble() * 0.9f, 0.0095f + (float)random.NextDouble() * 0.0095f));
+                }
+            }
+            flames.gameObject.SetActive(true);
+            flames.SetLocalPositionAndRotation(at, Quaternion.identity);
+            // Black fire with embers in the sword's own color: red for Hollow Moon, deep blue for
+            // Tidebreaker, purple for Colossus
+            Color hue = knife.model switch
+            {
+                KnifeModel.HollowMoon => new Color(0.75f, 0.03f, 0.04f),
+                KnifeModel.Tidebreaker => new Color(0.08f, 0.3f, 0.85f),
+                _ => new Color(0.45f, 0.08f, 0.85f),
+            };
+            flameDark.SetColor("_BaseColor", new Color(0.015f, 0.01f, 0.01f, 0.9f));
+            flameDark.SetColor("_EmissionColor", hue * 0.06f);
+            flameEmber.SetColor("_BaseColor", new Color(hue.r * 0.5f, hue.g * 0.5f, hue.b * 0.5f, 0.8f));
+            flameEmber.SetColor("_EmissionColor", hue * 1.2f);
+            Vector3 along = handle * Vector3.up;
+            Vector3 side = Vector3.Cross(along, Vector3.forward).normalized;
+            if (side.sqrMagnitude < 0.01f) side = Vector3.right;
+            Vector3 side2 = Vector3.Cross(along, side);
+            foreach (var (t, phase, angle, spread, speed, size) in flameBits)
+            {
+                float u = Mathf.Repeat(time * speed + phase, 1f);
+                float a = (angle + u * 90f) * Mathf.Deg2Rad;
+                float r = 0.013f + u * 0.009f;
+                Vector3 p = along * (spread * 0.045f) + (side * Mathf.Cos(a) + side2 * Mathf.Sin(a)) * r + Vector3.up * (u * 0.038f);
+                float flicker = 0.75f + 0.25f * Mathf.Sin(time * 23f + phase * 40f);
+                t.SetLocalPositionAndRotation(p, Quaternion.Euler(45f, angle + time * 120f, 45f));
+                t.localScale = Vector3.one * (size * Mathf.Sin(u * Mathf.PI) * flicker * strength);
+            }
         }
 
         // ------------------------------------------------------------------ blade trail
