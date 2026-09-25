@@ -53,20 +53,52 @@ namespace VoidFlow
                 emission = Paint(f, (u, y) => Grey(1f - Edge(0.01f, 0.08f, u))),
                 tint = Color.white, glow = new Color(0.6f, 0.25f, 1f) * 1.6f, metallic = 0.85f, smoothness = 0.8f,
             },
-            KnifeFinish.TidewaterOnyx => Photo("Onyx011", 0.08f, 0.9f),
-            KnifeFinish.SmokeOnyx => Photo("Onyx013", 0.08f, 0.9f),
-            KnifeFinish.PearlOnyx => Photo("Onyx015", 0.05f, 0.9f),
-            KnifeFinish.GreyMarble => Photo("Marble012", 0.05f, 0.85f),
-            KnifeFinish.BlackMarble => Photo("Marble016", 0.08f, 0.88f),
-            KnifeFinish.WhiteMarble => Photo("Marble021", 0.05f, 0.85f),
-            KnifeFinish.Carbon => Photo("Fabric004", 0.4f, 0.75f),
-            KnifeFinish.Gunmetal => Photo("Metal038", 0.85f, 0.6f),
-            KnifeFinish.DiamondPlate => Photo("DiamondPlate001", 0.9f, 0.7f),
-            KnifeFinish.Saddle => Photo("Leather037", 0.05f, 0.45f),
+            KnifeFinish.TidewaterOnyx => Photo("Onyx011", 0.3f, 0.97f),
+            KnifeFinish.SmokeOnyx => Photo("Onyx013", 0.35f, 0.97f),
+            KnifeFinish.PearlOnyx => Photo("Onyx015", 0.25f, 0.97f),
+            KnifeFinish.GreyMarble => Photo("Marble012", 0.25f, 0.96f),
+            KnifeFinish.BlackMarble => Photo("Marble016", 0.35f, 0.97f),
+            KnifeFinish.WhiteMarble => Photo("Marble021", 0.25f, 0.96f),
+            KnifeFinish.Carbon => Photo("Fabric004", 0.55f, 0.94f),
+            KnifeFinish.Gunmetal => Photo("Metal038", 0.95f, 0.9f),
+            KnifeFinish.DiamondPlate => Photo("DiamondPlate001", 0.95f, 0.9f),
+            KnifeFinish.Saddle => Photo("Leather037", 0.2f, 0.85f),
             KnifeFinish.Tempered => new Look { albedo = Paint(f, Tempered), tint = Color.white, metallic = 0.85f, smoothness = 0.93f },
             // Mirror polished steel
             _ => new Look { tint = new Color(0.93f, 0.94f, 0.97f), metallic = 0.8f, smoothness = 0.95f },
         };
+
+        static Texture2D glitter;
+
+        // Fine glitter for the photo finishes: sparse specks, a few bigger and brighter
+        public static Texture2D Glitter
+        {
+            get
+            {
+                if (glitter) return glitter;
+                const int size = 256;
+                glitter = new Texture2D(size, size, TextureFormat.RGBA32, true) { name = "Glitter", wrapMode = TextureWrapMode.Repeat };
+                var px = new Color[size * size];
+                var random = new System.Random(7);
+                for (int k = 0; k < 550; k++)
+                {
+                    int cx = random.Next(size), cy = random.Next(size);
+                    bool big = random.NextDouble() < 0.12;
+                    float bright = big ? 1f : 0.35f + (float)random.NextDouble() * 0.4f;
+                    for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if (!big && (dx != 0 || dy != 0)) continue;
+                        float v = bright * (dx == 0 && dy == 0 ? 1f : 0.45f);
+                        int i = ((cy + dy + size) % size) * size + (cx + dx + size) % size;
+                        px[i] = new Color(Mathf.Max(px[i].r, v), Mathf.Max(px[i].g, v), Mathf.Max(px[i].b, v), 1f);
+                    }
+                }
+                glitter.SetPixels(px);
+                glitter.Apply();
+                return glitter;
+            }
+        }
 
         // A CC0 photo texture from Resources/SkinTextures (see the LICENSE file there)
         static Look Photo(string texture, float metallic, float smoothness) => new()

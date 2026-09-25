@@ -15,6 +15,7 @@ namespace VoidFlow
         public readonly List<Material> glowMaterials = new();
         public readonly List<Color> glowColors = new();
         public readonly List<(Transform t, Vector3 home, float phase)> motes = new();
+        public readonly List<(Transform t, float size, float phase, float speed)> sparkles = new();
 
         public bool IsSword => model is KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus;
 
@@ -37,6 +38,14 @@ namespace VoidFlow
                 if (!glowMaterials[i]) continue;
                 float pulse = 1f + 0.25f * Mathf.Sin(time * 3f + i) + burst * 2.5f;
                 glowMaterials[i].SetColor("_EmissionColor", glowColors[i] * pulse);
+            }
+            // Sparkles flash briefly, each on its own rhythm
+            foreach (var (t, size, phase, speed) in sparkles)
+            {
+                if (!t) continue;
+                float flash = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(time * speed + phase)), 14f);
+                t.localScale = Vector3.one * (size * flash);
+                t.localRotation = Quaternion.Euler(0f, 0f, time * 90f + phase * 40f);
             }
             if (aura)
             {
@@ -74,6 +83,7 @@ namespace VoidFlow
         readonly int layer;
         readonly bool shadows;
         readonly List<Material> materials;
+        readonly HashSet<Material> keep = new(); // materials a skin never covers (lenses, glows)
 
         public WeaponBuilder(Material template, int layer, bool shadows, List<Material> materials)
         {
@@ -109,6 +119,7 @@ namespace VoidFlow
                 default: Karambit(parts, finish); break;
             }
             if (skin.rarity == SkinRarity.Void) Aura(parts, skin.finish);
+            if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, finish, 6);
             parts.Animate(0f, -1f);
             return parts;
         }
@@ -388,6 +399,9 @@ namespace VoidFlow
                 Rod(t, metalLight, new Vector3(x, -0.035f, 0.41f), new Vector3(x, -0.035f, 0.6f), 0.009f);
                 Part(t, PrimitiveType.Sphere, rubber, new Vector3(x, -0.035f, 0.61f), Vector3.one * 0.016f);
             }
+            keep.Add(lens);
+            keep.Add(red);
+            if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, chassis, 14);
             parts.Animate(0f, -1f);
             return parts;
         }
@@ -409,6 +423,7 @@ namespace VoidFlow
         public Material Glow(Color color, float intensity, WeaponParts parts)
         {
             var m = Mat(color, 0.2f, 0f);
+            keep.Add(m);
             m.EnableKeyword("_EMISSION");
             m.SetColor("_EmissionColor", color * intensity);
             if (parts != null)
@@ -424,15 +439,50 @@ namespace VoidFlow
             var look = KnifeFinishes.Get(finish);
             var m = Mat(look.tint, look.smoothness, look.metallic);
             if (look.albedo) m.SetTexture("_BaseMap", look.albedo);
-            if (look.emission)
+            var emission = look.emission ? look.emission : look.photo ? KnifeFinishes.Glitter : null;
+            if (emission)
             {
+                // Void finishes glow along their edges; photo finishes get fine glitter
+                Color glow = look.emission ? look.glow : Color.white * 0.7f;
                 m.EnableKeyword("_EMISSION");
-                m.SetTexture("_EmissionMap", look.emission);
-                m.SetColor("_EmissionColor", look.glow);
+                m.SetTexture("_EmissionMap", emission);
+                m.SetColor("_EmissionColor", glow);
                 parts.glowMaterials.Add(m);
-                parts.glowColors.Add(look.glow);
+                parts.glowColors.Add(glow);
             }
             return m;
+        }
+
+        // Photo skins wrap the whole weapon (everything but lenses and glowing bits) in the
+        // finish, and scatter little twinkling star sparkles over it
+        void CoverAndSparkle(WeaponParts parts, KnifeFinish finish, Material bladeOrBody, int count)
+        {
+            // Blades show a strip of the texture; everything else a full, untouched copy
+            Material body = bladeOrBody;
+            if (bladeOrBody.GetTextureScale("_BaseMap") != Vector2.one)
+            {
+                body = FinishMaterial(finish, parts);
+            }
+            var renderers = parts.root.GetComponentsInChildren<MeshRenderer>(true);
+            foreach (var r in renderers)
+                if (r.sharedMaterial != bladeOrBody && !keep.Contains(r.sharedMaterial)) r.sharedMaterial = body;
+
+            Material star = Glow(Color.white, 5f, null);
+            var random = new System.Random(finish.GetHashCode() * 31 + count);
+            for (int i = 0; i < count; i++)
+            {
+                var r = renderers[random.Next(renderers.Length)];
+                var b = r.localBounds;
+                var local = b.center + Vector3.Scale(b.extents, new Vector3((float)random.NextDouble() * 2f - 1f, (float)random.NextDouble() * 2f - 1f, (float)random.NextDouble() * 2f - 1f));
+                Vector3 p = parts.root.InverseTransformPoint(r.transform.TransformPoint(local));
+                var sparkle = new GameObject("Sparkle").transform;
+                sparkle.SetParent(parts.root, false);
+                sparkle.localPosition = p;
+                Part(sparkle, PrimitiveType.Cube, star, Vector3.zero, new Vector3(1f, 0.12f, 0.12f));
+                Part(sparkle, PrimitiveType.Cube, star, Vector3.zero, new Vector3(0.12f, 1f, 0.12f));
+                float size = parts.model == KnifeModel.Rifle ? 0.03f : 0.016f;
+                parts.sparkles.Add((sparkle, size, (float)random.NextDouble() * 20f, 1.2f + (float)random.NextDouble() * 1.6f));
+            }
         }
 
         // ---------------------------------------------------------------- shapes
