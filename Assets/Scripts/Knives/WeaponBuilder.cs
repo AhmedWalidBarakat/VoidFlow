@@ -21,8 +21,8 @@ namespace VoidFlow
         public bool IsSword => model is KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus;
 
         // The hand raises every knife to show it off (see ViewModel); on top of that the
-        // talon knife twirls on its finger ring, the butterfly knife does flip tricks, and Void
-        // swords flare with glow and twirl in the grip
+        // talon knife spins on its finger ring, the butterfly knife does flip tricks, and Void
+        // swords flare with glow while pointed
         public float InspectLength => model switch
         {
             KnifeModel.Talon => 2.4f,
@@ -50,7 +50,7 @@ namespace VoidFlow
         // `draw` is seconds since the weapon was drawn (large when it's long out)
         public void Animate(float time, float inspect, float draw = 99f)
         {
-            float burst = inspect >= 0f ? (IsSword ? Bump(inspect, 0.35f, 1.5f, 2.4f) : Bump(inspect, 0.5f, 1f, 2f)) : 0f;
+            float burst = inspect >= 0f ? (IsSword ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.7f, 1.1f, inspect)) : Bump(inspect, 0.5f, 1f, 2f)) : 0f;
             for (int i = 0; i < glowMaterials.Count; i++)
             {
                 if (!glowMaterials[i]) continue;
@@ -82,15 +82,6 @@ namespace VoidFlow
                 // going for as long as inspect is held)
                 var spin = Quaternion.Euler(0f, 0f, inspect >= 0f ? -ringSpin : 0f);
                 root.SetLocalPositionAndRotation(ringCenter - spin * ringCenter, spin);
-            }
-            if (IsSword && root)
-            {
-                // Two even turns flat in front of the palm, pivoting on the middle of the
-                // handle, easing in and out so it starts and lands cleanly on the salute
-                float a = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.0f, 2.0f, inspect)) * 720f : 0f;
-                var spin = Quaternion.Euler(0f, 0f, a);
-                var pivot = new Vector3(0f, -0.055f, 0f);
-                root.SetLocalPositionAndRotation(pivot - spin * pivot, spin);
             }
             if (model == KnifeModel.Butterfly && blade && swingHandle)
             {

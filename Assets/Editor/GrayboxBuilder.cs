@@ -158,6 +158,9 @@ namespace VoidFlow.EditorTools
             var viewModel = cam.AddComponent<ViewModel>();
             viewModel.player = movement;
             viewModel.template = viewModelTemplate;
+            var fade = ViewModel.MakeTransparent(new Material(Shader.Find("Universal Render Pipeline/Lit")));
+            AssetDatabase.CreateAsset(fade, $"{Root}/ArmFade.mat");
+            viewModel.fadeTemplate = fade;
             return movement;
         }
 

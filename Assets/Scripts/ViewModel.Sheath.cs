@@ -69,6 +69,18 @@ namespace VoidFlow
             if (sheathed.aura) Kill(sheathed.aura.gameObject);
         }
 
+        // Where the hand has to be for its sword to sit exactly where the sheathed one is, and
+        // where it is once the blade is pulled clear of the sheath
+        (Quaternion atHilt, Vector3 hiltPosition, Vector3 pulled) HiltPose()
+        {
+            Transform rig = hand.parent;
+            Quaternion swordRotation = Quaternion.Inverse(rig.rotation) * sheathed.root.rotation;
+            Vector3 swordPosition = rig.InverseTransformPoint(sheathed.root.position);
+            Quaternion atHilt = swordRotation * Quaternion.Inverse(rightHand.grip.localRotation);
+            Vector3 hiltPosition = swordPosition - atHilt * rightHand.grip.localPosition;
+            return (atHilt, hiltPosition, hiltPosition + swordRotation * Vector3.down * 0.3f);
+        }
+
         // Which copy of the sword shows: the one in the hand once it's been grabbed, otherwise
         // the one in the sheath
         void UpdateSheath()
@@ -91,14 +103,7 @@ namespace VoidFlow
         {
             if (sheathed == null || current != KnifeSlot || drawTime >= SwordDrawTime || (!Application.isPlaying && !previewingDraw)) return false;
 
-            // Where the hand has to be for its sword to sit exactly where the sheathed one is
-            Transform rig = hand.parent;
-            Quaternion swordRotation = Quaternion.Inverse(rig.rotation) * sheathed.root.rotation;
-            Vector3 swordPosition = rig.InverseTransformPoint(sheathed.root.position);
-            Quaternion atHilt = swordRotation * Quaternion.Inverse(rightHand.grip.localRotation);
-            Vector3 hiltPosition = swordPosition - atHilt * rightHand.grip.localPosition;
-            // Pulled clear: out along the blade, away from the sheath
-            Vector3 pulled = hiltPosition + swordRotation * Vector3.down * 0.3f;
+            var (atHilt, hiltPosition, pulled) = HiltPose();
 
             float t = drawTime;
             if (t < SwordGrab)
