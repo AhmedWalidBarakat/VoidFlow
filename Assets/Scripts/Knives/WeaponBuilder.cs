@@ -26,7 +26,7 @@ namespace VoidFlow
         public float InspectLength => model switch
         {
             KnifeModel.Talon => 2.4f,
-            KnifeModel.Butterfly => 2.6f,
+            KnifeModel.Butterfly => 2.8f,
             _ => 2.9f,
         };
 
@@ -45,6 +45,19 @@ namespace VoidFlow
             int n = Mathf.FloorToInt(p);
             float f = p - n;
             return (Mathf.Sin(f * Mathf.PI) * 150f, (n + Mathf.SmoothStep(0f, 1f, f)) * 180f);
+        }
+
+        // The butterfly inspect routine: a flip one way, a flip back the other way, a rollover
+        // (the whole knife travels around the fist with its handles half open), then two quick
+        // flips that bring the blade home. Returns the loose handle's opening, the blade's
+        // angle around the pin and how far round the hand the knife has travelled.
+        public static (float open, float blade, float orbit) ButterflyTrick(float t)
+        {
+            float Ease(float a, float b) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t));
+            float Fan(float a, float b) => t > a && t < b ? Mathf.Sin(Mathf.InverseLerp(a, b, t) * Mathf.PI) : 0f;
+            float blade = 180f * Ease(0.35f, 0.8f) - 180f * Ease(0.8f, 1.25f) + 180f * Ease(1.95f, 2.2f) + 180f * Ease(2.2f, 2.45f);
+            float open = 150f * (Fan(0.35f, 0.8f) + Fan(0.8f, 1.25f) + Fan(1.95f, 2.2f) + Fan(2.2f, 2.45f)) + 70f * Fan(1.25f, 1.95f);
+            return (open, blade, 360f * Ease(1.25f, 1.95f));
         }
 
         // `draw` is seconds since the weapon was drawn (large when it's long out)
@@ -87,8 +100,8 @@ namespace VoidFlow
             {
                 // Inspect: a run of flips in rhythm. Draw: two quick flips as it comes up.
                 // Flips always come in pairs so the blade ends pointing up again.
-                var (open, flip) = inspect >= 0f ? Flips(inspect, FlipsFrom, FlipsUntil, FlipPeriod)
-                    : Flips(draw, 0.05f, 0.05f + 2f * DrawFlipPeriod, DrawFlipPeriod);
+                var (open, flip) = Flips(draw, 0.05f, 0.05f + 2f * DrawFlipPeriod, DrawFlipPeriod);
+                if (inspect >= 0f) (open, flip, _) = ButterflyTrick(inspect);
                 swingHandle.localRotation = Quaternion.Euler(0f, 0f, open);
                 blade.localRotation = Quaternion.Euler(0f, 0f, flip);
             }
@@ -149,25 +162,32 @@ namespace VoidFlow
             return parts;
         }
 
-        // Held in reverse grip like CS: the finger ring sits above the index finger (top of
-        // the handle), and the curved claw blade comes out under the pinky (bottom), curling
-        // toward the edge side. Black grip with a brass bolster, pins and ring.
+        // A talon knife, held in reverse grip like CS: a big finger ring above the index finger,
+        // a contoured grip with finger grooves and skeleton holes, a brass bolster, and a deep
+        // hooked blade with a notched (jimped) spine coming out under the pinky
         void Talon(WeaponParts parts, Material finish)
         {
             var t = parts.root;
             Material grip = Mat(new Color(0.05f, 0.05f, 0.055f), 0.45f, 0f);
             Material brass = Mat(new Color(0.9f, 0.66f, 0.28f), 0.88f, 0.9f);
-            Part(t, PrimitiveType.Cube, grip, new Vector3(0f, -0.054f, 0f), new Vector3(0.03f, 0.114f, 0.018f));
-            foreach (float y in new[] { -0.028f, -0.078f })
-                Part(t, PrimitiveType.Cylinder, brass, new Vector3(0f, y, 0f), new Vector3(0.007f, 0.0105f, 0.007f), Quaternion.Euler(90f, 0f, 0f));
-            Part(t, PrimitiveType.Cube, brass, new Vector3(0f, -0.113f, 0f), new Vector3(0.036f, 0.008f, 0.02f));
-            parts.ringCenter = new Vector3(0.002f, 0.02f, 0f);
-            MeshPart(t, brass, Torus(0.017f, 0.0045f), parts.ringCenter, Quaternion.identity);
+            Material hole = Mat(new Color(0.01f, 0.01f, 0.012f), 0.2f, 0f);
+            // Grip slab, rounded at the ends, with finger grooves along the edge side
+            Part(t, PrimitiveType.Cube, grip, new Vector3(0.002f, -0.054f, 0f), new Vector3(0.028f, 0.1f, 0.017f));
+            Part(t, PrimitiveType.Capsule, grip, new Vector3(0.002f, -0.054f, 0f), new Vector3(0.03f, 0.056f, 0.017f));
+            for (int k = 0; k < 3; k++)
+                Part(t, PrimitiveType.Cylinder, hole, new Vector3(-0.0135f, -0.028f - k * 0.024f, 0f), new Vector3(0.012f, 0.0092f, 0.012f), Quaternion.Euler(90f, 0f, 0f));
+            foreach (float y in new[] { -0.042f, -0.072f })
+                Part(t, PrimitiveType.Cylinder, hole, new Vector3(0.006f, y, 0f), new Vector3(0.009f, 0.0093f, 0.009f), Quaternion.Euler(90f, 0f, 0f));
+            foreach (float y in new[] { -0.02f, -0.092f })
+                Part(t, PrimitiveType.Cylinder, brass, new Vector3(0.006f, y, 0f), new Vector3(0.006f, 0.0095f, 0.006f), Quaternion.Euler(90f, 0f, 0f));
+            Part(t, PrimitiveType.Cube, brass, new Vector3(0f, -0.113f, 0f), new Vector3(0.036f, 0.009f, 0.021f));
+            Part(t, PrimitiveType.Cube, brass, new Vector3(0f, 0.004f, 0f), new Vector3(0.032f, 0.006f, 0.02f));
+            parts.ringCenter = new Vector3(0.002f, 0.024f, 0f);
+            MeshPart(t, brass, Torus(0.019f, 0.0055f, 28, 10), parts.ringCenter, Quaternion.identity);
 
-            // Blade: an arc heading down from the bolster and bending toward the edge side,
-            // spine on the outside of the curve, edge on the inside
-            const int n = 20;
-            const float radius = 0.1f, sweep = 95f * Mathf.Deg2Rad, top = -0.116f;
+            // Blade: a deep hook, spine outside the curve, edge inside
+            const int n = 24;
+            const float radius = 0.095f, sweep = 105f * Mathf.Deg2Rad, top = -0.118f;
             var spine = new Vector2[n + 1];
             var edge = new Vector2[n + 1];
             for (int i = 0; i <= n; i++)
@@ -175,48 +195,64 @@ namespace VoidFlow
                 float s = (float)i / n, a = s * sweep;
                 var c = new Vector2(-radius + radius * Mathf.Cos(a), top - radius * Mathf.Sin(a));
                 var outward = new Vector2(Mathf.Cos(a), -Mathf.Sin(a));
-                float w = 0.034f * (1f - Mathf.Pow(s, 1.6f));
+                float w = 0.036f * (1f - Mathf.Pow(s, 1.7f)) + 0.004f * Mathf.Sin(s * Mathf.PI);
                 spine[i] = c + outward * w * 0.5f;
                 edge[i] = c - outward * w * 0.5f;
             }
-            MeshPart(t, finish, RailBlade(spine, edge, 0.0028f, 0.0004f), Vector3.zero, Quaternion.identity);
+            MeshPart(t, finish, RailBlade(spine, edge, 0.0028f, 0.0003f), Vector3.zero, Quaternion.identity);
+            // Jimping: little notches along the spine near the bolster
+            for (int k = 0; k < 5; k++)
+            {
+                float a = (0.05f + k * 0.035f) * sweep;
+                var c = new Vector2(-radius + radius * Mathf.Cos(a), top - radius * Mathf.Sin(a));
+                var outward = new Vector2(Mathf.Cos(a), -Mathf.Sin(a));
+                var p = c + outward * 0.0185f;
+                Part(t, PrimitiveType.Cube, hole, new Vector3(p.x, p.y, 0f), new Vector3(0.0035f, 0.0025f, 0.0062f), Quaternion.Euler(0f, 0f, -a * Mathf.Rad2Deg));
+            }
         }
 
-        // Two skeletonized handles around the blade tang; one swings free for flips
+        // A butterfly knife: two skeletonized "bite" handles with rounded ends and a latch, pins
+        // at the pivot, and a clip-point blade with a swedge; one handle swings free for flips
         void Butterfly(WeaponParts parts, Material finish)
         {
             var t = parts.root;
-            Material steel = Mat(new Color(0.72f, 0.74f, 0.78f), 0.88f, 0.9f);
-            Material dark = Mat(new Color(0.06f, 0.06f, 0.07f), 0.3f, 0.2f);
+            Material steel = Mat(new Color(0.72f, 0.74f, 0.78f), 0.9f, 0.95f);
+            Material dark = Mat(new Color(0.05f, 0.05f, 0.06f), 0.3f, 0.2f);
             Transform Handle(string name, float side)
             {
                 var pivot = new GameObject(name).transform;
                 pivot.SetParent(t, false);
-                Part(pivot, PrimitiveType.Cube, steel, new Vector3(0f, -0.06f, side * 0.0095f), new Vector3(0.026f, 0.12f, 0.006f));
-                foreach (float y in new[] { -0.03f, -0.06f, -0.09f })
-                    Part(pivot, PrimitiveType.Cube, dark, new Vector3(0f, y, side * 0.0128f), new Vector3(0.012f, 0.02f, 0.0015f));
-                Part(pivot, PrimitiveType.Cylinder, dark, new Vector3(0f, -0.004f, side * 0.0095f), new Vector3(0.008f, 0.004f, 0.008f), Quaternion.Euler(90f, 0f, 0f));
+                Part(pivot, PrimitiveType.Cube, steel, new Vector3(0f, -0.06f, side * 0.0095f), new Vector3(0.024f, 0.112f, 0.006f));
+                Part(pivot, PrimitiveType.Cylinder, steel, new Vector3(0f, -0.116f, side * 0.0095f), new Vector3(0.024f, 0.003f, 0.024f), Quaternion.Euler(90f, 0f, 0f));
+                // Skeleton cutouts: a row of slots
+                for (int k = 0; k < 5; k++)
+                    Part(pivot, PrimitiveType.Cube, dark, new Vector3(0f, -0.018f - k * 0.02f, side * 0.0126f), new Vector3(0.011f, 0.013f, 0.0012f));
+                Part(pivot, PrimitiveType.Cylinder, dark, new Vector3(0f, -0.004f, side * 0.0095f), new Vector3(0.008f, 0.0045f, 0.008f), Quaternion.Euler(90f, 0f, 0f));
+                Part(pivot, PrimitiveType.Cylinder, steel, new Vector3(0f, -0.004f, side * 0.0128f), new Vector3(0.005f, 0.0012f, 0.005f), Quaternion.Euler(90f, 0f, 0f));
                 return pivot;
             }
             Handle("Handle", 1f);
             parts.swingHandle = Handle("Swing Handle", -1f);
-            Part(parts.swingHandle, PrimitiveType.Cube, steel, new Vector3(0f, -0.124f, -0.0095f), new Vector3(0.01f, 0.012f, 0.004f));
+            // Latch at the bottom of the swing handle
+            Part(parts.swingHandle, PrimitiveType.Cube, steel, new Vector3(0f, -0.118f, -0.0095f), new Vector3(0.008f, 0.014f, 0.004f), Quaternion.Euler(0f, 0f, 20f));
 
             parts.blade = new GameObject("Blade").transform;
             parts.blade.SetParent(t, false);
             parts.blade.localPosition = new Vector3(0f, 0.002f, 0f);
             Part(parts.blade, PrimitiveType.Cube, steel, new Vector3(0f, -0.004f, 0f), new Vector3(0.022f, 0.012f, 0.005f));
-            const int n = 16;
+            Part(parts.blade, PrimitiveType.Cube, dark, new Vector3(0.006f, -0.001f, 0f), new Vector3(0.004f, 0.004f, 0.0055f)); // kicker pin
+            const int n = 18;
             var spine = new Vector2[n + 1];
             var edge = new Vector2[n + 1];
             for (int i = 0; i <= n; i++)
             {
                 float y = 0.13f * i / n;
-                spine[i] = new Vector2(y < 0.085f ? 0.011f : Mathf.Lerp(0.011f, 0f, (y - 0.085f) / 0.045f), y);
-                float k = Mathf.Clamp01((y - 0.06f) / 0.07f);
-                edge[i] = new Vector2(-0.012f * (1f - k * k), y);
+                // Spine runs straight, then a swedge dips it down to the clip point
+                spine[i] = new Vector2(y < 0.08f ? 0.0115f : Mathf.Lerp(0.0115f, 0.0005f, Mathf.Pow((y - 0.08f) / 0.05f, 0.8f)), y);
+                float k = Mathf.Clamp01((y - 0.055f) / 0.075f);
+                edge[i] = new Vector2(-0.0125f * (1f - k * k), y);
             }
-            MeshPart(parts.blade, finish, RailBlade(spine, edge, 0.0024f, 0.0004f), Vector3.zero, Quaternion.identity);
+            MeshPart(parts.blade, finish, RailBlade(spine, edge, 0.0024f, 0.0003f), Vector3.zero, Quaternion.identity);
         }
 
         // A curved katana blade: spine on +X, gentle curve toward the spine, rounded tip
@@ -581,23 +617,40 @@ namespace VoidFlow
                 Tri(s, s + 2, s + 3, facing);
             }
 
-            // Both flat faces, smooth-shaded
+            // Both faces: a flat from the spine to the grind line, then a bevel down to the
+            // edge (separate vertices so the grind line is a crisp crease that catches light)
+            const float grindAt = 0.42f; // how far from the edge toward the spine the bevel starts
             foreach (float side in new[] { 1f, -1f })
             {
-                int b = verts.Count;
-                for (int i = 0; i < n; i++)
-                {
-                    verts.Add(new Vector3(spine[i].x, spine[i].y, side * Half(i)));
-                    verts.Add(new Vector3(edge[i].x, edge[i].y, side * edgeHalf));
-                    uvs.Add(new Vector2(1f, along[i] / total));
-                    uvs.Add(new Vector2(0f, along[i] / total));
-                }
                 var facing = new Vector3(0f, 0f, side);
-                for (int i = 0; i < n - 1; i++)
+                for (int band = 0; band < 2; band++)
                 {
-                    int s0 = b + i * 2, e0 = s0 + 1, s1 = s0 + 2, e1 = s0 + 3;
-                    Tri(s0, e0, e1, facing);
-                    Tri(s0, e1, s1, facing);
+                    int b = verts.Count;
+                    for (int i = 0; i < n; i++)
+                    {
+                        Vector2 grind = Vector2.Lerp(edge[i], spine[i], grindAt);
+                        float v = along[i] / total, grindHalf = Mathf.Lerp(edgeHalf, Half(i), 0.9f);
+                        if (band == 0)
+                        {
+                            verts.Add(new Vector3(spine[i].x, spine[i].y, side * Half(i)));
+                            verts.Add(new Vector3(grind.x, grind.y, side * grindHalf));
+                            uvs.Add(new Vector2(1f, v));
+                            uvs.Add(new Vector2(grindAt, v));
+                        }
+                        else
+                        {
+                            verts.Add(new Vector3(grind.x, grind.y, side * grindHalf));
+                            verts.Add(new Vector3(edge[i].x, edge[i].y, side * edgeHalf));
+                            uvs.Add(new Vector2(grindAt, v));
+                            uvs.Add(new Vector2(0f, v));
+                        }
+                    }
+                    for (int i = 0; i < n - 1; i++)
+                    {
+                        int s0 = b + i * 2, e0 = s0 + 1, s1 = s0 + 2, e1 = s0 + 3;
+                        Tri(s0, e0, e1, facing);
+                        Tri(s0, e1, s1, facing);
+                    }
                 }
             }
             // Spine and edge rims, flat-shaded

@@ -9,12 +9,13 @@ namespace VoidFlow
     // Whenever a move could pass through the right arm, that arm fades to see-through so the
     // knife always reads cleanly.
     //
-    //  - Talon knife: hold F and it spins face-on around the index finger through its ring;
-    //    let go and it finishes the turn and settles.
-    //  - Butterfly knife: Counter Blox style flips standing up on the fist, the wrist rolling
-    //    between flips so each is seen from a new angle.
-    //  - Void swords: hold F to slide the sword back into the hip sheath, draw it out again and
-    //    point it onward: arm and blade in one line toward the crosshair, held until you let go.
+    //  - Talon knife: hold F and it spins around the corner of the fist through its ring, at a
+    //    tilted angle; let go and it finishes the turn and settles.
+    //  - Butterfly knife: standing up on the fist, it flips one way, flips back the other way,
+    //    rolls right around the hand, and flips home, the wrist rolling along with it.
+    //  - Void swords: hold F for two quick cuts in opposite directions, then the sword is
+    //    sheathed and held there, right hand on the hilt and left hand on the scabbard, like a
+    //    samurai waiting to draw; let go and it's drawn back out.
     public partial class ViewModel
     {
         [Tooltip("A transparent URP Lit material; see-through copies of the arm are made from it")]
@@ -33,9 +34,10 @@ namespace VoidFlow
         // Talon spin: fist raised upright with the index finger (arm +X) pointing straight back
         // at you, so the knife spins face-on around it. The ring sits on the finger at the top
         // of the glove.
-        static readonly Vector3 TalonSpot = new(0.06f, -0.07f, 0.37f);
-        static readonly Quaternion TalonRotation = FromXY(new Vector3(-0.08f, 0.05f, -1f), new Vector3(0.05f, 1f, 0f));
-        static readonly Vector3 FingerPoint = new(0f, 0.038f, 0f);
+        static readonly Vector3 TalonSpot = new(0.06f, -0.075f, 0.36f);
+        static readonly Quaternion TalonRotation = FromXY(new Vector3(-0.4f, 0.3f, -0.87f), new Vector3(0.3f, 1f, 0.1f));
+        // The top corner of the glove nearest you, where the talon hangs off the index finger
+        static readonly Vector3 FingerPoint = new(GloveSize.x * 0.5f, GloveSize.y * 0.5f, GloveSize.z * 0.5f);
 
         // Butterfly flips, Counter Blox style: the arm reaches in from the right toward the
         // left, back of the hand up, and the knife stands on top of the fist facing you (its
@@ -45,11 +47,11 @@ namespace VoidFlow
         static readonly Quaternion ButterflyRotation = FingersBack(new Vector3(-0.75f, 0.3f, 0.6f), Vector3.up);
         static readonly Vector3 HingePoint = new(0f, 0f, GloveSize.z * 0.5f + 0.035f);
 
-        // Sword point: the arm reaches out toward the crosshair and the sword carries straight
-        // on out of the front of the glove, pointing onward
-        static readonly Vector3 PointSpot = new(0.14f, -0.13f, 0.25f);
-        static readonly Quaternion PointRotation = FingersBack(new Vector3(-0.32f, 0.26f, 0.75f), Vector3.up);
-        static readonly Vector3 PointGripSpot = new(0f, GloveSize.y * 0.5f + 0.11f, 0f);
+        // Sword kata: the sheath rides up into view and the left hand takes hold of it just
+        // below the mouth, the right hand resting on the hilt
+        static readonly Vector3 PresentMouth = new(-0.03f, -0.125f, 0.34f);
+        static readonly Quaternion PresentSheath = FingersBack(new Vector3(-0.85f, -0.25f, -0.45f), new Vector3(0.45f, 0.1f, -0.9f));
+        static readonly Quaternion LeftOnSheath = FingersBack(new Vector3(0.35f, 0.55f, 0.75f), new Vector3(-0.3f, 0.7f, -0.6f));
 
         // A rotation from where arm +X and arm +Y point
         static Quaternion FromXY(Vector3 x, Vector3 y)
@@ -135,25 +137,25 @@ namespace VoidFlow
             if (talonSpin >= stopAt) talonLower = 0f;
         }
 
-        // Sword: sheathe, draw, point; hold the point while F is held, then return to ready
-        const float SwordSheathe = 0.3f, SwordRegrab = 0.42f, SwordOut = 0.68f, SwordPointed = 0.95f, SwordReturn = 0.4f;
+        // Sword kata: cut, cut back, sheathe; hold on the sheath while F is held; let go and
+        // it's drawn again. The first cut starts on the right, the second comes back.
+        const float KataCut = 0.42f, KataSheathe = 1.26f, KataSeated = 1.18f, KataDraw = 0.75f;
         float swordRelease = -1f;
-        bool swordSounded;
 
         void UpdateSwordPoint(bool held, float dt)
         {
+            float before = inspectTime - dt;
+            if (before < 0.02f && inspectTime >= 0.02f) Play(WeaponSounds.Slash, 0.75f);
+            if (before < KataCut && inspectTime >= KataCut) Play(WeaponSounds.Slash, 0.75f);
+            if (before < KataSeated && inspectTime >= KataSeated) Play(WeaponSounds.Sheathe, 0.8f);
             if (swordRelease >= 0f)
             {
+                float r = swordRelease;
                 swordRelease += dt;
-                if (swordRelease > SwordReturn) StopInspect();
+                if (r < 0.22f && swordRelease >= 0.22f) Play(WeaponSounds.Unsheathe, 0.8f);
+                if (swordRelease > KataDraw) StopInspect();
             }
-            else if (!held && inspectTime >= SwordPointed) swordRelease = 0f;
-            if (inspectTime < SwordRegrab) swordSounded = false;
-            else if (!swordSounded)
-            {
-                swordSounded = true;
-                Play(WeaponSounds.Unsheathe, 0.8f);
-            }
+            else if (!held && inspectTime >= KataSheathe) swordRelease = 0f;
         }
 
         // ------------------------------------------------------------------ posing
@@ -165,6 +167,7 @@ namespace VoidFlow
             bool reverse = knife.model == KnifeModel.Talon;
             SetGrip(rightHand, reverse);
             float time = Application.isPlaying ? Time.time : 0f;
+            if (sheath && !(inspect >= 0f && knife.IsSword)) sheath.SetLocalPositionAndRotation(SheathMouth, SheathRotation);
             if (PoseSwordDraw())
             {
                 SetArmAlpha(0.35f);
@@ -188,7 +191,7 @@ namespace VoidFlow
             hand.localRotation = Quaternion.Euler(rot) * Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, show, w);
             if (w > 0f)
             {
-                var (fingerPos, fingerRot) = FingerGrip();
+                var (fingerPos, fingerRot) = FingerGrip(inspect);
                 rightHand.grip.SetLocalPositionAndRotation(
                     Vector3.Lerp(rightHand.grip.localPosition, fingerPos, w), Quaternion.Slerp(rightHand.grip.localRotation, fingerRot, w));
             }
@@ -205,14 +208,16 @@ namespace VoidFlow
         // its blade plane square to the finger, pivoting on the ring. Butterfly: standing up
         // out of the back of the fist (knife up = arm +Z, facing along the finger), pivoting
         // on the hinge pin.
-        (Vector3, Quaternion) FingerGrip()
+        (Vector3, Quaternion) FingerGrip(float inspect)
         {
             if (knife.model == KnifeModel.Talon)
             {
                 Quaternion r = Quaternion.Euler(0f, 90f, 0f); // knife Z runs along the finger (arm +X)
                 return (FingerPoint - r * knife.ringCenter, r);
             }
-            return (HingePoint, Quaternion.LookRotation(Vector3.right, Vector3.forward));
+            // In the rollover the knife travels right round the fist, about the forearm
+            var orbit = Quaternion.Euler(0f, inspect >= 0f ? WeaponParts.ButterflyTrick(inspect).orbit : 0f, 0f);
+            return (orbit * HingePoint, orbit * Quaternion.LookRotation(Vector3.right, Vector3.forward));
         }
 
         // Small wrist motion on top of the trick pose
@@ -221,9 +226,10 @@ namespace VoidFlow
             if (t < 0f) return Quaternion.identity;
             if (knife.model == KnifeModel.Talon)
                 return Quaternion.Euler(0f, Mathf.Sin(talonSpin * Mathf.Deg2Rad) * 3f, 0f);
-            // Butterfly: the wrist rolls around the forearm between flips (one way, then back)
-            float flips = Plateau(t, 0.3f, 0.45f, 2f, 2.2f);
-            float roll = Mathf.Sin((t - 0.35f) * Mathf.PI / (2f * WeaponParts.FlipPeriod)) * 35f;
+            // Butterfly: the wrist rolls one way with the first flip, back with the second, and
+            // rocks through the rollover and the flips home
+            float flips = Plateau(t, 0.3f, 0.45f, 2.3f, 2.5f);
+            float roll = 30f * Mathf.Sin(Mathf.InverseLerp(0.35f, 1.25f, t) * Mathf.PI * 2f) + 12f * Mathf.Sin(Mathf.InverseLerp(1.25f, 2.45f, t) * Mathf.PI * 3f);
             return Quaternion.Euler(0f, roll * flips, 0f);
         }
 
@@ -231,64 +237,85 @@ namespace VoidFlow
         Vector3 TrickBob(float t)
         {
             if (t < 0f || knife.model != KnifeModel.Butterfly) return Vector3.zero;
-            float active = Plateau(t, 0.3f, 0.45f, 2f, 2.2f);
+            float active = Plateau(t, 0.3f, 0.45f, 2.3f, 2.5f);
             float beat = (t - 0.35f) * Mathf.PI / WeaponParts.FlipPeriod;
             return new Vector3(Mathf.Sin(beat * 0.5f) * 0.02f, -Mathf.Abs(Mathf.Sin(beat)) * 0.01f, 0f) * active;
         }
 
-        // Sword inspect: to the hip, into the sheath, out again, and point
+        // Sword kata: two cuts, then to the hip and into the sheath, held there with both hands
+        // (the sheath rides up into view), then drawn back out when F is released
         void PoseSwordInspect(float t)
         {
-            leftHand.root.gameObject.SetActive(false);
+            float present = Ease(t, KataCut * 2f, KataSheathe);
+            if (swordRelease >= 0f) present *= 1f - Ease(swordRelease, 0.35f, KataDraw);
+            sheath.SetLocalPositionAndRotation(Vector3.Lerp(SheathMouth, PresentMouth, present), Quaternion.Slerp(SheathRotation, PresentSheath, present));
             var (atHilt, hiltPosition, pulled) = HiltPose();
-            Vector3 breathe = new(0f, Mathf.Sin(t * 2.2f) * 0.003f, 0f);
             Vector3 p;
             Quaternion r;
             bool inSheath = false;
-            if (t < SwordSheathe)
+            float fade = 1f;
+
+            if (t < KataCut * 2f)
             {
-                float a = Ease(t, 0f, SwordSheathe);
+                // Two cuts: first from the right, then back from the left
+                float c = t < KataCut ? t : t - KataCut;
+                var (sp, sr) = Sample(SlashKeys, c * SlashKeys[^1].t / KataCut);
+                float side = t < KataCut ? 1f : -1f;
+                sp = new Vector3(sp.x * side, sp.y, sp.z) * 1.3f;
+                sr = new Vector3(sr.x, sr.y * side, sr.z * side) * 1.3f;
+                p = RightIdle + sp;
+                r = Quaternion.Euler(sr) * ForwardIdle;
+                leftHand.root.gameObject.SetActive(false);
+            }
+            else if (t < KataSheathe)
+            {
+                // To the hip; the blade slides home along the sheath at the end
+                float a = Ease(t, KataCut * 2f, KataSeated);
                 p = Vector3.Lerp(RightIdle, hiltPosition, a);
                 r = Quaternion.Slerp(ForwardIdle, atHilt, a);
-                // The blade slides home along the sheath over the last part
-                inSheath = t > SwordSheathe * 0.85f;
-            }
-            else if (t < SwordRegrab)
-            {
-                p = hiltPosition;
-                r = atHilt;
-                inSheath = true;
-            }
-            else if (t < SwordOut)
-            {
-                p = Vector3.Lerp(hiltPosition, pulled, Ease(t, SwordRegrab, SwordOut));
-                r = atHilt;
+                inSheath = t >= KataSeated;
+                fade = 0.35f;
             }
             else
             {
-                float a = Ease(t, SwordOut, SwordPointed);
-                p = Vector3.Lerp(pulled, PointSpot, a) + Vector3.up * (Mathf.Sin(a * Mathf.PI) * 0.05f) + breathe * a;
-                r = Quaternion.Slerp(atHilt, PointRotation, a);
+                // Held on the hilt, breathing
+                p = hiltPosition + new Vector3(0f, Mathf.Sin(t * 2f) * 0.002f, 0f);
+                r = atHilt;
+                inSheath = true;
             }
-            // While pointing, the sword turns in the hand to carry straight on out of the front
-            // of the glove, in line with the arm
-            float onward = t < SwordOut ? 0f : Ease(t, SwordOut, SwordPointed);
+
             if (swordRelease >= 0f)
             {
-                float a = Ease(swordRelease, 0f, SwordReturn);
-                p = Vector3.Lerp(p, RightIdle, a);
-                r = Quaternion.Slerp(r, ForwardIdle, a);
-                onward *= 1f - a;
+                // Drawn back out: grip, pull clear along the sheath, swing up to ready
+                float s = swordRelease;
+                inSheath = s < 0.22f;
+                fade = 0.35f;
+                if (s < 0.22f) { p = hiltPosition; r = atHilt; }
+                else if (s < 0.45f) { p = Vector3.Lerp(hiltPosition, pulled, Ease(s, 0.22f, 0.45f)); r = atHilt; }
+                else
+                {
+                    float a = Ease(s, 0.45f, KataDraw);
+                    p = Vector3.Lerp(pulled, RightIdle, a) + Vector3.up * (Mathf.Sin(a * Mathf.PI) * 0.05f);
+                    r = Quaternion.Slerp(atHilt, ForwardIdle, a);
+                    fade = Mathf.Lerp(0.35f, 1f, a);
+                }
             }
+
             hand.localPosition = p;
             hand.localRotation = r;
-            if (onward > 0f)
-                rightHand.grip.SetLocalPositionAndRotation(
-                    Vector3.Lerp(rightHand.grip.localPosition, PointGripSpot, onward), Quaternion.Slerp(rightHand.grip.localRotation, Quaternion.identity, onward));
             sheathed.root.gameObject.SetActive(inSheath);
             knife.root.gameObject.SetActive(!inSheath);
-            // The arm crosses the body to the hip: see-through until the point is set
-            SetArmAlpha(t < SwordOut ? 0.35f : Mathf.Lerp(0.35f, 1f, Ease(t, SwordOut, SwordPointed)));
+            SetArmAlpha(fade);
+
+            // The left hand takes the scabbard just below the mouth while the sword is sheathed
+            bool leftOn = t >= KataCut * 2f;
+            leftHand.root.gameObject.SetActive(leftOn);
+            if (leftOn)
+            {
+                Transform rig = hand.parent;
+                Vector3 onSheath = rig.InverseTransformPoint(sheath.TransformPoint(new Vector3(0f, 0.07f, 0f)));
+                leftHand.root.SetLocalPositionAndRotation(onSheath - LeftOnSheath * GripFront, LeftOnSheath);
+            }
         }
 
         // Shows a moment of the knife inspect in edit mode, for photos (negative: at rest)

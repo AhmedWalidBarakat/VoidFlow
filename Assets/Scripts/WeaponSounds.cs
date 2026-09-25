@@ -23,7 +23,9 @@ namespace VoidFlow
         public static AudioClip Dry => Get(ref dry, "Dry Fire", () => Mechanism(0.08f, (0f, 2000f, 0.6f)));
         public static AudioClip Draw => Get(ref draw, "Draw", () => Mechanism(0.25f, (0.16f, 1800f, 0.4f), slide: (0f, 0.16f, 0.2f)));
         public static AudioClip Slash => Get(ref slash, "Slash", SlashData);
-        static AudioClip tick, reveal, voidReveal, unsheathe, launch, shatter;
+        static AudioClip tick, reveal, voidReveal, unsheathe, launch, shatter, sheathe;
+        // The blade sliding home and the guard knocking against the sheath mouth
+        public static AudioClip Sheathe => Get(ref sheathe, "Sheathe", () => Mechanism(0.45f, (0.28f, 1300f, 1f), (0.3f, 2600f, 0.4f), slide: (0f, 0.28f, 0.4f)));
         // Blade scraping out of the scabbard, ending in a bright ring
         public static AudioClip Unsheathe => Get(ref unsheathe, "Unsheathe", () => Mechanism(0.6f, (0.34f, 3300f, 0.5f), (0.36f, 4700f, 0.25f), slide: (0f, 0.34f, 0.5f)));
         // Skeet: the launcher's thump and a disc shattering
