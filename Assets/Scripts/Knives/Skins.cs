@@ -24,6 +24,9 @@ namespace VoidFlow
     // Void. Mythic knives are a talon knife or butterfly knife with a flashy finish; Void knives
     // are knife-sized takes on legendary swords with glowing edges, an aura and their own
     // inspect. Cases drop Void 6% of the time.
+    // Loadout slots: the sniper is the primary, the knife the secondary, gloves go on the hands
+    public enum ItemSlot { Primary, Secondary, Hands }
+
     public static class Skins
     {
         public const float VoidChance = 0.06f;
@@ -48,6 +51,32 @@ namespace VoidFlow
             or KnifeModel.Prism or KnifeModel.Bone or KnifeModel.Lance or KnifeModel.Seraph;
 
         public static bool IsGlove(KnifeModel m) => m >= KnifeModel.Glove;
+
+        public static Skin[] Pool(ItemSlot slot) => slot switch { ItemSlot.Primary => Snipers, ItemSlot.Hands => Gloves, _ => Knives };
+        public static string SlotName(ItemSlot slot) => slot switch { ItemSlot.Primary => "PRIMARY", ItemSlot.Hands => "HANDS", _ => "SECONDARY" };
+        public static string Noun(ItemSlot slot) => slot switch { ItemSlot.Primary => "SNIPER", ItemSlot.Hands => "GLOVES", _ => "KNIFE" };
+        public static int Equipped(ItemSlot slot) => slot switch { ItemSlot.Primary => EquippedSniper, ItemSlot.Hands => EquippedGlove, _ => EquippedKnife };
+
+        // What kind of item a skin is, for cards
+        public static string KindName(Skin skin) => skin.model switch
+        {
+            var m when IsGlove(m) => m == KnifeModel.Glove ? "GLOVES" : "VOID GLOVES",
+            KnifeModel.Talon => "TALON KNIFE",
+            KnifeModel.Butterfly => "BUTTERFLY",
+            KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus => "SWORD",
+            KnifeModel.Rifle => "LONGREACH",
+            KnifeModel.Reaper => "VOID SCYTHE",
+            KnifeModel.Saber => "PLASMA SABER",
+            KnifeModel.Shardfang => "CRYSTAL DAGGER",
+            KnifeModel.Railgun => "VOID RAILGUN",
+            KnifeModel.Kukri => "VOID KUKRI",
+            KnifeModel.Claws => "VOID CLAWS",
+            KnifeModel.Axe => "VOID AXE",
+            KnifeModel.Sai => "VOID SAI",
+            KnifeModel.Spear => "VOID SPEAR",
+            KnifeModel.Kris => "VOID KRIS",
+            _ => IsRifle(skin.model) ? "VOID RIFLE" : "VOID BLADE",
+        };
 
         // Gloves: the default black pair, Mythic finishes, and Void gloves with their own add-ons
         public static readonly Skin[] Gloves =

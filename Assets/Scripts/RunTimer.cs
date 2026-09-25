@@ -44,7 +44,7 @@ namespace VoidFlow
         void Update()
         {
             var kb = Keyboard.current;
-            if (kb != null && kb.rKey.wasPressedThisFrame) { Restart(); return; }
+            if (kb != null && kb.rKey.wasPressedThisFrame && !ViewModel.InputBlocked) { Restart(); return; }
 
             Vector3 p = player.Position;
             if (!running)
@@ -124,7 +124,7 @@ namespace VoidFlow
             if (lastRun > 0f) GUI.Label(new Rect(w - 200, 40, 190, 24), "Last  " + Distance(lastRun), smallStyle);
 
             string help = Cursor.lockState == CursorLockMode.Locked
-                ? "WASD move · Space jump (hold to bhop) · R restart · Esc release mouse\n1 knife · 2 sniper · Q last weapon · Click fire · Right click scope · F inspect · E use\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
+                ? "WASD move · Space jump (hold to bhop) · R restart · Esc release mouse\n1 sniper · 2 knife · Q last weapon · Click fire · Right click scope · F inspect · E use · I inventory\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
                 : "Click to capture the mouse";
             GUI.Label(new Rect(12, h - 66, w - 24, 62), help, smallStyle);
         }

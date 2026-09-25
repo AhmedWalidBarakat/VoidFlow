@@ -674,6 +674,24 @@ namespace VoidFlow
             Physics.SyncTransforms();
         }
 
+        // A spot on the riding line of the ramp `ahead` past the one you're on, `along` (0..1)
+        // of the way down it, with its travel directions and the ramp's root: things parented
+        // to it move with the floating origin and go when the ramp does (Void Beasts)
+        public bool TrySpotAhead(int ahead, float along, out Vector3 point, out Vector3 forward, out Vector3 right, out Transform root)
+        {
+            point = forward = right = Vector3.zero;
+            root = null;
+            Segment seg = Seg(current + ahead);
+            if (seg == null || !seg.root || seg.line.Length == 0) return false;
+            int n = Mathf.Clamp(Mathf.RoundToInt(along * (seg.line.Length - 1)), 0, seg.line.Length - 1);
+            point = transform.TransformPoint(seg.line[n]);
+            int m = Mathf.Min(n, seg.path.forward.Count - 1);
+            forward = seg.path.forward[m];
+            right = seg.path.right[m];
+            root = seg.root.transform;
+            return true;
+        }
+
         // The bot's guide: a point `lookahead` metres ahead along the riding line from where
         // we are, and the line's direction here (both flat, world x/z)
         public bool TryGetGuide(Vector3 p, float lookahead, out Vector2 target, out Vector2 along)

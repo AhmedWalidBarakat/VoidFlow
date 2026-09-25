@@ -23,6 +23,8 @@ namespace VoidFlow
         public PlayerMovement player;
         [Tooltip("Any URP Lit material; the weapon and glove materials are made from it")]
         public Material template;
+        [Tooltip("Saved materials whose shader variants runtime materials use (see-through glows), so builds keep them")]
+        public Material[] keepVariants;
         [Tooltip("Field of view of the world, horizontal like CS (the same on any screen shape)")]
         public float horizontalFov = 120f;
         [Tooltip("Field of view of the hands and weapon (vertical), kept separate so they never stretch")]
@@ -47,6 +49,12 @@ namespace VoidFlow
         Weapon[] weapons;
         int current = KnifeSlot, previous = SniperSlot;
         float drawTime = 99f;
+        // Switching: the weapon in hand drops out of view before the new one comes up
+        Weapon holstering;
+        float holsterTime;
+        // Inertia: a small spring the weapon rides on, kicked by changes in your velocity
+        Vector3 inertia, inertiaVelocity, lastVelocity;
+        Vector2 lookRate;
 
         // Resting spot of the knife hand, relative to the camera (right, down, forward)
 
@@ -132,6 +140,10 @@ namespace VoidFlow
             ApplyGloves();
         }
 
+        float HolsterLength(Weapon w) => w == weapons[KnifeSlot] ? 0.12f : 0.2f; // a knife is gone in a flick, the rifle takes a moment
+
+        static void ResetPose(Weapon w) => w.root.SetLocalPositionAndRotation(w.restPosition, w.restRotation);
+
         // Builds the viewmodel outside play mode too, so editor tools can photograph it
         public void BuildNow() => Awake();
 
@@ -144,7 +156,12 @@ namespace VoidFlow
             previous = current;
             current = slot;
             drawTime = Application.isPlaying ? 0f : 99f;
-            foreach (var w in weapons) w.root.gameObject.SetActive(w == Current);
+            if (Application.isPlaying)
+            {
+                if (holstering == null) { holstering = weapons[previous]; holsterTime = 0f; }
+                else if (holstering == Current) { ResetPose(holstering); holstering = null; } // changed your mind mid-switch
+            }
+            foreach (var w in weapons) w.root.gameObject.SetActive(w == (holstering ?? Current));
             UpdateSheath();
             Play(WeaponSounds.Draw, 0.6f);
         }
@@ -200,7 +217,7 @@ namespace VoidFlow
             }
             var skin = CurrentSkin;
             Color color = Skins.RarityColor(skin.rarity);
-            const float w = 260f, h = 58f, margin = 16f;
+            const float w = 300f, h = 58f, margin = 16f;
             var box = new Rect(Screen.width - w - margin, Screen.height - h - margin, w, h);
             GUI.DrawTexture(box, panel);
             var old = GUI.color;
@@ -210,7 +227,8 @@ namespace VoidFlow
             GUI.Label(new Rect(box.x, box.y + 6f, w - 14f, 24f), skin.rarity == SkinRarity.Default ? skin.name : "★ " + skin.name, nameStyle);
             detailStyle.normal.textColor = color;
             string detail = current == SniperSlot ? SniperStatus() : "F inspect";
-            GUI.Label(new Rect(box.x, box.y + 30f, w - 14f, 20f), $"{Skins.RarityName(skin.rarity)}   ·   {detail}", detailStyle);
+            string slot = current == SniperSlot ? "PRIMARY" : "SECONDARY";
+            GUI.Label(new Rect(box.x, box.y + 30f, w - 14f, 20f), $"{slot}   ·   {Skins.RarityName(skin.rarity)}   ·   {detail}", detailStyle);
         }
 
         [Header("Crosshair")]
@@ -262,18 +280,38 @@ namespace VoidFlow
                 probe.RenderProbe();
             }
 
-            // Weapon switching: 1 knife, 2 sniper, Q last weapon, wheel toggles
+            // Weapon switching: 1 primary (sniper), 2 secondary (knife), Q last weapon, wheel toggles
             if (kb != null)
             {
-                if (kb.digit1Key.wasPressedThisFrame) Equip(KnifeSlot);
-                else if (kb.digit2Key.wasPressedThisFrame) Equip(SniperSlot);
+                if (kb.digit1Key.wasPressedThisFrame) Equip(SniperSlot);
+                else if (kb.digit2Key.wasPressedThisFrame) Equip(KnifeSlot);
                 else if (kb.qKey.wasPressedThisFrame) Equip(previous);
             }
             if (locked && mouse != null && mouse.scroll.ReadValue().y != 0f) Equip(current == KnifeSlot ? SniperSlot : KnifeSlot);
-            drawTime += dt;
+            // Switching: drop the old weapon out of view (speeding up as it goes), then draw
+            if (holstering != null)
+            {
+                holsterTime += dt;
+                float h = Mathf.Clamp01(holsterTime / HolsterLength(holstering));
+                float e = h * h;
+                holstering.root.SetLocalPositionAndRotation(
+                    holstering.restPosition + new Vector3(0f, -0.16f, -0.04f) * e,
+                    holstering.restRotation * Quaternion.Euler(40f * e, 0f, 0f));
+                if (h >= 1f)
+                {
+                    ResetPose(holstering);
+                    holstering = null;
+                    foreach (var w in weapons) w.root.gameObject.SetActive(w == Current);
+                }
+            }
+            else drawTime += dt;
 
-            // Sway: the weapon lags behind the mouse and springs back
-            Vector2 look = locked && Mouse.current != null ? Mouse.current.delta.ReadValue() : Vector2.zero;
+            // Sway: the weapon lags behind how fast you turn. Measured per second, not per
+            // frame, and smoothed, so it looks the same at any frame rate and uneven frames
+            // don't make it jitter. (`look` is in per-frame-at-60fps units, what it was tuned in.)
+            Vector2 rawLook = locked && Mouse.current != null ? Mouse.current.delta.ReadValue() : Vector2.zero;
+            lookRate = Vector2.Lerp(lookRate, dt > 0f ? rawLook / dt : Vector2.zero, 1f - Mathf.Exp(-30f * dt));
+            Vector2 look = lookRate / 60f;
             Vector3 swayTarget = new Vector3(-look.x, -look.y, 0f) * 0.0006f;
             swayTarget = Vector3.ClampMagnitude(swayTarget, 0.04f);
             sway = Vector3.SmoothDamp(sway, swayTarget, ref swayVelocity, 0.08f);
@@ -292,10 +330,29 @@ namespace VoidFlow
                 Vector3 local = transform.InverseTransformDirection(player.Velocity);
                 sideways = Mathf.Clamp(local.x / 10f, -1f, 1f);
             }
-            tilt = Vector3.Lerp(tilt, new Vector3(0f, 0f, -sideways * 6f + Mathf.Clamp(look.x * 0.05f, -4f, 4f)), dt * 8f);
+            tilt = Vector3.Lerp(tilt, new Vector3(0f, 0f, -sideways * 6f + Mathf.Clamp(look.x * 0.05f, -4f, 4f)), 1f - Mathf.Exp(-8f * dt));
 
-            anchor.localPosition = sway + bob + Vector3.up * breathe;
-            anchor.localRotation = Quaternion.Euler(tilt + new Vector3(Mathf.Clamp(look.y * 0.04f, -3f, 3f), 0f, 0f)); // mouse tilt capped so fast flicks never throw the weapon around
+            // Inertia: every change in your velocity (landing, a ramp turning you, a wall) nudges
+            // the weapon the other way on a critically damped spring, so it dips and settles
+            // without wobbling. Kicks come from the velocity change itself, so they're the same
+            // at any frame rate; it's small and capped so surfing at speed stays steady.
+            if (player)
+            {
+                Vector3 v = player.Velocity;
+                Vector3 dv = transform.InverseTransformDirection(v - lastVelocity);
+                lastVelocity = v;
+                if (dv.sqrMagnitude < 40f * 40f) inertiaVelocity -= dv * 0.05f; // bigger jumps are teleports
+            }
+            const float spring = 16f;
+            for (float left = dt; left > 0f; left -= 1f / 120f)
+            {
+                float step = Mathf.Min(left, 1f / 120f);
+                inertiaVelocity += (-spring * spring * inertia - 2f * spring * inertiaVelocity) * step;
+                inertia = Vector3.ClampMagnitude(inertia + inertiaVelocity * step, 0.02f);
+            }
+
+            anchor.localPosition = sway + bob + inertia + Vector3.up * breathe;
+            anchor.localRotation = Quaternion.Euler(tilt + new Vector3(Mathf.Clamp(look.y * 0.04f, -3f, 3f) - inertia.y * 120f, inertia.x * 60f, inertia.x * 90f)); // mouse tilt capped so fast flicks never throw the weapon around
 
             // Draw: the new weapon comes up from below the screen
             var weapon = Current;

@@ -116,7 +116,7 @@ namespace VoidFlow
         {
             Look();
 
-            var kb = Keyboard.current;
+            var kb = Inventory.IsOpen ? null : Keyboard.current;
             if (kb != null && kb.spaceKey.wasPressedThisFrame) jumpQueued = true;
 
             var input = new MoveInput
@@ -145,7 +145,7 @@ namespace VoidFlow
         {
             var mouse = Mouse.current;
             var kb = Keyboard.current;
-            if (mouse == null) return;
+            if (mouse == null || Inventory.IsOpen) return;
 
             if (Cursor.lockState != CursorLockMode.Locked)
             {

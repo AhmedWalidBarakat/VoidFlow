@@ -66,6 +66,12 @@ namespace VoidFlow.EditorTools
             timer.startZone = startZone;
             timer.spawnPoint = spawn;
 
+            // Void Beasts: flaming monsters that turn up along the course; snipe one for a Void Case
+            var beasts = new GameObject("VoidBeasts").AddComponent<VoidBeasts>();
+            beasts.course = course;
+            beasts.player = player;
+            beasts.template = rampMat;
+
             // Particle effects (CC0 sprites from Kenney's Particle Pack, Assets/Fx)
             var fx = new GameObject("Fx").AddComponent<FxLibrary>();
             fx.spark = FxMaterial("Spark", "circle_05", true, Color.white);
@@ -198,6 +204,17 @@ namespace VoidFlow.EditorTools
             var fade = ViewModel.MakeTransparent(new Material(Shader.Find("Universal Render Pipeline/Lit")));
             AssetDatabase.CreateAsset(fade, $"{Root}/ArmFade.mat");
             viewModel.fadeTemplate = fade;
+            // Flames, glows and the case reveal are see-through AND glowing; builds strip that
+            // shader variant unless a saved material uses it, and they'd draw as solid squares
+            var glowFade = ViewModel.MakeTransparent(new Material(Shader.Find("Universal Render Pipeline/Lit")));
+            glowFade.EnableKeyword("_EMISSION");
+            glowFade.SetColor("_EmissionColor", Color.white);
+            glowFade.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            AssetDatabase.CreateAsset(glowFade, $"{Root}/GlowFade.mat");
+            viewModel.keepVariants = new[] { glowFade };
+
+            // The inventory (I): loadout, unboxed skins and Void Cases, for this session
+            cam.AddComponent<Inventory>().viewModel = viewModel;
             return movement;
         }
 

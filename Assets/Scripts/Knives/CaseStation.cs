@@ -7,7 +7,10 @@ namespace VoidFlow
     // A weapon case in the start hall: an open briefcase with striped sides, light shooting
     // up out of it and its star weapon floating above. Walk up and press E to open it: a
     // strip of possible drops spins past and slows to a stop on what you got (Void 6% of the
-    // time, otherwise Mythic), which is then equipped.
+    // time, otherwise Mythic), which is then equipped and saved to your inventory.
+    //
+    // The Void Case (from the inventory) is a CaseStation with no model: its drops come from
+    // all three pools, knives, snipers and gloves.
     //
     // The model is built when the scene loads (and in the editor), not saved into the scene.
     [ExecuteAlways]
@@ -16,6 +19,7 @@ namespace VoidFlow
         public string title = "KNIFE CASE";
         public bool sniperCase;
         public bool gloveCase;
+        public bool voidCase;
         [Tooltip("Which skin floats above the case")]
         public int showcaseSkin = 1;
         public Color stripeA = new(0.08f, 0.06f, 0.12f), stripeB = new(0.55f, 0.25f, 1f), rayColor = new(1f, 0.75f, 0.25f);
@@ -32,12 +36,13 @@ namespace VoidFlow
         static readonly Vector3 ShowcaseSpot = new(0f, 1.75f, -0.25f); // above the case, in front of the lid
 
         Skins.Skin[] Pool => gloveCase ? Skins.Gloves : sniperCase ? Skins.Snipers : Skins.Knives;
+        ItemSlot Slot => gloveCase ? ItemSlot.Hands : sniperCase ? ItemSlot.Primary : ItemSlot.Secondary;
 
         void OnEnable() => Build();
 
         void Start()
         {
-            if (!Application.isPlaying) return;
+            if (!Application.isPlaying || voidCase) return;
             var at = new GameObject("Sparkle Spot").transform;
             at.SetParent(transform, false);
             at.localPosition = new Vector3(0f, 1.3f, 0f);
@@ -55,7 +60,7 @@ namespace VoidFlow
         void Build()
         {
             Clear();
-            if (!template) return;
+            if (!template || voidCase) return;
             var b = new WeaponBuilder(template, gameObject.layer, true, materials);
             model = new GameObject("Case Model").transform;
             model.SetParent(transform, false);
@@ -172,14 +177,15 @@ namespace VoidFlow
         PlayerMovement player;
         ViewModel viewModel;
         AudioSource audioSource;
-        GUIStyle promptStyle, tileTop, tileName, bigStyle, smallStyle, bannerStyle;
-        bool near, opening, revealed;
+        GUIStyle promptStyle, bigStyle, smallStyle, bannerStyle;
+        bool near, opening, revealed, iconsAsked;
         float openTime, revealTime, scrollTarget;
-        int lastTick, winner;
-        readonly List<int> strip = new();
+        int lastTick;
+        (ItemSlot slot, int index) winner;
+        readonly List<(ItemSlot slot, int index)> strip = new();
 
         const int StripLength = 60, WinnerSlot = 52;
-        const float TileWidth = 170f, TileHeight = 130f, Gap = 8f, IntroTime = 0.55f, SpinTime = 6.5f;
+        const float TileWidth = 190f, TileHeight = 150f, Gap = 8f, IntroTime = 0.55f, SpinTime = 6.5f;
 
         static Texture2D burst, edgeFade;
         Transform stage, stageModel;
@@ -191,7 +197,8 @@ namespace VoidFlow
         readonly List<Bit> confetti = new();
 
         float Spin => Mathf.Clamp01((Time.time - openTime - IntroTime) / SpinTime);
-        bool IsVoid => Pool[winner].rarity == SkinRarity.Void;
+        Skins.Skin Won => Skins.Pool(winner.slot)[winner.index];
+        bool IsVoid => Won.rarity == SkinRarity.Void;
 
         void Update()
         {
@@ -235,10 +242,12 @@ namespace VoidFlow
                 UpdateConfetti(Time.deltaTime);
                 return;
             }
-            if (!player) return;
+            if (!player || voidCase) return;
             Vector3 d = player.Position - transform.position;
             d.y = 0f;
             near = d.magnitude < useRange && !ViewModel.InputBlocked;
+            // Get the pictures for this case ready as you walk up
+            if (d.magnitude < useRange * 3f && !iconsAsked) { iconsAsked = true; ItemIcons.RequestAll(Slot, true); }
             if (near && ePressed) Open();
         }
 
@@ -246,8 +255,8 @@ namespace VoidFlow
         {
             // Fill the strip with random drops, then put the real one where it will stop
             strip.Clear();
-            for (int i = 0; i < StripLength; i++) strip.Add(Skins.Roll(Pool));
-            winner = Skins.Roll(Pool);
+            for (int i = 0; i < StripLength; i++) strip.Add(RollItem());
+            winner = RollItem();
             strip[WinnerSlot] = winner;
             scrollTarget = WinnerSlot * (TileWidth + Gap) + TileWidth * Random.Range(0.08f, 0.92f);
             openTime = Time.time;
@@ -260,6 +269,21 @@ namespace VoidFlow
             Play(WeaponSounds.Slash, 0.6f, 0.7f);
         }
 
+        // A random drop: from this case's pool, or for the Void Case from any of the three
+        (ItemSlot, int) RollItem()
+        {
+            var slot = voidCase ? (ItemSlot)Random.Range(0, 3) : Slot;
+            return (slot, Skins.Roll(Skins.Pool(slot)));
+        }
+
+        // Opens it from outside (the inventory opens Void Cases this way)
+        public void OpenNow()
+        {
+            if (opening) return;
+            Open();
+            foreach (var (slot, index) in strip) ItemIcons.Request(slot, index, true);
+        }
+
         // How far the strip has moved at s (0..1 of the spin): fast, then a long slow-down
         float Scroll(float s) => scrollTarget * (1f - Mathf.Pow(1f - Mathf.Clamp01(s), 4.5f));
 
@@ -268,7 +292,7 @@ namespace VoidFlow
             revealed = true;
             revealTime = Time.time;
             ViewModel.HideWeapons = true;
-            Color color = Skins.RarityColor(Pool[winner].rarity);
+            Color color = Skins.RarityColor(Won.rarity);
             Play(WeaponSounds.Launch, 1f, 0.7f);
             Play(IsVoid ? WeaponSounds.VoidReveal : WeaponSounds.Reveal, 0.9f);
             if (IsVoid) Play(WeaponSounds.Shatter, 0.7f, 0.6f);
@@ -285,12 +309,8 @@ namespace VoidFlow
             ClearStage();
             confetti.Clear();
             if (!viewModel) viewModel = FindAnyObjectByType<ViewModel>();
-            if (viewModel)
-            {
-                if (gloveCase) viewModel.EquipGloveSkin(winner);
-                else if (sniperCase) viewModel.EquipSniperSkin(winner);
-                else viewModel.EquipKnifeSkin(winner);
-            }
+            if (viewModel) viewModel.EquipSkin(winner.slot, winner.index);
+            Inventory.Add(winner.slot, winner.index);
         }
 
         void Play(AudioClip clip, float volume, float pitch = 1f)
@@ -400,9 +420,15 @@ namespace VoidFlow
             var holder = new GameObject("Holder").transform;
             holder.SetParent(stageModel, false);
             var builder = new WeaponBuilder(template, layer, false, stageMaterials);
-            var skin = Pool[winner];
-            stageParts = gloveCase ? builder.GloveModel(skin, holder) : sniperCase ? builder.Rifle(skin, holder) : builder.Knife(skin, holder);
-            if (sniperCase) holder.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            var skin = Won;
+            bool rifle = winner.slot == ItemSlot.Primary;
+            stageParts = winner.slot switch
+            {
+                ItemSlot.Hands => builder.GloveModel(skin, holder),
+                ItemSlot.Primary => builder.Rifle(skin, holder),
+                _ => builder.Knife(skin, holder),
+            };
+            if (rifle) holder.localRotation = Quaternion.Euler(0f, 90f, 0f);
             var bounds = new Bounds();
             bool first = true;
             // Measure from the meshes themselves (new renderers have no bounds until drawn)
@@ -420,7 +446,7 @@ namespace VoidFlow
             }
             float big = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
             holder.localPosition -= bounds.center;
-            stageModel.localScale = Vector3.one * ((sniperCase ? 0.6f : 0.42f) / Mathf.Max(big, 0.01f));
+            stageModel.localScale = Vector3.one * ((rifle ? 0.6f : 0.42f) / Mathf.Max(big, 0.01f));
 
             // A light so it shines
             var light = new GameObject("Light").AddComponent<Light>();
@@ -441,8 +467,9 @@ namespace VoidFlow
             stage.localScale = Vector3.one * Mathf.Max(0.01f, pop);
             float whirl = (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 0.8f))) * 720f;
             // Knives turn round and round; a rifle sways side-on so you always see all of it
-            float yaw = sniperCase ? Mathf.Sin(t * 1.2f) * 28f + whirl : t * 80f + whirl;
-            stageModel.localRotation = Quaternion.Euler(sniperCase ? 8f : 12f, yaw, sniperCase ? 0f : -8f);
+            bool rifle = winner.slot == ItemSlot.Primary;
+            float yaw = rifle ? Mathf.Sin(t * 1.2f) * 28f + whirl : t * 80f + whirl;
+            stageModel.localRotation = Quaternion.Euler(rifle ? 8f : 12f, yaw, rifle ? 0f : -8f);
             stageModel.localPosition = new Vector3(0f, Mathf.Sin(t * 2f) * 0.008f, 0f);
             stageParts?.Animate(Time.time, -1f);
             // Rays spin opposite ways and breathe; the shockwave rushes out and fades
@@ -536,8 +563,6 @@ namespace VoidFlow
                 return;
             }
 
-            tileTop ??= new GUIStyle(GUI.skin.label) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperLeft, normal = { textColor = Color.white } };
-            tileName ??= new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.LowerLeft, wordWrap = true, normal = { textColor = Color.white } };
             bigStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             smallStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.9f, 0.9f, 0.95f) } };
             bannerStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = Color.white } };
@@ -605,7 +630,8 @@ namespace VoidFlow
             {
                 float x = i * (TileWidth + Gap) - scroll;
                 if (x > stripWidth || x + TileWidth < 0f) continue;
-                DrawTile(new Rect(x, 0f, TileWidth, TileHeight), Pool[strip[i]], intro);
+                var (slot, index) = strip[i];
+                UiArt.Card(new Rect(x, 0f, TileWidth, TileHeight), Skins.Pool(slot)[index], ItemIcons.Get(slot, index), intro, 0f, Time.time, i);
             }
             // Edges fade into the dark
             GUI.color = Color.white;
@@ -623,12 +649,12 @@ namespace VoidFlow
 
         void DrawReveal(float t, float w, float h)
         {
-            var skin = Pool[winner];
+            var skin = Won;
             Color color = Skins.RarityColor(skin.rarity);
             var matrix = GUI.matrix;
 
             // Sniper case: crosshairs close in and lock on
-            if (sniperCase && t < 0.45f)
+            if (winner.slot == ItemSlot.Primary && t < 0.45f)
             {
                 float k = Mathf.SmoothStep(0f, 1f, t / 0.45f), gap = Mathf.Lerp(h * 0.45f, 18f, k);
                 GUI.color = rayColor;
@@ -657,7 +683,7 @@ namespace VoidFlow
             GUI.color = new Color(color.r, color.g, color.b, 0.85f);
             GUI.DrawTexture(new Rect(-w + slide * w, by, w, 44f), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(-w + slide * w, by, w, 44f), $"{Skins.RarityName(skin.rarity).ToUpper()}  ·  {(gloveCase ? "GLOVES" : sniperCase ? "SNIPER" : "KNIFE")} UNBOXED", bannerStyle);
+            GUI.Label(new Rect(-w + slide * w, by, w, 44f), $"{Skins.RarityName(skin.rarity).ToUpper()}  ·  {Skins.Noun(winner.slot)} UNBOXED", bannerStyle);
 
             // The name pops in
             float pop = t < 0.3f ? 0f : ElasticOut(Mathf.Clamp01((t - 0.3f) / 0.5f));
@@ -672,58 +698,8 @@ namespace VoidFlow
             if (t > 0.9f)
             {
                 GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01((t - 0.9f) * 3f) * (0.6f + 0.4f * Mathf.Sin(t * 4f)));
-                GUI.Label(new Rect(0f, by + 56f, w, 24f), "[E] or click to equip", smallStyle);
+                GUI.Label(new Rect(0f, by + 56f, w, 24f), "[E] or click to equip   ·   saved to your inventory  [ I ]", smallStyle);
             }
-        }
-
-        void DrawTile(Rect r, Skins.Skin skin, float alpha)
-        {
-            Color rarity = Skins.RarityColor(skin.rarity);
-            // A swatch of the finish fills the tile
-            var look = KnifeFinishes.Get(skin.finish);
-            Texture swatch = look.albedo ? look.albedo : look.emission;
-            GUI.color = new Color(0.12f, 0.12f, 0.15f, alpha);
-            GUI.DrawTexture(r, Texture2D.whiteTexture);
-            if (swatch)
-            {
-                GUI.color = skin.rarity == SkinRarity.Void ? new Color(rarity.r, rarity.g, rarity.b, alpha) : new Color(1f, 1f, 1f, alpha);
-                GUI.DrawTextureWithTexCoords(r, swatch, new Rect(0.1f, 0.1f, 0.5f, 0.5f * r.height / r.width));
-            }
-            // Darken the bottom for the text, rarity glow along it
-            GUI.color = new Color(0f, 0f, 0f, 0.55f * alpha);
-            GUI.DrawTexture(new Rect(r.x, r.y + r.height * 0.45f, r.width, r.height * 0.55f), Texture2D.whiteTexture);
-            GUI.color = new Color(rarity.r, rarity.g, rarity.b, 0.35f * alpha);
-            GUI.DrawTexture(new Rect(r.x, r.yMax - 18f, r.width, 12f), Texture2D.whiteTexture);
-            GUI.color = new Color(rarity.r, rarity.g, rarity.b, alpha);
-            GUI.DrawTexture(new Rect(r.x, r.yMax - 6f, r.width, 6f), Texture2D.whiteTexture);
-            GUI.color = new Color(1f, 1f, 1f, alpha);
-            string kind = skin.model switch
-            {
-                var m when Skins.IsGlove(m) => m == KnifeModel.Glove ? "GLOVES" : "VOID GLOVES",
-                KnifeModel.Talon => "TALON KNIFE",
-                KnifeModel.Butterfly => "BUTTERFLY",
-                KnifeModel.Rifle => "LONGREACH",
-                KnifeModel.Reaper => "VOID SCYTHE",
-                KnifeModel.Saber => "PLASMA SABER",
-                KnifeModel.Shardfang => "CRYSTAL DAGGER",
-                KnifeModel.Railgun => "VOID RAILGUN",
-                KnifeModel.Hellfire => "VOID RIFLE",
-                KnifeModel.Kukri => "VOID KUKRI",
-                KnifeModel.Claws => "VOID CLAWS",
-                KnifeModel.Axe => "VOID AXE",
-                KnifeModel.Sai => "VOID SAI",
-                KnifeModel.Spear => "VOID SPEAR",
-                KnifeModel.Kris => "VOID KRIS",
-                KnifeModel.Prism or KnifeModel.Bone or KnifeModel.Lance or KnifeModel.Seraph => "VOID RIFLE",
-                _ => "VOID BLADE",
-            };
-            tileTop.normal.textColor = Color.white;
-            GUI.Label(new Rect(r.x + 8f, r.y + 6f, r.width - 16f, 18f), $"★ {kind}", tileTop);
-            int bar = skin.name.IndexOf('|');
-            string finish = bar >= 0 ? skin.name.Substring(bar + 1).Trim() : skin.name;
-            GUI.Label(new Rect(r.x + 8f, r.y + 40f, r.width - 16f, r.height - 62f), finish, tileName);
-            tileTop.normal.textColor = rarity;
-            GUI.Label(new Rect(r.x + 8f, r.yMax - 24f, r.width - 16f, 18f), Skins.RarityName(skin.rarity).ToUpper(), tileTop);
         }
     }
 }

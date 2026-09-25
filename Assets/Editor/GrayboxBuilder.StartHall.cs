@@ -173,6 +173,34 @@ namespace VoidFlow.EditorTools
                 Label("GLOVES\nwalk up + E to try on", hall, new Vector3(lane, 7.5f, HallBack + 0.15f), 180f, 1f, Color.white);
             }
 
+            // "Press I for inventory": a big glowing sign on the right wall behind the cases, with
+            // a keycap that bobs as if it's being pressed
+            {
+                var sign = new GameObject("InventorySign").transform;
+                sign.SetParent(hall, false);
+                sign.SetPositionAndRotation(new Vector3(right - 0.06f, 4.6f, HallBack + 25f), Quaternion.Euler(0f, 90f, 0f));
+                Material hot = MakeGlow("GlowInventory", new Color(1f, 0.3f, 0.75f), 1.8f);
+                Material cap = MakeGlow("GlowKeycap", new Color(0.85f, 0.78f, 1f), 0.7f);
+                Material capTop = MakeGlow("GlowKeycapTop", new Color(0.95f, 0.9f, 1f), 1.2f);
+                Deco("SignPanel", sign, new Vector3(0f, 0f, 0.06f), new Vector3(8.2f, 2.8f, 0.12f), Quaternion.identity, dark, local: true);
+                foreach (float y in new[] { -1.45f, 1.45f })
+                    Deco("SignEdge", sign, new Vector3(0f, y, -0.02f), new Vector3(8.4f, 0.1f, 0.1f), Quaternion.identity, hot, local: true);
+                foreach (float x in new[] { -4.15f, 4.15f })
+                    Deco("SignEdge", sign, new Vector3(x, 0f, -0.02f), new Vector3(0.1f, 3f, 0.1f), Quaternion.identity, purple, local: true);
+                var key = new GameObject("Keycap").transform;
+                key.SetParent(sign, false);
+                key.localPosition = new Vector3(-3.05f, 0f, -0.2f);
+                Deco("KeycapBase", key, Vector3.zero, new Vector3(1.7f, 1.7f, 0.4f), Quaternion.identity, cap, local: true);
+                Deco("KeycapTop", key, new Vector3(0f, 0.04f, -0.22f), new Vector3(1.4f, 1.4f, 0.06f), Quaternion.identity, capTop, local: true);
+                Label("I", key, new Vector3(0f, 0.06f, -0.28f), 0f, 1.25f, new Color(0.18f, 0.06f, 0.3f), local: true);
+                var bob = key.gameObject.AddComponent<Floaty>();
+                bob.spin = Vector3.zero;
+                bob.bobHeight = 0.07f;
+                bob.bobSpeed = 2.2f;
+                Label("INVENTORY", sign, new Vector3(1.05f, 0.35f, -0.03f), 0f, 0.95f, Color.white, local: true);
+                Label("press  I  to open", sign, new Vector3(1.05f, -0.7f, -0.03f), 0f, 0.42f, new Color(1f, 0.55f, 0.85f), local: true);
+            }
+
             // Skeet range at the back right: a launcher throws discs up and across the hall,
             // you snipe them before they land. Start button on a pedestal nearby.
             var range = new GameObject("SkeetRange").AddComponent<SkeetRange>();

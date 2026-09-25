@@ -76,12 +76,20 @@ namespace VoidFlow
         // The world camera's view: the chosen horizontal FOV, or the scope's when zoomed. The
         // mouse slows by the same amount the view shrinks (the tangent of half the angle), so
         // aiming feels the same at every zoom.
+        float shownFov;
+
         void ApplyFov()
         {
             if (!view) return;
             float aspect = view.aspect > 0f ? view.aspect : 16f / 9f;
             baseFov = Camera.HorizontalToVerticalFieldOfView(horizontalFov, aspect);
-            float h = zoom > 0 ? ZoomFov[zoom] : horizontalFov;
+            // The scope zooms in over about a tenth of a second instead of snapping (quick
+            // enough to stay responsive); the mouse slows along with the view as it goes
+            float target = zoom > 0 ? ZoomFov[zoom] : horizontalFov;
+            if (shownFov <= 0f || !Application.isPlaying) shownFov = target;
+            else shownFov = Mathf.Lerp(shownFov, target, 1f - Mathf.Exp(-30f * Time.unscaledDeltaTime));
+            if (Mathf.Abs(shownFov - target) < 0.05f) shownFov = target;
+            float h = shownFov;
             view.fieldOfView = Camera.HorizontalToVerticalFieldOfView(h, aspect);
             if (player && baseSens > 0f)
                 player.sensitivity = baseSens * Mathf.Tan(h * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(horizontalFov * 0.5f * Mathf.Deg2Rad);
@@ -189,12 +197,13 @@ namespace VoidFlow
                 if (player && hit.collider.transform.IsChildOf(player.transform)) continue;
                 if (hit.distance < bestDistance) { best = hit; bestDistance = hit.distance; }
             }
-            // Skeet discs are triggers: break the nearest one in front of whatever else was hit
-            SkeetTarget disc = null;
+            // Skeet discs and Void Beasts are triggers: break the nearest one in front of whatever
+            // else was hit
+            ISnipeTarget disc = null;
             float discDistance = bestDistance;
             foreach (var hit in Physics.RaycastAll(ray, Range, ~0, QueryTriggerInteraction.Collide))
-                if (hit.distance < discDistance && hit.collider.TryGetComponent(out SkeetTarget target)) { disc = target; discDistance = hit.distance; }
-            if (disc)
+                if (hit.distance < discDistance && hit.collider.TryGetComponent(out ISnipeTarget target)) { disc = target; discDistance = hit.distance; }
+            if (disc != null)
             {
                 end = ray.GetPoint(discDistance);
                 disc.Break();
@@ -222,7 +231,7 @@ namespace VoidFlow
                 tracerMat.SetColor("_EmissionColor", tc * (style == FxLibrary.ShotStyle.Beam ? 6f : 3f));
             }
             tracerBeam = style == FxLibrary.ShotStyle.Beam;
-            FxLibrary.BulletTrail(muzzle, end, disc || bestDistance < float.MaxValue, style, tint);
+            FxLibrary.BulletTrail(muzzle, end, disc != null || bestDistance < float.MaxValue, style, tint);
             FxLibrary.MuzzleSmoke(v.position + v.right * 0.12f - v.up * 0.08f + v.forward * 1.1f, v.forward);
         }
 

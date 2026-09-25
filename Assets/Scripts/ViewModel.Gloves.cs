@@ -22,6 +22,13 @@ namespace VoidFlow
             Play(WeaponSounds.Draw, 0.6f);
         }
 
+        public void EquipSkin(ItemSlot slot, int index)
+        {
+            if (slot == ItemSlot.Primary) EquipSniperSkin(index);
+            else if (slot == ItemSlot.Hands) EquipGloveSkin(index);
+            else EquipKnifeSkin(index);
+        }
+
         void ApplyGloves()
         {
             foreach (var kit in gloveKits) if (kit.root) Kill(kit.root.gameObject);

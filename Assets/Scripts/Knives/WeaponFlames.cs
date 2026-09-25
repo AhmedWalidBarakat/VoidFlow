@@ -15,7 +15,11 @@ namespace VoidFlow
         public float size = 0.03f;   // tongue height in the weapon's own units
         public float rise = 0.05f;   // how far a tongue climbs before it fades
         [Range(0f, 1f)] public float boost;
+        // Only the bright tongues, no dark smoke (item pictures, where smoke reads as blots)
+        public bool brightOnly;
         public Material template;
+        // When set, flames face this camera instead of the main one (item pictures)
+        public static Camera Facing;
 
         readonly List<Vector3> points = new();
         readonly List<(MeshRenderer r, int point, float phase, float speed, bool bright)> tongues = new();
@@ -82,12 +86,13 @@ namespace VoidFlow
             float dt = Application.isPlaying ? Time.deltaTime : 0.016f;
             shown = Mathf.MoveTowards(shown, boost, dt * 3f);
             float roar = 1f + shown * 0.9f;
-            var cam = Camera.main;
+            var cam = Facing ? Facing : Camera.main;
             // Flames rise in the world, whichever way the weapon is turned
             Vector3 up = transform.InverseTransformDirection(Vector3.up);
             foreach (var (r, point, phase, speed, bright) in tongues)
             {
                 if (!r) continue;
+                r.enabled = bright || !brightOnly;
                 float u = Mathf.Repeat(time * speed * (1f + shown * 0.5f) + phase, 1f);
                 Vector3 at = points[point] + up * (u * rise * roar) + new Vector3(Mathf.Sin(time * 5f + phase * 20f), 0f, Mathf.Cos(time * 4f + phase * 13f)) * (size * 0.12f);
                 r.transform.localPosition = at;

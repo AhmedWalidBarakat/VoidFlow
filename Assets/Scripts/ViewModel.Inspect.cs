@@ -735,6 +735,9 @@ namespace VoidFlow
         {
             m.SetFloat("_Surface", 1f);
             m.SetFloat("_Blend", 0f);
+            // Plain alpha blending, no premultiply: the same keywords a saved material keeps, so
+            // builds (which strip shader variants no material uses) still have this one
+            m.SetFloat("_BlendModePreserveSpecular", 0f);
             m.SetOverrideTag("RenderType", "Transparent");
             m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
             m.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);

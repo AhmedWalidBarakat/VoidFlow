@@ -398,7 +398,7 @@ namespace VoidFlow
         }
 
         // Living flames at the given points (weapon space), in the weapon's burning color
-        void AddFlames(WeaponParts parts, List<Vector3> at, float size, float rise)
+        public void AddFlames(WeaponParts parts, List<Vector3> at, float size, float rise)
         {
             var holder = new GameObject("Flames");
             holder.layer = layer;
@@ -428,7 +428,7 @@ namespace VoidFlow
 
         // A faceted crystal: a bipyramid with `sides` flat faces, widest a third of the way up,
         // flat-shaded so every facet catches the light on its own
-        static Mesh CrystalMesh(float height, float radius, int sides, float twist)
+        public static Mesh CrystalMesh(float height, float radius, int sides, float twist)
         {
             var verts = new List<Vector3>();
             var tris = new List<int>();
@@ -730,6 +730,71 @@ namespace VoidFlow
             }
             // Flames licking up off the knuckles
             AddFlames(parts, new List<Vector3> { new(-0.025f, top, back), new(0f, top + 0.004f, back), new(0.025f, top, back) }, 0.05f, 0.06f);
+        }
+
+        // The Void Case, for its picture: a dark armoured crate with glowing edges, a burning
+        // emblem on the front, chrome corners and handle, crystals breaking out of the lid seam
+        // and violet flames licking up around the top
+        public WeaponParts VoidCaseModel(Transform parent)
+        {
+            var root = new GameObject("Void Case").transform;
+            root.SetParent(parent, false);
+            var parts = new WeaponParts { root = root, rarity = SkinRarity.Void, hue = new Color(0.85f, 0.3f, 1f) };
+            Color violet = new(0.62f, 0.2f, 1f), pink = new(1f, 0.3f, 0.7f);
+            Material shell = Mat(new Color(0.1f, 0.05f, 0.18f), 0.93f, 0.8f);
+            Material panel = Mat(new Color(0.05f, 0.03f, 0.08f), 0.7f, 0.5f);
+            Material chrome = Mat(new Color(0.88f, 0.88f, 0.95f), 0.97f, 1f);
+            Material edge = Glow(violet, 3.4f, parts);
+            Material hot = Glow(pink, 4f, parts);
+            Material white = Glow(new Color(1f, 0.85f, 1f), 5f, parts);
+            const float w = 1f, h = 0.62f, d = 0.6f, e = 0.028f;
+            var t = root;
+            Part(t, PrimitiveType.Cube, shell, Vector3.zero, new Vector3(w, h, d));
+            // Inset front and side panels
+            Part(t, PrimitiveType.Cube, panel, new Vector3(0f, -0.05f, -d / 2f - 0.004f), new Vector3(w - 0.14f, h * 0.55f, 0.01f));
+            foreach (float sx in new[] { -1f, 1f })
+                Part(t, PrimitiveType.Cube, panel, new Vector3(sx * (w / 2f + 0.004f), -0.05f, 0f), new Vector3(0.01f, h * 0.55f, d - 0.14f));
+            // Lid seam
+            Part(t, PrimitiveType.Cube, hot, new Vector3(0f, h * 0.2f, 0f), new Vector3(w + 0.014f, 0.032f, d + 0.014f));
+            // Glowing edges all round
+            foreach (float a in new[] { -1f, 1f })
+            foreach (float b in new[] { -1f, 1f })
+            {
+                Part(t, PrimitiveType.Cube, edge, new Vector3(0f, a * h / 2f, b * d / 2f), new Vector3(w + e, e, e));
+                Part(t, PrimitiveType.Cube, edge, new Vector3(a * w / 2f, 0f, b * d / 2f), new Vector3(e, h + e, e));
+                Part(t, PrimitiveType.Cube, edge, new Vector3(a * w / 2f, b * h / 2f, 0f), new Vector3(e, e, d + e));
+            }
+            // Chrome corner caps
+            foreach (float x in new[] { -1f, 1f })
+            foreach (float y in new[] { -1f, 1f })
+            foreach (float z in new[] { -1f, 1f })
+                Part(t, PrimitiveType.Cube, chrome, new Vector3(x * w / 2f, y * h / 2f, z * d / 2f), Vector3.one * 0.075f);
+            // Emblem: a burning ring with a V inside
+            var front = new Vector3(0f, -0.05f, -d / 2f - 0.016f);
+            MeshPart(t, hot, Torus(0.15f, 0.018f, 40, 8), front, Quaternion.identity);
+            MeshPart(t, edge, Torus(0.19f, 0.006f, 40, 6), front, Quaternion.identity);
+            foreach (float sx in new[] { -1f, 1f })
+                Part(t, PrimitiveType.Cube, white, front + new Vector3(sx * 0.042f, 0.012f, -0.004f), new Vector3(0.034f, 0.19f, 0.02f), Quaternion.Euler(0f, 0f, sx * 22f));
+            // Latches and handle
+            foreach (float sx in new[] { -0.3f, 0.3f })
+                Part(t, PrimitiveType.Cube, chrome, new Vector3(sx, h * 0.2f, -d / 2f - 0.02f), new Vector3(0.07f, 0.1f, 0.035f));
+            foreach (float sx in new[] { -0.18f, 0.18f }) Rod(t, chrome, new Vector3(sx, h / 2f, 0f), new Vector3(sx, h / 2f + 0.08f, 0f), 0.03f);
+            Rod(t, chrome, new Vector3(-0.2f, h / 2f + 0.08f, 0f), new Vector3(0.2f, h / 2f + 0.08f, 0f), 0.032f);
+            // Crystals breaking out of the seam
+            var random = new System.Random(7);
+            for (int k = 0; k < 6; k++)
+            {
+                float x = (k % 3 - 1) * 0.36f + ((float)random.NextDouble() - 0.5f) * 0.08f;
+                float z = (k < 3 ? -1f : 1f) * (d / 2f - 0.04f);
+                var tiltBy = Quaternion.Euler((k < 3 ? -1f : 1f) * (25f + (float)random.NextDouble() * 20f), 0f, ((float)random.NextDouble() - 0.5f) * 50f);
+                MeshPart(t, k % 2 == 0 ? hot : edge, CrystalMesh(0.16f + (float)random.NextDouble() * 0.14f, 0.035f, 5, 0.3f), new Vector3(x, h * 0.22f, z), tiltBy);
+            }
+            // Flames around the top
+            var at = new List<Vector3>();
+            for (int k = 0; k < 7; k++) at.Add(new Vector3(-0.42f + k * 0.14f, h / 2f, -d / 2f + 0.06f));
+            for (int k = 0; k < 5; k++) at.Add(new Vector3(-0.36f + k * 0.18f, h / 2f, d / 2f - 0.06f));
+            AddFlames(parts, at, 0.26f, 0.3f);
+            return parts;
         }
 
         // A plain dark grip with glowing bands and a pommel, for the Void specials
