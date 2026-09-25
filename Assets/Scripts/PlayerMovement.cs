@@ -66,6 +66,13 @@ namespace VoidFlow
             velocity = Vector3.ClampMagnitude(new Vector3(velocity.x * factor, velocity.y, velocity.z * factor), maxVelocity);
         }
 
+        // Noclip: double tap Space to fly freely through everything (to look over the course),
+        // double tap again to drop back into normal movement. W/S fly where you look, A/D
+        // strafe, hold Space to rise, Ctrl to sink, Shift to go fast.
+        public bool Flying { get; private set; }
+        public float flySpeed = 25f, flyFastSpeed = 90f;
+        float lastSpaceTap = -99f;
+
         public Vector3 Position => position;
         public Vector3 Velocity => velocity;
         public bool Grounded => grounded;
@@ -131,7 +138,26 @@ namespace VoidFlow
             Look();
 
             var kb = Inventory.IsOpen ? null : Keyboard.current;
-            if (kb != null && kb.spaceKey.wasPressedThisFrame) jumpQueued = true;
+            if (kb != null && kb.spaceKey.wasPressedThisFrame)
+            {
+                if (Time.unscaledTime - lastSpaceTap < 0.3f)
+                {
+                    Flying = !Flying;
+                    lastSpaceTap = -99f;
+                    jumpQueued = false;
+                    if (!Flying) velocity = Vector3.zero; // drop from where you are
+                }
+                else
+                {
+                    lastSpaceTap = Time.unscaledTime;
+                    jumpQueued = true;
+                }
+            }
+            if (Flying)
+            {
+                Fly(kb, Time.deltaTime);
+                return;
+            }
 
             var input = new MoveInput
             {
@@ -152,6 +178,24 @@ namespace VoidFlow
             transform.SetPositionAndRotation(
                 Vector3.Lerp(prevPosition, position, accumulator / dt),
                 Quaternion.Euler(0f, yaw, 0f));
+            if (cameraPivot) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        }
+
+        void Fly(Keyboard kb, float dt)
+        {
+            Vector2 move = ReadMoveInput(kb);
+            var view = Quaternion.Euler(pitch, yaw, 0f);
+            Vector3 wish = view * new Vector3(move.x, 0f, move.y);
+            if (kb != null && kb.spaceKey.isPressed) wish += Vector3.up;
+            if (kb != null && (kb.leftCtrlKey.isPressed || kb.cKey.isPressed)) wish += Vector3.down;
+            float speed = kb != null && kb.leftShiftKey.isPressed ? flyFastSpeed : flySpeed;
+            // Eases to the wanted velocity, so starting and stopping feel smooth
+            velocity = Vector3.Lerp(velocity, Vector3.ClampMagnitude(wish, 1f) * speed, 1f - Mathf.Exp(-8f * dt));
+            position += velocity * dt;
+            prevPosition = position;
+            accumulator = 0f;
+            grounded = false;
+            transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 0f));
             if (cameraPivot) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
 

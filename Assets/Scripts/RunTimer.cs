@@ -50,7 +50,9 @@ namespace VoidFlow
             if (!running)
             {
                 if (startZone.bounds.Contains(p + Vector3.up * 0.9f))
-                    player.LimitHorizontalSpeed(startZoneSpeedCap * PlayerMovement.SourceUnit);
+                {
+                    if (!player.Flying) player.LimitHorizontalSpeed(startZoneSpeedCap * PlayerMovement.SourceUnit);
+                }
                 else
                 {
                     running = true;
@@ -60,7 +62,7 @@ namespace VoidFlow
                 }
             }
 
-            if (course.IsFallen(p))
+            if (course.IsFallen(p) && !player.Flying)
             {
                 // No checkpoints: a fall ends the run
                 if (running)
@@ -73,7 +75,7 @@ namespace VoidFlow
                 return;
             }
 
-            if (running && course.Progress > best)
+            if (running && !player.Flying && course.Progress > best)
             {
                 best = course.Progress;
                 PlayerPrefs.SetFloat(BestKey, best);
@@ -123,8 +125,10 @@ namespace VoidFlow
             if (best > 0f) GUI.Label(new Rect(w - 200, 20, 190, 24), "Best  " + Distance(best), smallStyle);
             if (lastRun > 0f) GUI.Label(new Rect(w - 200, 40, 190, 24), "Last  " + Distance(lastRun), smallStyle);
 
+            if (player.Flying)
+                GUI.Label(new Rect(0, 84, w, 24), "NOCLIP   ·   WASD fly · Space up · Ctrl down · Shift fast · double tap Space to land", centeredStyle);
             string help = Cursor.lockState == CursorLockMode.Locked
-                ? "WASD move · Space jump (hold to bhop) · R restart · Esc release mouse\n1 sniper · 2 knife · Q last weapon · Click fire · Right click scope · F inspect · E use · I inventory\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
+                ? "WASD move · Space jump (hold to bhop) · R restart · double tap Space noclip · Esc release mouse\n1 sniper · 2 knife · Q last weapon · Click fire · Right click scope · F inspect · E use · I inventory\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
                 : "Click to capture the mouse";
             GUI.Label(new Rect(12, h - 66, w - 24, 62), help, smallStyle);
         }
