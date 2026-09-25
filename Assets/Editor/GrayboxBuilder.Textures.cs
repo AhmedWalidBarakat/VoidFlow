@@ -115,6 +115,49 @@ namespace VoidFlow.EditorTools
             return new Color(shade * 0.92f, shade * 0.97f, Mathf.Min(1f, shade * 1.05f));
         });
 
+        // Sci-fi wall panels: 2x2 metal panels with bevelled edges, dark seams, corner bolts, a
+        // vent grille in one and a recessed inset in another
+        static Texture2D MakeHallPanelTexture() => Paint("HallPanel", (u, v) =>
+        {
+            int col = Mathf.FloorToInt(u * 2f), row = Mathf.FloorToInt(v * 2f);
+            float cu = u * 2f - col, cv = v * 2f - row;
+            float edge = Mathf.Min(Mathf.Min(cu, 1f - cu), Mathf.Min(cv, 1f - cv));
+            if (edge < 0.014f) return Grey(0.05f);
+            foreach (var (ru, rv) in new[] { (0.06f, 0.06f), (0.94f, 0.06f), (0.06f, 0.94f), (0.94f, 0.94f) })
+                if ((cu - ru) * (cu - ru) + (cv - rv) * (cv - rv) < 0.0006f) return Grey(0.75f);
+            float bevel = edge < 0.04f ? (cu < 0.04f || cv > 0.96f ? 0.14f : -0.1f) : 0f;
+            float shade = 0.42f + bevel + (Noise(u * 4f, v * 96f, 96, 23) - 0.5f) * 0.06f + (Mottle(u, v, 29) - 0.5f) * 0.05f;
+            if (col == 1 && row == 0 && cu > 0.18f && cu < 0.82f && cv > 0.22f && cv < 0.78f)
+                return Grey((cv * 9f % 1f) < 0.4f ? 0.08f : shade - 0.05f);
+            if (col == 0 && row == 1)
+            {
+                float inset = Mathf.Min(Mathf.Min(cu - 0.16f, 0.84f - cu), Mathf.Min(cv - 0.16f, 0.84f - cv));
+                if (Mathf.Abs(inset) < 0.01f) return Grey(0.12f);
+                if (inset > 0f) shade -= 0.06f;
+            }
+            return Grey(shade);
+        });
+
+        // Polished floor tiles: 2x2 tiles per 2m with fine dark seams and a soft sheen
+        static Texture2D MakeHallFloorTexture() => Paint("HallFloorTiles", (u, v) =>
+        {
+            float cu = u * 2f % 1f, cv = v * 2f % 1f;
+            float edge = Mathf.Min(Mathf.Min(cu, 1f - cu), Mathf.Min(cv, 1f - cv));
+            if (edge < 0.01f) return Grey(0.06f);
+            float bevel = edge < 0.025f ? 0.05f : 0f;
+            return Grey(0.36f + bevel + 0.03f * Mathf.Sin((u + v) * Mathf.PI * 2f) + (Mottle(u, v, 31) - 0.5f) * 0.05f);
+        });
+
+        // Where the floor glows: a thin line round every 2m tile and a dot where tiles meet
+        static Texture2D MakeHallFloorGlowTexture() => Paint("HallFloorGlow", (u, v) =>
+        {
+            float d = Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(v, 1f - v));
+            if (d < 0.005f) return Grey(1f);
+            if (d < 0.01f) return Grey(0.35f);
+            float c = Mathf.Sqrt((u - 0.5f) * (u - 0.5f) + (v - 0.5f) * (v - 0.5f));
+            return Grey(c < 0.012f ? 0.9f : 0f);
+        });
+
         static Color Grey(float v) => new(v, v, v, 1f);
     }
 }

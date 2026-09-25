@@ -13,6 +13,8 @@ namespace VoidFlow
         public int skinIndex;
         public bool sniper;
         public bool glove;
+        [Tooltip("Gallery piece: just to look at (shows its name up close), can't be equipped")]
+        public bool gallery;
         [Tooltip("Any URP Lit material; the model's materials are made from it")]
         public Material template;
         public float scale = 8f;
@@ -97,9 +99,11 @@ namespace VoidFlow
 
             if (!player) player = FindAnyObjectByType<PlayerMovement>();
             if (!player) return;
+            // Far across the hall, the model switches off (a gallery holds a lot of them)
+            if (model) model.gameObject.SetActive((player.Position - transform.position).sqrMagnitude < 34f * 34f);
             near = IsNearest(player.Position) && !ViewModel.InputBlocked;
             var kb = Keyboard.current;
-            if (near && kb != null && kb.eKey.wasPressedThisFrame)
+            if (near && !gallery && kb != null && kb.eKey.wasPressedThisFrame)
             {
                 if (!viewModel) viewModel = FindAnyObjectByType<ViewModel>();
                 if (!viewModel) return;
@@ -115,7 +119,10 @@ namespace VoidFlow
             style ??= new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             var skin = Skin;
             style.normal.textColor = Skins.RarityColor(skin.rarity);
-            GUI.Label(new Rect(0f, Screen.height * 0.62f, Screen.width, 30f), $"[E]  try on  ★ {skin.name}  ({Skins.RarityName(skin.rarity)})", style);
+            string text = gallery
+                ? $"★ {skin.name}   ·   {Skins.RarityName(skin.rarity)}   ·   from the Void Case"
+                : $"[E]  try on  ★ {skin.name}  ({Skins.RarityName(skin.rarity)})";
+            GUI.Label(new Rect(0f, Screen.height * 0.62f, Screen.width, 30f), text, style);
         }
     }
 }

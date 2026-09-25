@@ -3,7 +3,7 @@ using UnityEngine;
 namespace VoidFlow
 {
     // The sounds of your own movement, kept subtle and centered so they never mask what
-    // matters: footsteps by surface (the hall's wood and stone, the ramps' metal, stone or
+    // matters: footsteps by surface (the hall's tiles and metal, the ramps' metal, stone or
     // ice depending on the biome), a soft scuff when you jump, a thud when you touch down
     // that grows with how hard you hit, the hiss of surfing a ramp and wind that rises with
     // speed.
@@ -52,7 +52,7 @@ namespace VoidFlow
         {
             if (!c) return WeaponSounds.Surface.Metal;
             if (course && course.startHall && c.transform.IsChildOf(course.startHall))
-                return c.name.Contains("Floor") ? WeaponSounds.Surface.Wood : WeaponSounds.Surface.Stone;
+                return c.name.Contains("Floor") ? WeaponSounds.Surface.Stone : WeaponSounds.Surface.Metal;
             return course ? course.CurrentBiome.name switch
             {
                 "GLACIER" => WeaponSounds.Surface.Ice,
