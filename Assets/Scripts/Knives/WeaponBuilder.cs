@@ -26,14 +26,14 @@ namespace VoidFlow
         {
             KnifeModel.Karambit => 2.4f,
             KnifeModel.Butterfly => 2.3f,
-            _ => 2.6f,
+            _ => 2.9f,
         };
 
         // Keeps the model alive: aura motes drift, glow pulses, inspect moves parts.
         // `inspect` is seconds into the inspect, or negative when not inspecting.
         public void Animate(float time, float inspect)
         {
-            float burst = inspect >= 0f ? Bump(inspect, 0.5f, 1f, 2f) : 0f;
+            float burst = inspect >= 0f ? (IsSword ? Bump(inspect, 0.35f, 1.5f, 2.4f) : Bump(inspect, 0.5f, 1f, 2f)) : 0f;
             for (int i = 0; i < glowMaterials.Count; i++)
             {
                 if (!glowMaterials[i]) continue;
@@ -68,8 +68,9 @@ namespace VoidFlow
             }
             if (IsSword && root)
             {
-                // A full propeller twirl in the grip, pivoting on the middle of the handle
-                float a = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.45f, 2.05f, inspect)) * 360f : 0f;
+                // Two even turns in the grip, pivoting on the middle of the handle, easing in
+                // and out so it starts and lands cleanly on the salute
+                float a = inspect >= 0f ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.0f, 2.0f, inspect)) * 720f : 0f;
                 var spin = Quaternion.Euler(0f, 0f, a);
                 var pivot = new Vector3(0f, -0.055f, 0f);
                 root.SetLocalPositionAndRotation(pivot - spin * pivot, spin);

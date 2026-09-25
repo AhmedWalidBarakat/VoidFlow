@@ -351,6 +351,9 @@ namespace VoidFlow
         static readonly Vector3 InspectSpot = new(0.06f, -0.035f, 0.33f);
         static readonly Quaternion InspectRotation = FingersBack(new Vector3(-1f, 0f, 0.3f), new Vector3(0.3f, 0f, 1f));
         static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
+        // Swords are shown dead center, further out, so their twirl circles the middle of the
+        // screen (the hand sits right of center so the grip it holds is exactly in the middle)
+        static readonly Vector3 SwordInspectSpot = new(0.056f, 0f, 0.46f);
 
         // Places the hands for the current knife: the resting hold plus the slash offset
         // (camera space pos, rot), blended into the inspect pose while inspecting (inspect >= 0)
@@ -360,9 +363,10 @@ namespace VoidFlow
             if (PoseSwordDraw()) { knife.Animate(Application.isPlaying ? Time.time : 0f, -1f); return; }
             float length = knife.InspectLength;
             // Up in 0.3 s, hold, back down over the last 0.35 s
-            float w = inspect >= 0f ? Plateau(inspect, 0f, 0.3f, length - 0.35f, length) : 0f;
+            bool sword = knife.IsSword;
+            float w = inspect >= 0f ? Plateau(inspect, 0f, sword ? 0.35f : 0.3f, length - (sword ? 0.5f : 0.35f), length) : 0f;
             Quaternion show = InspectRotation * InspectMove(inspect);
-            hand.localPosition = Vector3.Lerp(RightIdle, InspectSpot, w) + pos;
+            hand.localPosition = Vector3.Lerp(RightIdle, sword ? SwordInspectSpot : InspectSpot, w) + pos;
             hand.localRotation = Quaternion.Euler(rot) * Quaternion.Slerp(reverse ? ReverseIdle : ForwardIdle, show, w);
             if (reverse) SetGrip(rightHand, true, -90f * w);
             leftHand.root.localPosition = LeftIdle + LeftHandAway * w;
@@ -388,10 +392,11 @@ namespace VoidFlow
                     float flips = Plateau(t, 0.4f, 0.5f, 1.55f, 1.75f);
                     return Quaternion.Euler(Mathf.Sin((t - 0.45f) * Mathf.PI * 2f / 0.4f) * 14f * flips, 0f, -8f + 10f * Ease(t, 0.3f, 2f));
                 default:
-                    // Swords: blade-up salute, a slow roll of the wrist to show off the flats while
-                    // the edge flares, then the sword twirls in the grip (see WeaponParts)
-                    float roll = Mathf.Sin(Ease(t, 0.35f, 1.35f) * Mathf.PI * 2f) * 55f;
-                    return Quaternion.Euler(0f, roll, 0f);
+                    // Swords: a blade-up salute in the middle of the screen with the flat toward
+                    // you, one slow even sway left and right while the edge flares, then two
+                    // full turns in the grip (see WeaponParts), then still again before lowering
+                    float sway = Mathf.Sin(Ease(t, 0.35f, 0.95f) * Mathf.PI * 2f) * 7f;
+                    return Quaternion.Euler(0f, 0f, sway);
             }
         }
 
