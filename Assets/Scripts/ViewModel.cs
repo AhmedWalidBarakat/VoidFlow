@@ -44,7 +44,32 @@ namespace VoidFlow
             public Transform root;
             public Vector3 restPosition;
             public Quaternion restRotation;
+            // Personality: how it sits and moves in the hand. The knife is light (quick draw,
+            // little sway, barely any inertia); the sniper is heavy (slow swing up, more lag
+            // behind the mouse, carries its momentum, softer spring)
+            public float sway = 1f, swaySmooth = 0.08f, inertia = 1f, spring = 16f, holster = 0.15f, drawVisual = 0.5f;
+            public (float t, Vector3 pos, Vector3 rot)[] drawKeys;
         }
+
+        // Draws, as (fraction of the draw, offset, rotation): up from low right into frame, a
+        // touch past rest, the glove re-gripping (a wrist roll), then settling
+        static readonly (float t, Vector3 pos, Vector3 rot)[] KnifeDrawKeys =
+        {
+            (0f, new Vector3(0.05f, -0.2f, -0.04f), new Vector3(50f, -15f, 30f)),
+            (0.45f, new Vector3(0f, 0.008f, 0.004f), new Vector3(-4f, 3f, -4f)),
+            (0.62f, new Vector3(0.002f, -0.004f, 0f), new Vector3(2f, -1f, 7f)),
+            (0.8f, new Vector3(0f, 0.002f, 0f), new Vector3(-1f, 0f, -2f)),
+            (1f, Vector3.zero, Vector3.zero),
+        };
+        // ...the sniper swings up heavier and dips into the hands with its weight
+        static readonly (float t, Vector3 pos, Vector3 rot)[] SniperDrawKeys =
+        {
+            (0f, new Vector3(0.1f, -0.26f, -0.1f), new Vector3(35f, -25f, 20f)),
+            (0.5f, new Vector3(-0.004f, 0.012f, 0.01f), new Vector3(-5f, 2f, -3f)),
+            (0.66f, new Vector3(0f, -0.01f, -0.004f), new Vector3(3f, -1f, 5f)),
+            (0.82f, new Vector3(0f, 0.003f, 0f), new Vector3(-1f, 0f, -1f)),
+            (1f, Vector3.zero, Vector3.zero),
+        };
 
         Weapon[] weapons;
         int current = KnifeSlot, previous = SniperSlot;
@@ -127,8 +152,10 @@ namespace VoidFlow
             sniperSkin = Skins.EquippedSniper;
             weapons = new[]
             {
-                new Weapon { speed = 250f, root = BuildKnifeRig(), drawTime = knife.IsSword ? SwordDrawTime : 0.6f, restPosition = Vector3.zero, restRotation = Quaternion.identity },
-                new Weapon { speed = 200f, drawTime = 1.1f, root = BuildSniper(), restPosition = SniperRest, restRotation = SniperRestRotation },
+                new Weapon { speed = 250f, root = BuildKnifeRig(), drawTime = knife.IsSword ? SwordDrawTime : 0.6f, restPosition = Vector3.zero, restRotation = Quaternion.identity,
+                    sway = 0.75f, swaySmooth = 0.06f, inertia = 0.6f, spring = 20f, holster = 0.12f, drawVisual = 0.42f, drawKeys = KnifeDrawKeys },
+                new Weapon { speed = 200f, drawTime = 1.1f, root = BuildSniper(), restPosition = SniperRest, restRotation = SniperRestRotation,
+                    sway = 1.25f, swaySmooth = 0.13f, inertia = 1.5f, spring = 12f, holster = 0.22f, drawVisual = 0.85f, drawKeys = SniperDrawKeys },
             };
             foreach (var w in weapons)
             {
@@ -140,7 +167,7 @@ namespace VoidFlow
             ApplyGloves();
         }
 
-        float HolsterLength(Weapon w) => w == weapons[KnifeSlot] ? 0.12f : 0.2f; // a knife is gone in a flick, the rifle takes a moment
+        static float HolsterLength(Weapon w) => w.holster; // a knife is gone in a flick, the rifle takes a moment
 
         static void ResetPose(Weapon w) => w.root.SetLocalPositionAndRotation(w.restPosition, w.restRotation);
 
@@ -163,7 +190,9 @@ namespace VoidFlow
             }
             foreach (var w in weapons) w.root.gameObject.SetActive(w == (holstering ?? Current));
             UpdateSheath();
-            Play(WeaponSounds.Draw, 0.6f);
+            // Putting one away rustles; the draw sound comes when the next one comes up
+            if (holstering != null) Play(WeaponSounds.Holster, 0.45f);
+            else Play(WeaponSounds.Draw, 0.6f);
         }
 
         // Puts on a knife skin (index into Skins.Knives), remembers it, and pulls it out
@@ -236,6 +265,8 @@ namespace VoidFlow
         public float crosshairSize = 5f; // dot diameter in pixels at 1080p
 
         Texture2D dot;
+        float lastShot = -99f, hitMarkerTime = -99f;
+        Color hitMarkerColor = Color.white;
 
         // A small round white dot with a faint dark edge so it reads on any background.
         // Hidden while scoped (the scope has its own lines).
@@ -253,13 +284,31 @@ namespace VoidFlow
                 }
                 dot.Apply();
             }
-            float d = Mathf.Max(3f, crosshairSize * Screen.height / 1080f);
+            float px = Screen.height / 1080f;
+            // The dot blooms for a moment when you fire, then pulls back in
+            float bloom = 1f + 0.9f * Mathf.Max(0f, 1f - (Time.time - lastShot) / 0.2f);
+            float d = Mathf.Max(3f, crosshairSize * px) * bloom;
             var center = new Vector2(Screen.width, Screen.height) * 0.5f;
             var old = GUI.color;
             GUI.color = new Color(0f, 0f, 0f, 0.6f);
             GUI.DrawTexture(new Rect(center.x - d * 0.5f - 1f, center.y - d * 0.5f - 1f, d + 2f, d + 2f), dot);
             GUI.color = crosshairDotColor;
             GUI.DrawTexture(new Rect(center.x - d * 0.5f, center.y - d * 0.5f, d, d), dot);
+
+            // Hit marker: an X that snaps out and fades when a shot breaks a target
+            float hm = Time.time - hitMarkerTime;
+            if (hm < 0.35f)
+            {
+                float a = 1f - hm / 0.35f, gap = Mathf.Max(5f, (8f + hm * 40f) * px), len = Mathf.Max(8f, 15f * px), th = Mathf.Max(2f, 3f * px);
+                var matrix = GUI.matrix;
+                GUIUtility.RotateAroundPivot(45f, center);
+                GUI.color = new Color(hitMarkerColor.r, hitMarkerColor.g, hitMarkerColor.b, a);
+                GUI.DrawTexture(new Rect(center.x + gap, center.y - th / 2f, len, th), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(center.x - gap - len, center.y - th / 2f, len, th), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(center.x - th / 2f, center.y + gap, th, len), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(center.x - th / 2f, center.y - gap - len, th, len), Texture2D.whiteTexture);
+                GUI.matrix = matrix;
+            }
             GUI.color = old;
         }
 
@@ -302,6 +351,7 @@ namespace VoidFlow
                     ResetPose(holstering);
                     holstering = null;
                     foreach (var w in weapons) w.root.gameObject.SetActive(w == Current);
+                    Play(WeaponSounds.Draw, 0.6f);
                 }
             }
             else drawTime += dt;
@@ -312,9 +362,9 @@ namespace VoidFlow
             Vector2 rawLook = locked && Mouse.current != null ? Mouse.current.delta.ReadValue() : Vector2.zero;
             lookRate = Vector2.Lerp(lookRate, dt > 0f ? rawLook / dt : Vector2.zero, 1f - Mathf.Exp(-30f * dt));
             Vector2 look = lookRate / 60f;
-            Vector3 swayTarget = new Vector3(-look.x, -look.y, 0f) * 0.0006f;
+            Vector3 swayTarget = new Vector3(-look.x, -look.y, 0f) * 0.0006f * Current.sway;
             swayTarget = Vector3.ClampMagnitude(swayTarget, 0.04f);
-            sway = Vector3.SmoothDamp(sway, swayTarget, ref swayVelocity, 0.08f);
+            sway = Vector3.SmoothDamp(sway, swayTarget, ref swayVelocity, Current.swaySmooth);
 
             // Bob with speed on the ground; strafe tilt from sideways motion
             float speed = player ? player.HorizontalSpeed : 0f;
@@ -341,9 +391,9 @@ namespace VoidFlow
                 Vector3 v = player.Velocity;
                 Vector3 dv = transform.InverseTransformDirection(v - lastVelocity);
                 lastVelocity = v;
-                if (dv.sqrMagnitude < 40f * 40f) inertiaVelocity -= dv * 0.05f; // bigger jumps are teleports
+                if (dv.sqrMagnitude < 40f * 40f) inertiaVelocity -= dv * 0.05f * Current.inertia; // bigger jumps are teleports
             }
-            const float spring = 16f;
+            float spring = Current.spring;
             for (float left = dt; left > 0f; left -= 1f / 120f)
             {
                 float step = Mathf.Min(left, 1f / 120f);
@@ -354,13 +404,15 @@ namespace VoidFlow
             anchor.localPosition = sway + bob + inertia + Vector3.up * breathe;
             anchor.localRotation = Quaternion.Euler(tilt + new Vector3(Mathf.Clamp(look.y * 0.04f, -3f, 3f) - inertia.y * 120f, inertia.x * 60f, inertia.x * 90f)); // mouse tilt capped so fast flicks never throw the weapon around
 
-            // Draw: the new weapon comes up from below the screen
+            // Draw: the hand brings the weapon up into frame, a touch past where it rests, the
+            // glove re-grips (a wrist roll and a squeeze), and it settles into its idle
             var weapon = Current;
-            float up = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(drawTime / (weapon.drawTime * 0.6f)));
-            if (current == KnifeSlot && knife.IsSword) up = 1f; // drawn from the sheath instead
-            weapon.root.SetLocalPositionAndRotation(
-                weapon.restPosition + new Vector3(0f, -0.16f, -0.04f) * (1f - up),
-                weapon.restRotation * Quaternion.Euler(40f * (1f - up), 0f, 0f));
+            var (drawPos, drawRot) = current == KnifeSlot && knife.IsSword
+                ? (Vector3.zero, Vector3.zero) // drawn from the sheath instead
+                : Sample(weapon.drawKeys, drawTime / weapon.drawVisual);
+            weapon.root.SetLocalPositionAndRotation(weapon.restPosition + drawPos, weapon.restRotation * Quaternion.Euler(drawRot));
+            float drawn = drawTime / weapon.drawVisual;
+            SqueezeGloves(weapon, drawn > 0.5f && drawn < 0.85f ? Mathf.Sin((drawn - 0.5f) / 0.35f * Mathf.PI) : 0f);
             bool ready = drawTime >= weapon.drawTime;
 
             UpdateSheath();

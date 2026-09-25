@@ -12,6 +12,15 @@ namespace VoidFlow
         readonly List<BlockArm> arms = new();
         readonly List<WeaponParts> gloveKits = new();
         readonly List<Material> gloveMaterials = new();
+        readonly List<(Transform t, Vector3 scale)> gloveBlocks = new();
+
+        // The glove tightening on the grip (0..1), on the weapon in hand
+        void SqueezeGloves(Weapon w, float amount)
+        {
+            foreach (var (t, scale) in gloveBlocks)
+                if (t && t.IsChildOf(w.root))
+                    t.localScale = new Vector3(scale.x * (1f - 0.08f * amount), scale.y * (1f + 0.03f * amount), scale.z * (1f - 0.08f * amount));
+        }
 
         public void EquipGloveSkin(int index)
         {
@@ -47,7 +56,11 @@ namespace VoidFlow
                 if (!arm.root) continue;
                 foreach (var r in arm.root.GetComponentsInChildren<MeshRenderer>(true))
                 {
-                    if (r.name == "GloveBlock") SetArmMaterial(r, body);
+                    if (r.name == "GloveBlock")
+                    {
+                        SetArmMaterial(r, body);
+                        if (!gloveBlocks.Exists(g => g.t == r.transform)) gloveBlocks.Add((r.transform, r.transform.localScale));
+                    }
                     else if (r.name == "GlovePlate") SetArmMaterial(r, plate);
                 }
                 if (skin.rarity == SkinRarity.Void) gloveKits.Add(builder.GloveKit(skin, arm.root));

@@ -129,7 +129,7 @@ namespace VoidFlow
                 before = boltTime;
                 boltTime += dt;
                 if (Crossed(before, boltTime, 0.42f)) Play(WeaponSounds.BoltUp);
-                if (Crossed(before, boltTime, 0.56f)) Play(WeaponSounds.BoltBack);
+                if (Crossed(before, boltTime, 0.56f)) { Play(WeaponSounds.BoltBack); EjectShell(); }
                 if (Crossed(before, boltTime, 0.8f)) Play(WeaponSounds.BoltForward);
                 if (boltTime >= CycleTime)
                 {
@@ -181,6 +181,8 @@ namespace VoidFlow
             boltTime = 0f;
             sniperInspect = -1f;
             flashTime = 0f;
+            lastShot = Time.time;
+            inertiaVelocity += new Vector3(0f, 0.06f, -0.55f); // the rifle shoves back into the shoulder
             flash.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 90f));
             Play(sniperShotClip ? sniperShotClip : WeaponSounds.SniperShot);
 
@@ -207,6 +209,9 @@ namespace VoidFlow
             {
                 end = ray.GetPoint(discDistance);
                 disc.Break();
+                hitMarkerTime = Time.time;
+                hitMarkerColor = disc is VoidBeast ? new Color(1f, 0.35f, 0.35f) : Color.white;
+                Play(WeaponSounds.HitTick, 0.7f);
             }
             else if (bestDistance < float.MaxValue)
             {
@@ -235,8 +240,13 @@ namespace VoidFlow
             FxLibrary.MuzzleSmoke(v.position + v.right * 0.12f - v.up * 0.08f + v.forward * 1.1f, v.forward);
         }
 
+        EndlessCourse courseRef;
+
         void Impact(RaycastHit hit)
         {
+            // What it hit answers back: metal rings, stone cracks, wood knocks
+            if (!courseRef) courseRef = FindAnyObjectByType<EndlessCourse>();
+            AudioSource.PlayClipAtPoint(WeaponSounds.Impact(PlayerFeedback.SurfaceOf(hit.collider, courseRef)), hit.point, 1f);
             if (!holeMat)
             {
                 // A scorch mark sprite if the effects are around, otherwise a plain dark square
@@ -271,6 +281,69 @@ namespace VoidFlow
                 spark.transform.position = hit.point;
                 Vector3 dir = (hit.normal + Random.insideUnitSphere * 0.9f).normalized;
                 effects.Add(new Effect { t = spark.transform, velocity = dir * Random.Range(4f, 9f), scale = Vector3.one * 0.05f, life = Random.Range(0.2f, 0.4f) });
+            }
+        }
+
+        class Brass { public Transform t; public Vector3 velocity, spin; public float age; public bool tinked; }
+        readonly List<Brass> brass = new();
+        readonly Stack<Transform> brassPool = new();
+        Material brassMat;
+
+        // A spent casing flips out of the ejection port as the bolt comes back, tumbles out
+        // of view and, if you're on the ground, tinks as it lands. Casings are reused.
+        void EjectShell()
+        {
+            if (rifle == null || !rifle.bolt) return;
+            if (!brassMat) brassMat = Make(new Color(0.9f, 0.66f, 0.28f), 0.85f, 1f);
+            Transform t;
+            if (brassPool.Count > 0)
+            {
+                t = brassPool.Pop();
+                t.gameObject.SetActive(true);
+            }
+            else
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                go.name = "Brass";
+                Destroy(go.GetComponent<Collider>());
+                go.layer = Layer;
+                var r = go.GetComponent<MeshRenderer>();
+                r.sharedMaterial = brassMat;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                t = go.transform;
+                t.SetParent(transform, false);
+                t.localScale = new Vector3(0.013f, 0.02f, 0.013f);
+            }
+            t.position = rifle.bolt.position;
+            t.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            brass.Add(new Brass
+            {
+                t = t,
+                velocity = new Vector3(Random.Range(0.5f, 0.8f), Random.Range(1.5f, 1.9f), Random.Range(-0.25f, 0f)),
+                spin = new Vector3(Random.Range(-900f, 900f), Random.Range(-300f, 300f), Random.Range(600f, 1200f)),
+            });
+        }
+
+        void UpdateBrass(float dt)
+        {
+            for (int i = brass.Count - 1; i >= 0; i--)
+            {
+                var b = brass[i];
+                b.age += dt;
+                b.velocity.y -= 7f * dt;
+                b.t.localPosition += b.velocity * dt;
+                b.t.localRotation *= Quaternion.Euler(b.spin * dt);
+                if (!b.tinked && b.age > 0.45f)
+                {
+                    b.tinked = true;
+                    if (player && player.Grounded) Play(WeaponSounds.Shell, 0.25f);
+                }
+                if (b.age > 0.8f)
+                {
+                    b.t.gameObject.SetActive(false);
+                    brassPool.Push(b.t);
+                    brass.RemoveAt(i);
+                }
             }
         }
 
@@ -318,6 +391,7 @@ namespace VoidFlow
                 tracer.enabled = tracerTime < (tracerBeam ? 0.45f : 0.3f);
             }
             if (flash) flash.gameObject.SetActive(flashTime < 0.05f);
+            UpdateBrass(dt);
         }
 
         // Keyframes for the whole rifle (offset, rotation), the bolt (slide back in pos.z,
@@ -326,7 +400,7 @@ namespace VoidFlow
         static readonly (float t, Vector3 pos, Vector3 rot)[] FireKeys =
         {
             (0f, Vector3.zero, Vector3.zero),
-            (0.04f, new Vector3(0f, 0.012f, -0.06f), new Vector3(-10f, 0f, 2f)),
+            (0.04f, new Vector3(0f, 0.015f, -0.075f), new Vector3(-13f, 0f, 2.5f)), // a heavy rifle kicks hard
             (0.2f, new Vector3(0f, 0.004f, -0.015f), new Vector3(-2f, 0f, 0f)),
             (0.35f, new Vector3(-0.01f, 0.01f, -0.02f), new Vector3(0f, 6f, 14f)),
             (1f, new Vector3(-0.01f, 0.01f, -0.02f), new Vector3(2f, 6f, 14f)),

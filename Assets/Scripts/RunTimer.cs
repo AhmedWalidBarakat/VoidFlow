@@ -30,7 +30,7 @@ namespace VoidFlow
         void Start()
         {
             best = PlayerPrefs.GetFloat(BestKey, 0f);
-            course.BiomeEntered += b => { banner = $"{b.name}\nSTAGE {course.CurrentStage + 1}  ·  {course.CurrentStageName}"; bannerTime = Time.time; };
+            course.BiomeEntered += b => { banner = $"{b.name}\nSTAGE {course.CurrentStage + 1}  ·  {course.CurrentTierName}  ·  {course.CurrentStageName}"; bannerTime = Time.time; };
             Restart();
         }
 
@@ -55,7 +55,7 @@ namespace VoidFlow
                 {
                     running = true;
                     startTime = Time.time;
-                    banner = $"{course.CurrentBiome.name}\nSTAGE 1  ·  {course.CurrentStageName}";
+                    banner = $"{course.CurrentBiome.name}\nSTAGE 1  ·  {course.CurrentTierName}  ·  {course.CurrentStageName}";
                     bannerTime = Time.time;
                 }
             }
@@ -100,7 +100,7 @@ namespace VoidFlow
             {
                 GUI.Label(new Rect(0, 16, w, 40), Distance(course.Progress), bigStyle);
                 GUI.Label(new Rect(0, 52, w, 24),
-                    $"stage {course.CurrentStage + 1}: {course.CurrentStageName}   ·   ramp {course.CurrentRamp + 1}   ·   {course.CurrentBiome.name}   ·   {Format(Time.time - startTime)}",
+                    $"stage {course.CurrentStage + 1}: {course.CurrentTierName} {course.CurrentStageName}   ·   ramp {course.CurrentRamp + 1}   ·   {course.CurrentBiome.name}   ·   {Format(Time.time - startTime)}",
                     centeredStyle);
             }
             else

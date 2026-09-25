@@ -52,6 +52,20 @@ namespace VoidFlow
             public bool jumpPressed;
         }
 
+        // Feedback only (sounds, the weapon's reaction); none of this changes how you move
+        public event System.Action Jumped;
+        public event System.Action<float> Landed;   // how fast you hit (m/s), ground or ramp
+        public bool Surfing { get; private set; }    // sliding on a surf ramp this tick
+        public Collider Surface { get; private set; } // what you're standing on or surfing
+        bool touching, surfTouch;
+        float impact;
+
+        // Map boosters (speed rings) push you along, like a surf map's boost triggers
+        public void Boost(float factor)
+        {
+            velocity = Vector3.ClampMagnitude(new Vector3(velocity.x * factor, velocity.y, velocity.z * factor), maxVelocity);
+        }
+
         public Vector3 Position => position;
         public Vector3 Velocity => velocity;
         public bool Grounded => grounded;
@@ -183,6 +197,7 @@ namespace VoidFlow
                 // Jumping before friction is what makes bhop keep its speed
                 velocity.y = jumpSpeed;
                 grounded = false;
+                Jumped?.Invoke();
             }
 
             if (grounded)
@@ -199,10 +214,19 @@ namespace VoidFlow
 
             velocity = Vector3.ClampMagnitude(velocity, maxVelocity);
 
+            surfTouch = false;
+            impact = 0f;
+            float fallSpeed = -velocity.y;
             SlideMove(dt);
             Depenetrate();
             CategorizePosition();
             if (grounded && velocity.y < 0f) velocity.y = 0f;
+
+            // Touching down, on the ground or a ramp, after being in the air
+            Surfing = surfTouch && !grounded;
+            bool now = grounded || surfTouch;
+            if (now && !touching) Landed?.Invoke(grounded ? Mathf.Max(fallSpeed, impact) : impact);
+            touching = now;
         }
 
         static Vector2 ReadMoveInput(Keyboard kb)
@@ -247,9 +271,14 @@ namespace VoidFlow
             grounded = false;
             if (velocity.y > MaxGroundedRiseSpeed) return;
             if (!Cast(position, Vector3.down, GroundProbe + Skin, out RaycastHit hit)) return;
-            if (SurfaceNormal(hit).y < groundNormalY) return; // too steep: this is a surf ramp
+            if (SurfaceNormal(hit).y < groundNormalY) // too steep: this is a surf ramp
+            {
+                if (SurfaceNormal(hit).y > 0.05f) { surfTouch = true; Surface = hit.collider; }
+                return;
+            }
 
             grounded = true;
+            Surface = hit.collider;
             position.y -= Mathf.Max(hit.distance - Skin, 0f);
         }
 
@@ -287,6 +316,8 @@ namespace VoidFlow
                 timeLeft -= timeLeft * (travel / dist);
 
                 Vector3 n = hit.normal;
+                impact = Mathf.Max(impact, -Vector3.Dot(velocity, n));
+                if (n.y > 0.05f && n.y < groundNormalY) { surfTouch = true; Surface = hit.collider; }
                 if (planeCount < planes.Length) planes[planeCount++] = n;
                 velocity = Clip(velocity, n);
 

@@ -72,6 +72,15 @@ namespace VoidFlow.EditorTools
             beasts.player = player;
             beasts.template = rampMat;
 
+            // The course's rewards (Void Shards, speed rings, stage times) and the sounds of
+            // your own movement
+            course.shardMaterial = MakeGlow("GlowShard", new Color(1f, 0.4f, 0.9f), 2.6f);
+            var rewards = new GameObject("CourseRewards").AddComponent<CourseRewards>();
+            rewards.course = course;
+            rewards.player = player;
+            rewards.timer = timer;
+            player.gameObject.AddComponent<PlayerFeedback>().course = course;
+
             // Particle effects (CC0 sprites from Kenney's Particle Pack, Assets/Fx)
             var fx = new GameObject("Fx").AddComponent<FxLibrary>();
             fx.spark = FxMaterial("Spark", "circle_05", true, Color.white);

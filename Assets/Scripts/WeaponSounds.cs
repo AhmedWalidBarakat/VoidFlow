@@ -35,6 +35,210 @@ namespace VoidFlow
         public static AudioClip Reveal => Get(ref reveal, "Reveal", () => Chime(1.4f, 0.09f, 523.25f, 659.25f, 783.99f, 1046.5f));
         public static AudioClip VoidReveal => Get(ref voidReveal, "Void Reveal", () => Chime(2.6f, 0.14f, 196f, 293.66f, 392f, 466.16f, 587.33f, 783.99f));
 
+        // ------------------------------------------------------------------ movement and feedback
+
+        // What a surface sounds like underfoot or when a bullet hits it
+        public enum Surface { Wood, Metal, Stone, Ice }
+
+        static AudioClip jump, slideLoop, windLoop, shard, boost, holster, shell, hitTick;
+        static readonly AudioClip[,] steps = new AudioClip[4, 4];
+        static readonly AudioClip[] lands = new AudioClip[4], impacts = new AudioClip[4];
+
+        public static AudioClip Jump => Get(ref jump, "Jump", JumpData);
+        public static AudioClip SlideLoop => Get(ref slideLoop, "Surf Slide", SlideData);
+        public static AudioClip WindLoop => Get(ref windLoop, "Wind", WindData);
+        public static AudioClip Shard => Get(ref shard, "Shard", () => Chime(0.7f, 0.045f, 1318.5f, 1975.5f, 2637f));
+        public static AudioClip Boost => Get(ref boost, "Boost", BoostData);
+        public static AudioClip Holster => Get(ref holster, "Holster", () => Whoosh(0.18f, 0.03f, 0.18f, 3));
+        public static AudioClip Shell => Get(ref shell, "Shell", () => Mechanism(0.3f, (0f, 4300f, 0.45f), (0.11f, 3700f, 0.25f)));
+        public static AudioClip HitTick => Get(ref hitTick, "Hit", () => Mechanism(0.07f, (0f, 3300f, 0.9f)));
+
+        public static AudioClip Step(Surface s, int variant)
+        {
+            variant &= 3;
+            if (steps[(int)s, variant]) return steps[(int)s, variant];
+            return steps[(int)s, variant] = Clip($"Step {s} {variant}", Footfall(s, 0.2f, 0.028f, 1f, 50 + (int)s * 10 + variant));
+        }
+
+        public static AudioClip Land(Surface s) => lands[(int)s] ? lands[(int)s] : lands[(int)s] = Clip($"Land {s}", Footfall(s, 0.4f, 0.07f, 1.6f, 90 + (int)s));
+        public static AudioClip Impact(Surface s) => impacts[(int)s] ? impacts[(int)s] : impacts[(int)s] = Clip($"Impact {s}", ImpactData(s));
+
+        static AudioClip Clip(string name, float[] data)
+        {
+            var clip = AudioClip.Create(name, data.Length, 1, Rate, false);
+            clip.SetData(data, 0);
+            return clip;
+        }
+
+        // A foot (or both, landing) meeting a surface: a low thump, a scuff, and the surface's
+        // own voice (wood knock, metal ring, stone grit, ice crunch)
+        static float[] Footfall(Surface s, float length, float thumpDecay, float weight, int seed)
+        {
+            int n = (int)(Rate * length);
+            var data = new float[n];
+            var rng = new System.Random(seed);
+            float lp = 0f, lp2 = 0f, last = 0f, hp = 0f;
+            double phase = 0.0;
+            float detune = 0.95f + (float)rng.NextDouble() * 0.1f;
+            for (int i = 0; i < n; i++)
+            {
+                float t = (float)i / Rate;
+                float white = (float)(rng.NextDouble() * 2.0 - 1.0);
+                double f = (55.0 + 40.0 * Math.Exp(-t / 0.02)) * detune;
+                phase += 2.0 * Math.PI * f / Rate;
+                float thump = (float)Math.Sin(phase) * Mathf.Exp(-t / thumpDecay) * Mathf.Clamp01(t / 0.002f) * weight;
+                lp += (white - lp) * (s is Surface.Ice or Surface.Metal ? 0.5f : 0.25f);
+                lp2 += (lp - lp2) * 0.08f;
+                float scuff = (lp - lp2) * Mathf.Exp(-t / 0.03f) * 0.8f;
+                hp = 0.8f * (hp + white - last);
+                last = white;
+                float voice = s switch
+                {
+                    Surface.Wood => (Mathf.Sin(2f * Mathf.PI * 230f * detune * t) * 0.5f + Mathf.Sin(2f * Mathf.PI * 410f * detune * t) * 0.25f) * Mathf.Exp(-t / 0.045f),
+                    Surface.Metal => (Mathf.Sin(2f * Mathf.PI * 1100f * detune * t) + 0.7f * Mathf.Sin(2f * Mathf.PI * 1690f * detune * t) + 0.4f * Mathf.Sin(2f * Mathf.PI * 2530f * detune * t)) * Mathf.Exp(-t / 0.07f) * 0.12f,
+                    Surface.Stone => hp * Mathf.Exp(-t / 0.035f) * 0.35f,
+                    _ => (rng.NextDouble() < 0.006 ? (float)(rng.NextDouble() * 2.0 - 1.0) * 1.4f : 0f) * Mathf.Exp(-t / 0.06f) + hp * Mathf.Exp(-t / 0.05f) * 0.2f,
+                };
+                data[i] = thump + scuff + voice;
+            }
+            return Master(data, 1.3f, 0.85f);
+        }
+
+        // A soft cloth-and-scuff for leaving the ground
+        static float[] JumpData()
+        {
+            var data = Whoosh(0.16f, 0.05f, 0.3f, 11);
+            var rng = new System.Random(12);
+            float lp = 0f;
+            for (int i = 0; i < data.Length; i++)
+            {
+                float t = (float)i / Rate;
+                lp += ((float)(rng.NextDouble() * 2.0 - 1.0) - lp) * 0.3f;
+                data[i] += lp * Mathf.Exp(-t / 0.012f) * 0.6f;
+            }
+            return Master(data, 1f, 0.6f);
+        }
+
+        // Noise through a band that swells and fades (cloth, holstering)
+        static float[] Whoosh(float length, float low, float high, int seed)
+        {
+            int n = (int)(Rate * length);
+            var data = new float[n];
+            var rng = new System.Random(seed);
+            float lpA = 0f, lpB = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                float s = (float)i / n;
+                float white = (float)(rng.NextDouble() * 2.0 - 1.0);
+                lpA += (white - lpA) * high;
+                lpB += (white - lpB) * low;
+                data[i] = (lpA - lpB) * Mathf.Pow(Mathf.Sin(Mathf.PI * s), 2f);
+            }
+            return Master(data, 1f, 0.7f);
+        }
+
+        // The hiss of a body sliding down a ramp, made to loop seamlessly
+        static float[] SlideData()
+        {
+            const float length = 2f;
+            int n = (int)(Rate * length), fade = Rate / 5;
+            var raw = new float[n + fade];
+            var rng = new System.Random(21);
+            float lpA = 0f, lpB = 0f, grind = 1f;
+            for (int i = 0; i < raw.Length; i++)
+            {
+                float white = (float)(rng.NextDouble() * 2.0 - 1.0);
+                lpA += (white - lpA) * 0.3f;
+                lpB += (white - lpB) * 0.04f;
+                if (i % 600 == 0) grind = 0.8f + (float)rng.NextDouble() * 0.4f;
+                raw[i] = (lpA - lpB) * grind;
+            }
+            return Loop(raw, n, fade, 0.7f);
+        }
+
+        // Wind rushing past: low noise breathing slowly, looping
+        static float[] WindData()
+        {
+            const float length = 3f;
+            int n = (int)(Rate * length), fade = Rate / 3;
+            var raw = new float[n + fade];
+            var rng = new System.Random(33);
+            float lpA = 0f, lpB = 0f;
+            for (int i = 0; i < raw.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float white = (float)(rng.NextDouble() * 2.0 - 1.0);
+                lpA += (white - lpA) * 0.06f;
+                lpB += (lpA - lpB) * 0.1f;
+                raw[i] = lpB * (0.75f + 0.25f * Mathf.Sin(2f * Mathf.PI * t / length * 2f));
+            }
+            return Loop(raw, n, fade, 0.7f);
+        }
+
+        // Crossfades the extra tail into the head so the clip loops without a click
+        static float[] Loop(float[] raw, int n, int fade, float peak)
+        {
+            var data = new float[n];
+            for (int i = 0; i < n; i++) data[i] = raw[i];
+            for (int i = 0; i < fade; i++)
+            {
+                float k = (float)i / fade;
+                data[i] = raw[i] * k + raw[n + i] * (1f - k);
+            }
+            return Master(data, 1f, peak);
+        }
+
+        // Flying through a speed ring: a rising sweep and a rush of air
+        static float[] BoostData()
+        {
+            const float length = 0.8f;
+            int n = (int)(Rate * length);
+            var data = new float[n];
+            var rng = new System.Random(44);
+            float lpA = 0f, lpB = 0f;
+            double phase = 0.0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = (float)i / Rate, s = t / length;
+                float white = (float)(rng.NextDouble() * 2.0 - 1.0);
+                float cutoff = Mathf.Lerp(0.04f, 0.4f, s);
+                lpA += (white - lpA) * cutoff;
+                lpB += (white - lpB) * cutoff * 0.25f;
+                float env = Mathf.Clamp01(t / 0.05f) * Mathf.Exp(-t / 0.35f);
+                phase += 2.0 * Math.PI * (180.0 + 700.0 * s) / Rate;
+                data[i] = ((lpA - lpB) * 0.8f + (float)Math.Sin(phase) * 0.35f) * env;
+            }
+            return Master(data, 1.2f, 0.8f);
+        }
+
+        // A bullet hitting: a sharp crack plus the surface's answer
+        static float[] ImpactData(Surface s)
+        {
+            const float length = 0.5f;
+            int n = (int)(Rate * length);
+            var data = new float[n];
+            var rng = new System.Random(70 + (int)s);
+            float last = 0f, hp = 0f, lp = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                float t = (float)i / Rate;
+                float white = (float)(rng.NextDouble() * 2.0 - 1.0);
+                hp = 0.75f * (hp + white - last);
+                last = white;
+                lp += (white - lp) * 0.1f;
+                float crack = hp * Mathf.Exp(-t / 0.004f) * 1.4f;
+                float voice = s switch
+                {
+                    Surface.Metal => (Mathf.Sin(2f * Mathf.PI * 1650f * t) + 0.8f * Mathf.Sin(2f * Mathf.PI * 2480f * t) + 0.5f * Mathf.Sin(2f * Mathf.PI * 3900f * t)) * Mathf.Exp(-t / 0.16f) * 0.35f,
+                    Surface.Wood => (Mathf.Sin(2f * Mathf.PI * 320f * t) * Mathf.Exp(-t / 0.04f) + Mathf.Sin(2f * Mathf.PI * 180f * t) * Mathf.Exp(-t / 0.07f)) * 0.8f,
+                    Surface.Stone => Mathf.Sin(2f * Mathf.PI * 120f * t) * Mathf.Exp(-t / 0.05f) * 0.8f + lp * Mathf.Exp(-t / 0.08f) * 1.5f,
+                    _ => (rng.NextDouble() < 0.01 ? (float)(rng.NextDouble() * 2.0 - 1.0) : 0f) * Mathf.Exp(-t / 0.12f) + Mathf.Sin(2f * Mathf.PI * 3100f * t) * Mathf.Exp(-t / 0.05f) * 0.2f,
+                };
+                data[i] = crack + voice;
+            }
+            return Master(data, 1.3f, 0.9f);
+        }
+
         static AudioClip Get(ref AudioClip clip, string name, Func<float[]> make)
         {
             if (clip) return clip;

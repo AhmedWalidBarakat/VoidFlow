@@ -35,8 +35,17 @@ namespace VoidFlow
     // and any flight can be big air: extra long, with a glowing ring at the top to fly
     // through. Harder moves unlock as you go.
     //
-    // Difficulty: over the first rampsToMaxDifficulty ramps the flights get longer, the
-    // sideways shifts bigger, the landing hills shorter, and the ramps narrower.
+    // Tiers: the course breathes. Stage 1 is BEGINNER (wide ramps, gentle hops, long
+    // landing hills), then INTERMEDIATE (tighter ramps, bigger gaps and
+    // sideways shifts), ADVANCED (tiny ramps, speed sections, short precise landings, more
+    // big air), TECHNICAL (every move mixed, twin routes, speed rings) and a BEGINNER
+    // breather, round and round, each lap a little harder. Within a tier the difficulty
+    // (flight length, shift, landing length, ramp width) climbs from ramp to ramp.
+    //
+    // Reasons to go again, all in the one run: Void Shards hang on the harder lines
+    // (beginner on the riding line, intermediate high near the ridge, advanced in the air,
+    // technical on the twin route) and 25 of them make a Void Case; big-air rings boost
+    // you when you fly through them; each stage's time is kept per tier (CourseRewards).
     //
     // Every flight is checked before its ramp appears (see FlightCheck): a player at the
     // slowest speed a decent run has by then must be able to land it. If not, the ramp is
@@ -107,6 +116,21 @@ namespace VoidFlow
         public static readonly string[] Themes = { "CLASSIC", "WINDING", "SPIRAL", "ROLLERCOASTER", "CANYON", "BIG AIR", "TWIN PEAKS" };
         readonly Dictionary<int, string> stageThemes = new();
         readonly Dictionary<int, float> stageTurn = new();
+        public enum Tier { Beginner, Intermediate, Advanced, Technical }
+        public static readonly string[] TierNames = { "BEGINNER", "INTERMEDIATE", "ADVANCED", "TECHNICAL" };
+        public static readonly Color[] TierColors =
+        {
+            new(0.4f, 1f, 0.55f), new(0.35f, 0.75f, 1f), new(1f, 0.58f, 0.2f), new(1f, 0.3f, 0.8f),
+        };
+        static readonly Tier[] TierCycle = { Tier.Intermediate, Tier.Advanced, Tier.Technical, Tier.Beginner };
+        public static Tier TierOf(int stage) => stage <= 0 ? Tier.Beginner : TierCycle[(stage - 1) % TierCycle.Length];
+        public Tier CurrentTier => TierOf(CurrentStage);
+        public string CurrentTierName => TierNames[(int)CurrentTier];
+
+        [Tooltip("Crystal material for Void Shards")]
+        public Material shardMaterial;
+        static Mesh shardMesh;
+
         public int CurrentStage => current / rampsPerBiome;
         public string CurrentStageName => ThemeOf(CurrentStage);
 
@@ -241,7 +265,28 @@ namespace VoidFlow
             if (startHall) startHall.gameObject.SetActive(current < 2);
         }
 
-        float Difficulty(int ramp) => Mathf.Clamp01(ramp / (float)rampsToMaxDifficulty);
+        // How hard a ramp is (0..1): its tier's range, climbing through the stage, plus a
+        // little more every lap round the tiers
+        float Difficulty(int ramp)
+        {
+            int stage = ramp / rampsPerBiome;
+            float within = (ramp % rampsPerBiome) / (float)Mathf.Max(1, rampsPerBiome - 1);
+            // The first lap round the tiers eases you in; after that each tier is itself
+            int lapIndex = Mathf.Max(0, stage - 1) / TierCycle.Length;
+            var (from, to) = (TierOf(stage), lapIndex == 0) switch
+            {
+                (Tier.Beginner, true) => (0f, 0.1f),
+                (Tier.Intermediate, true) => (0.15f, 0.3f),
+                (Tier.Advanced, true) => (0.35f, 0.55f),
+                (Tier.Technical, true) => (0.5f, 0.7f),
+                (Tier.Beginner, _) => (0f, 0.12f),
+                (Tier.Intermediate, _) => (0.3f, 0.45f),
+                (Tier.Advanced, _) => (0.6f, 0.8f),
+                _ => (0.8f, 1f),
+            };
+            float lap = Mathf.Min(Mathf.Max(0, lapIndex - 1), 3) * 0.05f;
+            return Mathf.Clamp01(Mathf.Lerp(from, to, within) + lap);
+        }
         float Rand(float a, float b) => a + (float)rng.NextDouble() * (b - a);
 
         // Flight speed (m/s) off the end of a ramp: what you'd have from the height dropped
@@ -309,6 +354,7 @@ namespace VoidFlow
             Vector3? ringCenter = null;
             Vector3 ringFacing = Vector3.forward;
 
+            airShards.Clear();
             RampShapes.RampPath path;
             if (last == null)
             {
@@ -320,7 +366,8 @@ namespace VoidFlow
             }
             else
             {
-                var m = ChooseMove(i, t, theme);
+                var tier = TierOf(stage);
+                var m = ChooseMove(i, t, theme, tier);
                 move = m.name;
                 flightSpeed = FlightSpeed(last, courseStartY);
                 var landing = new RampShapes.Landing
@@ -332,6 +379,20 @@ namespace VoidFlow
                     clearEnd = 0f,
                     shift = Mathf.Lerp(10f, 22f, t) * Rand(0.85f, 1.1f) * ShiftSign(i, theme, stage),
                 };
+
+                // Tiers: beginner hops are short onto long wide hills, intermediate gaps and
+                // shifts are bigger, advanced landings are short and must be precise
+                var (gapK, lengthK, shiftK, clearK) = tier switch
+                {
+                    Tier.Beginner => (0.85f, 1.35f, 0.8f, 1.1f),
+                    Tier.Intermediate => (1.12f, 1f, 1.15f, 1f),
+                    Tier.Advanced => (1.05f, 0.85f, 1f, 0.85f),
+                    _ => (1f, 0.95f, 1.05f, 0.9f),
+                };
+                landing.gap *= gapK;
+                landing.length *= lengthK;
+                landing.shift *= shiftK;
+                landing.clearStart *= clearK;
 
                 // Each stage opens gently, like a map's stage start: a shorter hop onto a long,
                 // forgiving landing hill
@@ -363,6 +424,20 @@ namespace VoidFlow
                     center.y = arcY(d) + 0.9f;
                     ringCenter = center;
                     ringFacing = fwd;
+                }
+                // Advanced and technical stages hang shards along the flight, a little above the
+                // plain arc: take a good line to collect them
+                if (tier >= Tier.Advanced && rng.NextDouble() < (tier == Tier.Advanced ? 0.55 : 0.3))
+                {
+                    var (_, arc, from) = RampShapes.Flight(last, flightSpeed);
+                    Vector3 fwd = last.EndForward, side = new Vector3(fwd.z, 0f, -fwd.x);
+                    foreach (float f in new[] { 0.3f, 0.45f, 0.6f, 0.75f })
+                    {
+                        float d = landing.gap * f;
+                        Vector3 at = from + fwd * d + side * (landing.shift * f * f);
+                        at.y = arc(d) + 1.4f;
+                        airShards.Add(at);
+                    }
                 }
                 if (m.hole) holeWall = RampShapes.HoleWall(path, 3f, landing.length + 15f, 25f);
                 // The twin stands behind the ramp you land on (seen from the flight), so it
@@ -413,11 +488,54 @@ namespace VoidFlow
                 AddPart(seg, "StageGate", foot, RampShapes.GateMesh(foot, path.forward[0], 22f, 16f, $"Gate {i}"), kit.glow, solid: false);
             }
             if (ringCenter is Vector3 ring)
+            {
                 AddPart(seg, "Ring", ring, RampShapes.RingMesh(ring, ringFacing, 6f, $"Ring {i}"), kit.glowAlt, solid: false);
+                var boost = seg.root.transform.Find("Ring").gameObject.AddComponent<SpeedRing>();
+                boost.facing = ringFacing;
+                boost.radius = 6f;
+            }
+            if (i > 0) PlaceShards(seg, path, twin, TierOf(stage));
 
             Scenery.Line(path, biome, kit, seg.root.transform, rng, cube);
             segments.Add(seg);
             Physics.SyncTransforms();
+        }
+
+        readonly List<Vector3> airShards = new();
+
+        // Void Shards for this ramp, on the line its tier rewards: beginner on the plain
+        // riding line, intermediate high up near the ridge, technical on the twin route, and
+        // (advanced, technical) the ones hung along the flight in
+        void PlaceShards(Segment seg, RampShapes.RampPath path, RampShapes.RampPath twin, Tier tier)
+        {
+            foreach (var at in airShards) AddShard(seg, at);
+            double chance = tier switch { Tier.Beginner => 0.35, Tier.Intermediate => 0.45, Tier.Advanced => 0.2, _ => 0.4 };
+            if (rng.NextDouble() >= chance) return;
+            var on = tier == Tier.Technical && twin != null ? twin : path;
+            float fraction = tier switch { Tier.Beginner => RampShapes.RideFraction * 0.8f, Tier.Intermediate => 0.07f, _ => 0.2f };
+            int count = 4 + rng.Next(2);
+            float start = Rand(0.25f, 0.4f);
+            for (int k = 0; k < count; k++)
+            {
+                int n = Mathf.Clamp(Mathf.RoundToInt((start + k * 0.08f) * (on.ridge.Count - 1)), 0, on.ridge.Count - 1);
+                Vector3 face = on.FacePoint(n, fraction);
+                Vector3 outward = on.right[n] * on.side;
+                AddShard(seg, face + Vector3.up * 1.3f + outward * 0.7f);
+            }
+        }
+
+        void AddShard(Segment seg, Vector3 at)
+        {
+            if (!shardMaterial) return;
+            if (!shardMesh) shardMesh = WeaponBuilder.CrystalMesh(0.9f, 0.22f, 6, 0.4f);
+            var go = new GameObject("Void Shard");
+            go.transform.SetParent(seg.root.transform, false);
+            go.transform.localPosition = at;
+            go.AddComponent<MeshFilter>().sharedMesh = shardMesh;
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = shardMaterial;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            go.AddComponent<VoidShard>();
         }
 
         // A mesh object under a segment. Solid ones are surf surfaces with collision and
@@ -459,11 +577,12 @@ namespace VoidFlow
 
         // Picks the next ramp's move. Every 4th ramp (5th once it gets hard) is a catch ramp to
         // rebuild speed; the rest are a weighted pick of the moves this stage's theme favours.
-        Move ChooseMove(int i, float t, string theme)
+        Move ChooseMove(int i, float t, string theme, Tier tier)
         {
             float flat = Mathf.Lerp(120f, 80f, t);
             var blade = new[] { (flat, 0f), (flat + 40f, 0.08f) };
-            if (i % (t < 0.5f ? 4 : 5) == 0)
+            int catchEvery = t < 0.5f ? 4 : 5;
+            if (i % catchEvery == 0)
                 return new Move { name = "catch", kind = RampShapes.Kind.Prism, width = 18f, shape = new[] { (70f, -0.26f), (180f, 0f), (230f, 0.08f) } };
 
             var options = theme switch
@@ -476,6 +595,10 @@ namespace VoidFlow
                 "BIG AIR" => new List<(string, float)> { ("blade", 3f), ("plunge", 2f), ("climb", 2f) },
                 _ => new List<(string, float)> { ("blade", 4f), ("plunge", 1f), ("climb", 1f) },
             };
+            // Advanced adds speed sections (plunges); technical throws every move it has in
+            if (tier == Tier.Advanced) options.Add(("plunge", 3f));
+            if (tier == Tier.Technical)
+                options.AddRange(new[] { ("twin", 3f), ("plunge", 1.5f), ("wave", 1f), ("corner", 1f), ("climb", 1f), ("winding", 1f), ("hole", 1f) });
             float total = 0f;
             foreach (var o in options) total += o.Item2;
             float pick = Rand(0f, total);
@@ -487,7 +610,7 @@ namespace VoidFlow
             }
 
             bool calm = name is "hole" or "spiral" or "winding";
-            double airChance = theme == "BIG AIR" ? 0.7 : 0.2;
+            double airChance = theme == "BIG AIR" ? 0.7 : tier switch { Tier.Beginner => 0.0, Tier.Advanced or Tier.Technical => 0.4, _ => 0.2 };
             var m = new Move { name = name, bigAir = t >= 0.08f && !calm && rng.NextDouble() < airChance };
             switch (name)
             {
@@ -555,6 +678,8 @@ namespace VoidFlow
                     m.shape = blade;
                     break;
             }
+            // Wide ramps for beginners, tiny ones for advanced
+            m.width *= tier switch { Tier.Beginner => 1.2f, Tier.Advanced => 0.8f, Tier.Technical => 0.9f, _ => 1f };
             return m;
         }
 
