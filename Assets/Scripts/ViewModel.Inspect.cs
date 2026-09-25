@@ -32,7 +32,7 @@ namespace VoidFlow
         // The sheath still on the left hip but brought up a little into view for the sword
         // routine (its +Y runs from the mouth back into the scabbard), and how the left hand
         // holds it at the mouth
-        static readonly Vector3 AcrossMouth = new(-0.09f, -0.075f, 0.37f);
+        static readonly Vector3 AcrossMouth = new(-0.15f, -0.13f, 0.5f);
         static readonly Quaternion AcrossSheath = FingersBack(new Vector3(-0.35f, -0.3f, -0.9f), new Vector3(1f, 0f, -0.35f));
         static readonly Vector3 FromTopRight = new Vector3(-0.4f, 0.3f, 0.87f).normalized;
         static readonly Quaternion LeftOnSheath = FingersBack(new Vector3(0.25f, 0.6f, 0.8f), new Vector3(-0.2f, 0.7f, -0.6f));
@@ -466,12 +466,17 @@ namespace VoidFlow
 
         // ------------------------------------------------------------------ dark flames
 
+        // Flame artwork: Kenney's Particle Pack (CC0), flame_01-04 are wispy licks of fire,
+        // flame_05-06 are single tongues (Resources/Flames)
         Transform flames;
-        Material flameDark, flameEmber;
-        readonly List<(Transform t, float phase, float angle, float along, float speed, float size)> flameBits = new();
+        Material flameMat;
+        Texture2D[] flameFrames;
+        MaterialPropertyBlock flameProps;
+        readonly List<(MeshRenderer r, float phase, float angle, float spread, float speed, float size, bool ember)> flameBits = new();
 
-        // Flickering tongues of black and deep purple fire around the handle: each one is born
-        // near the handle, drifts up and outward while it turns, and shrinks away, over and over
+        // Camera-facing flame sprites around the handle: each is born near the handle, rises
+        // and grows while its artwork flickers through frames, then fades away, over and over.
+        // Black fire with embers in the sword's own color.
         void UpdateFlames(Vector3 at, Quaternion handle, float strength, float time)
         {
             if (strength <= 0.01f)
@@ -481,58 +486,63 @@ namespace VoidFlow
             }
             if (!flames)
             {
+                flameFrames = new Texture2D[6];
+                for (int f = 0; f < 6; f++) flameFrames[f] = Resources.Load<Texture2D>($"Flames/flame_0{f + 1}");
+                flameMat = fadeTemplate ? new Material(fadeTemplate) : MakeTransparent(new Material(template));
+                flameMat.EnableKeyword("_EMISSION");
+                flameMat.SetFloat("_Smoothness", 0f);
+                materials.Add(flameMat);
+                flameProps = new MaterialPropertyBlock();
                 flames = new GameObject("Dark Flames").transform;
                 flames.SetParent(hand.parent, false);
-                Material Flame(Color color, Color glow)
-                {
-                    var m = fadeTemplate ? new Material(fadeTemplate) : MakeTransparent(new Material(template));
-                    m.SetTexture("_BaseMap", null);
-                    m.SetColor("_BaseColor", color);
-                    m.EnableKeyword("_EMISSION");
-                    m.SetColor("_EmissionColor", glow);
-                    materials.Add(m);
-                    return m;
-                }
-                var dark = flameDark = Flame(Color.black, Color.black);
-                var ember = flameEmber = Flame(Color.black, Color.black);
                 var random = new System.Random(66);
-                for (int i = 0; i < 22; i++)
+                for (int i = 0; i < 18; i++)
                 {
-                    var bit = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    Kill(bit.GetComponent<Collider>());
-                    bit.transform.SetParent(flames, false);
-                    Finish(bit.GetComponent<MeshRenderer>(), i % 4 == 0 ? ember : dark);
-                    flameBits.Add((bit.transform, (float)random.NextDouble(), (float)random.NextDouble() * 360f,
-                        (float)random.NextDouble() * 2f - 1f, 1.1f + (float)random.NextDouble() * 0.9f, 0.0095f + (float)random.NextDouble() * 0.0095f));
+                    var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    Kill(quad.GetComponent<Collider>());
+                    quad.transform.SetParent(flames, false);
+                    var r = quad.GetComponent<MeshRenderer>();
+                    Finish(r, flameMat);
+                    flameBits.Add((r, (float)random.NextDouble(), (float)random.NextDouble() * 360f, (float)random.NextDouble() * 2f - 1f,
+                        0.9f + (float)random.NextDouble() * 0.7f, 0.04f + (float)random.NextDouble() * 0.025f, i % 3 == 0));
                 }
             }
             flames.gameObject.SetActive(true);
             flames.SetLocalPositionAndRotation(at, Quaternion.identity);
-            // Black fire with embers in the sword's own color: red for Hollow Moon, deep blue for
-            // Tidebreaker, purple for Colossus
             Color hue = knife.model switch
             {
-                KnifeModel.HollowMoon => new Color(0.75f, 0.03f, 0.04f),
-                KnifeModel.Tidebreaker => new Color(0.08f, 0.3f, 0.85f),
-                _ => new Color(0.45f, 0.08f, 0.85f),
+                KnifeModel.HollowMoon => new Color(0.85f, 0.05f, 0.04f),
+                KnifeModel.Tidebreaker => new Color(0.1f, 0.35f, 0.95f),
+                _ => new Color(0.5f, 0.1f, 0.95f),
             };
-            flameDark.SetColor("_BaseColor", new Color(0.015f, 0.01f, 0.01f, 0.9f));
-            flameDark.SetColor("_EmissionColor", hue * 0.06f);
-            flameEmber.SetColor("_BaseColor", new Color(hue.r * 0.5f, hue.g * 0.5f, hue.b * 0.5f, 0.8f));
-            flameEmber.SetColor("_EmissionColor", hue * 1.2f);
             Vector3 along = handle * Vector3.up;
             Vector3 side = Vector3.Cross(along, Vector3.forward).normalized;
-            if (side.sqrMagnitude < 0.01f) side = Vector3.right;
             Vector3 side2 = Vector3.Cross(along, side);
-            foreach (var (t, phase, angle, spread, speed, size) in flameBits)
+            foreach (var (r, phase, angle, spread, speed, size, ember) in flameBits)
             {
                 float u = Mathf.Repeat(time * speed + phase, 1f);
-                float a = (angle + u * 90f) * Mathf.Deg2Rad;
-                float r = 0.013f + u * 0.009f;
-                Vector3 p = along * (spread * 0.045f) + (side * Mathf.Cos(a) + side2 * Mathf.Sin(a)) * r + Vector3.up * (u * 0.038f);
-                float flicker = 0.75f + 0.25f * Mathf.Sin(time * 23f + phase * 40f);
-                t.SetLocalPositionAndRotation(p, Quaternion.Euler(45f, angle + time * 120f, 45f));
-                t.localScale = Vector3.one * (size * Mathf.Sin(u * Mathf.PI) * flicker * strength);
+                float a = angle * Mathf.Deg2Rad;
+                Vector3 p = along * (spread * 0.04f) + (side * Mathf.Cos(a) + side2 * Mathf.Sin(a)) * 0.01f + Vector3.up * (0.006f + u * 0.05f);
+                // Facing the camera (the rig looks down +Z), leaning a little as it rises
+                r.transform.SetLocalPositionAndRotation(p, Quaternion.Euler(0f, 0f, Mathf.Sin(time * 3f + phase * 9f) * 12f));
+                float scale = size * (0.6f + u * 0.7f) * strength;
+                r.transform.localScale = new Vector3(scale, scale * 1.3f, scale);
+                // Frames: tongues for embers, wispy fire for the black flames, flickering along
+                int frame = ember ? 4 + (int)(time * 12f + phase * 7f) % 2 : (int)(time * 10f + phase * 13f) % 4;
+                float alpha = Mathf.Sin(u * Mathf.PI) * (ember ? 0.9f : 0.95f);
+                flameProps.SetTexture("_BaseMap", flameFrames[frame]);
+                flameProps.SetTexture("_EmissionMap", flameFrames[frame]);
+                if (ember)
+                {
+                    flameProps.SetColor("_BaseColor", new Color(hue.r, hue.g, hue.b, alpha));
+                    flameProps.SetColor("_EmissionColor", hue * 1.4f);
+                }
+                else
+                {
+                    flameProps.SetColor("_BaseColor", new Color(0.02f, 0.01f, 0.01f, alpha));
+                    flameProps.SetColor("_EmissionColor", hue * 0.08f);
+                }
+                r.SetPropertyBlock(flameProps);
             }
         }
 
