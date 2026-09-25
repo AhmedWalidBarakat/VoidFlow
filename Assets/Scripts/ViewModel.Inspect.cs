@@ -98,24 +98,33 @@ namespace VoidFlow
         static readonly Vector3 RightWide = new(0.175f, -0.03f, 0.3f), LeftWide = new(-0.175f, -0.035f, 0.31f);
         static readonly Quaternion RightUp = FB(-0.3f, 0.8f, 0.6f, 0.3f, 0.3f, -1f), LeftUp = FB(0.3f, 0.8f, 0.6f, -0.3f, 0.3f, -1f);
 
-        // Talon knife: the hand brings it up to hang from the finger ring in front of you, flat
-        // side on, spins it twice round the finger (holding F keeps it spinning), shows it off
-        // a moment, and takes it back down
+        // Talon knife: the old routine (spun on the ring, tossed across to the left hand, spun
+        // there, tossed back and caught by the right, spun off the hand, home) but kept low in
+        // the bottom corners so the middle of the screen stays clear for the run
         static Routine TalonRoutine()
         {
+            var lowRight = new Vector3(0.17f, -0.1f, 0.31f);
+            var lowLeft = new Vector3(-0.17f, -0.1f, 0.32f);
             var ks = new List<Key>();
             var k = IdleKey(true); ks.Add(k);
-            k = k.At(0.35f); k.rp = TalonShowPos; k.rq = TalonShowArm; k.show = 1f; ks.Add(k);
-            k = k.At(0.55f); k.spin = new(0f, 0f, -25f); ks.Add(k);
-            k = k.At(1.35f); k.spin = new(0f, 0f, 745f); ks.Add(k);
-            k = k.At(1.55f); k.spin = new(0f, 0f, 712f); ks.Add(k);
-            k = k.At(1.7f); k.spin = new(0f, 0f, 720f); ks.Add(k);
-            k = k.At(2.1f); ks.Add(k);
-            k = k.At(2.45f); k.rp = TalonIdlePos; k.rq = TalonIdle; k.show = 0f; ks.Add(k);
+            k = k.At(0.3f); k.rq = TalonShowArm; k.spin = new(0f, 0f, -180f); ks.Add(k);
+            k = k.At(0.75f); k.spin = new(0f, 0f, -1080f); ks.Add(k);
+            k = k.At(1.0f); k.hold = Hold.Air; k.ap = new(0f, -0.1f, 0.36f); k.aq = Quaternion.Euler(0f, 0f, 200f); k.spin = new(-360f, 0f, -1260f);
+            k.rp = lowRight; k.lp = lowLeft; ks.Add(k);
+            k = k.At(1.25f); k.hold = Hold.Left; k.lp = new(-0.13f, -0.095f, 0.32f); k.spin = new(-720f, 0f, -1440f); ks.Add(k);
+            k = k.At(1.55f); k.lq = FB(0.3f, 0.9f, 0.4f, -0.1f, 0.2f, -1f); k.spin = new(-720f, 0f, -2160f); ks.Add(k);
+            k = k.At(1.85f); k.hold = Hold.Air; k.ap = new(-0.01f, -0.095f, 0.37f); k.aq = Quaternion.Euler(0f, 0f, 210f); k.spin = new(-1260f, 0f, -2160f);
+            k.lp = lowLeft; k.lq = LeftIdleRotation; ks.Add(k);
+            k = k.At(2.1f); k.ap = new(0.07f, -0.12f, 0.36f); k.spin = new(-1620f, 0f, -2160f); ks.Add(k);
+            k = k.At(2.3f); k.hold = Hold.Right; k.rp = TalonIdlePos; k.rq = TalonShowArm; k.spin = new(-1800f, 0f, -2160f);
+            k.lp = LeftIdle; ks.Add(k);
+            k = k.At(2.75f); k.spin = new(-1800f, 0f, -2880f); ks.Add(k);
+            k = k.At(3.15f); k.spin = new(-1800f, 0f, -3240f); ks.Add(k);
+            k = k.At(3.55f); k.rp = TalonIdlePos; k.rq = TalonIdle; ks.Add(k);
             return new Routine
             {
-                keys = ks.ToArray(), sustainAt = 1.35f, sustainAxis = 1, sustainSpeed = 720f,
-                sounds = new[] { (0.75f, WeaponSounds.Slash, 0.3f), (1.15f, WeaponSounds.Slash, 0.3f) },
+                keys = ks.ToArray(), sustainAt = 0.55f, sustainAxis = 1, sustainSpeed = -1080f,
+                sounds = new[] { (0.85f, WeaponSounds.Slash, 0.35f), (1.75f, WeaponSounds.Slash, 0.35f), (2.5f, WeaponSounds.Slash, 0.35f) },
             };
         }
 

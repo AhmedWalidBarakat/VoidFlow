@@ -28,7 +28,19 @@ namespace VoidFlow
             VoidCases = order = freshCases = 0;
             IsOpen = false;
             caseToastTime = -99f;
+            if (!GiveEverything) return;
+            // Testing: every item and a few Void Cases, so all of it can be seen
+            for (int slot = 0; slot < 3; slot++)
+            {
+                var pool = Skins.Pool((ItemSlot)slot);
+                for (int i = 1; i < pool.Length; i++) Add((ItemSlot)slot, i);
+            }
+            foreach (var it in items) it.fresh = false;
+            VoidCases = 10;
         }
+
+        // While the game is being built: start every session owning everything (set false to ship)
+        const bool GiveEverything = true;
 
         // An unboxed skin
         public static void Add(ItemSlot slot, int index)
