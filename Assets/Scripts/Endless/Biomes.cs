@@ -14,7 +14,7 @@ namespace VoidFlow
     // scenery further out.
     public enum SceneryStyle { Cathedral, Palace, Rings, Grotto, Candy, Forge, Wire, Gallery, Sunset }
 
-    public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice, Hex, Panel, Plaster, Concrete, HexTile, WhiteTile, DarkStone, Plates, Rock }
+    public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice, Hex, Panel, Plaster, Concrete, HexTile, WhiteTile, DarkStone, Plates, Rock, Blocks }
 
     public class Biome
     {
@@ -32,6 +32,9 @@ namespace VoidFlow
         public Surface scenerySurface;
         public Color floor;               // the building's floor (clear: the slab color)
         public Surface floorSurface;
+        public Color accent;              // raised wall panels (clear: the slab color)
+        public Surface accentSurface;
+        public Color shaft;               // light falling in through windows (clear: glowAlt)
         public SceneryStyle style;
 
         public static readonly Biome[] All =
@@ -47,6 +50,9 @@ namespace VoidFlow
                 scenery = new Color(0.62f, 0.14f, 0.16f), scenerySurface = Surface.DarkStone, style = SceneryStyle.Cathedral,
                 floor = new Color(0.16f, 0.1f, 0.11f),
                 floorSurface = Surface.Concrete,
+                accent = new Color(0.3f, 0.07f, 0.08f),
+                accentSurface = Surface.DarkStone,
+                shaft = new Color(1f, 0.25f, 0.28f),
             },
             new Biome
             {
@@ -59,6 +65,9 @@ namespace VoidFlow
                 scenery = new Color(0.9f, 0.5f, 0.22f), scenerySurface = Surface.Plates, style = SceneryStyle.Forge,
                 floor = new Color(0.2f, 0.12f, 0.08f),
                 floorSurface = Surface.Plates,
+                accent = new Color(0.5f, 0.28f, 0.14f),
+                accentSurface = Surface.Plates,
+                shaft = new Color(1f, 0.6f, 0.25f),
             },
             new Biome
             {
@@ -70,6 +79,9 @@ namespace VoidFlow
                 glow = new Color(1f, 0.5f, 0.18f), glowAlt = new Color(1f, 0.68f, 0.52f),
                 scenery = new Color(0.86f, 0.56f, 0.5f), scenerySurface = Surface.Plaster, style = SceneryStyle.Sunset,
                 floor = new Color(0.12f, 0.11f, 0.13f), floorSurface = Surface.HexTile,
+                accent = new Color(1f, 1f, 1f),
+                accentSurface = Surface.Blocks,
+                shaft = new Color(1f, 0.72f, 0.45f),
             },
             new Biome
             {
@@ -81,6 +93,9 @@ namespace VoidFlow
                 glow = new Color(1f, 0.62f, 0.3f), glowAlt = new Color(0.45f, 0.78f, 1f),
                 scenery = new Color(0.94f, 0.94f, 0.95f), scenerySurface = Surface.Plaster, style = SceneryStyle.Gallery,
                 floor = new Color(0.84f, 0.85f, 0.87f), floorSurface = Surface.WhiteTile,
+                accent = new Color(0.97f, 0.97f, 0.98f),
+                accentSurface = Surface.Plaster,
+                shaft = new Color(0.82f, 0.92f, 1f),
             },
             new Biome
             {
@@ -101,6 +116,9 @@ namespace VoidFlow
                 ramp = new Color(1f, 0.35f, 0.75f), slab = new Color(0.3f, 0.95f, 1f), rampSurface = Surface.Plaster,
                 glow = new Color(1f, 0.85f, 0.2f), glowAlt = new Color(0.2f, 1f, 0.95f),
                 scenery = new Color(0.78f, 0.7f, 0.95f), scenerySurface = Surface.Plaster, style = SceneryStyle.Candy,
+                accent = new Color(0.62f, 0.55f, 0.85f),
+                accentSurface = Surface.Plaster,
+                shaft = new Color(0.45f, 1f, 0.95f),
             },
             new Biome
             {
@@ -133,6 +151,7 @@ namespace VoidFlow
                 scenery = new Color(0.35f, 0.42f, 0.5f), scenerySurface = Surface.Rock, style = SceneryStyle.Grotto,
                 floor = new Color(0.2f, 0.25f, 0.3f),
                 floorSurface = Surface.Rock,
+                shaft = new Color(0.35f, 1f, 0.85f),
             },
         };
     }
@@ -144,7 +163,7 @@ namespace VoidFlow
     [Serializable]
     public class BiomeKit
     {
-        public Material ramp, slab, scenery, glow, glowAlt, floor;
+        public Material ramp, slab, scenery, glow, glowAlt, floor, accent, shaft, pool, skyPool;
         public Material trim => glow;
 
         public static Material Surface(Material template, Color color, Texture texture, Vector2 tiling)

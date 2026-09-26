@@ -123,7 +123,8 @@ namespace VoidFlow
         class Batch
         {
             readonly Dictionary<Material, List<CombineInstance>> parts = new();
-            readonly Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)> quads = new();
+            readonly Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<Vector2> uv, List<int> t)> quads = new();
+            readonly HashSet<Material> fixedUv = new(); // light: keeps its own 0..1 coordinates
             readonly Mesh cube;
             public Batch(Mesh cube) { this.cube = cube; }
 
@@ -135,18 +136,20 @@ namespace VoidFlow
             }
 
             // A four-cornered face (a, b, c, d in order round it), showing from both sides
-            public void Quad(Material m, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+            public void Quad(Material m, Vector3 a, Vector3 b, Vector3 c, Vector3 d, bool uv = false)
             {
                 if (!m) return;
                 Vector3 normal = Vector3.Cross(b - a, d - a) + Vector3.Cross(d - c, b - c);
                 if (normal.sqrMagnitude < 1e-6f) return;
                 normal.Normalize();
-                if (!quads.TryGetValue(m, out var q)) quads[m] = q = (new List<Vector3>(), new List<Vector3>(), new List<int>());
+                if (!quads.TryGetValue(m, out var q)) quads[m] = q = (new List<Vector3>(), new List<Vector3>(), new List<Vector2>(), new List<int>());
+                if (uv) fixedUv.Add(m);
                 foreach (float s in new[] { 1f, -1f })
                 {
                     int i = q.v.Count;
                     q.v.AddRange(new[] { a, b, c, d });
                     for (int k = 0; k < 4; k++) q.n.Add(normal * s);
+                    q.uv.AddRange(new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) });
                     if (s > 0f) q.t.AddRange(new[] { i, i + 2, i + 1, i, i + 3, i + 2 });
                     else q.t.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
                 }
@@ -165,14 +168,14 @@ namespace VoidFlow
                         shell = new Mesh { indexFormat = IndexFormat.UInt32 };
                         shell.SetVertices(q.v);
                         shell.SetNormals(q.n);
-                        shell.SetUVs(0, new Vector2[q.v.Count]);
+                        shell.SetUVs(0, q.uv);
                         shell.SetTriangles(q.t, 0);
                         list.Add(new CombineInstance { mesh = shell, transform = Matrix4x4.identity });
                     }
                     var mesh = new Mesh { name = "Architecture", indexFormat = IndexFormat.UInt32 };
                     mesh.CombineMeshes(list.ToArray(), true, true);
                     if (shell) WeaponBuilder.Kill(shell);
-                    if (worldUv) WorldUvs(mesh);
+                    if (worldUv && !fixedUv.Contains(m)) WorldUvs(mesh);
                     mesh.RecalculateBounds();
                     meshes.Add(mesh);
                     var go = new GameObject("Architecture");
@@ -230,10 +233,10 @@ namespace VoidFlow
                 // above the riding level, over the middle part of the bay (u0..u1), edged in
                 // `edge`.
                 void Shell(Material wall, Material roof, Material fl, float rise, bool winA, bool winB,
-                    float lo, float hi, float u0, float u1, Material edge, float edgeWidth)
+                    float lo, float hi, float u0, float u1, Material edge, float edgeWidth, Material mullion = null, int px = 1, int py = 1)
                 {
-                    WallSide(b, wall, edge, last, fr, true, winA, lo, hi, u0, u1, edgeWidth);
-                    WallSide(b, wall, edge, last, fr, false, winB, lo, hi, u0, u1, edgeWidth);
+                    WallSide(b, wall, edge, last, fr, true, winA, lo, hi, u0, u1, edgeWidth, mullion, px, py);
+                    WallSide(b, wall, edge, last, fr, false, winB, lo, hi, u0, u1, edgeWidth, mullion, px, py);
                     Vector3 tl0 = last.A.WithY(last.top), tl1 = A.WithY(top), tr0 = last.B.WithY(last.top), tr1 = B.WithY(top);
                     if (rise > 0f)
                     {
@@ -254,7 +257,13 @@ namespace VoidFlow
                         if (hasLast)
                         {
                             bool window = ribs % 3 == 1;
-                            Shell(kit.scenery, kit.slab, floor, rise, window, window, 4f, 22f, 0.38f, 0.62f, kit.glow, 0.5f);
+                            Shell(kit.scenery, kit.slab, floor, rise, window, window, 4f, 22f, 0.38f, 0.62f, kit.glow, 0.5f, kit.slab, 1, 4);
+                            Mouldings(b, kit.slab, last, fr);
+                            foreach (bool sideA in new[] { true, false })
+                            {
+                                if (window) Shaft(b, kit.shaft, kit.skyPool, last, fr, sideA, 0.38f, 0.62f, 4f, 22f);
+                                else WallPanel(b, kit.accent, kit.slab, last, fr, sideA, 0.14f, 0.86f, -6f, 16f);
+                            }
                             // Spikes down the ridge, the red floor line
                             Vector3 r0 = lastMid.WithY(last.top + lastSpan * rise);
                             for (int n = 0; n < 2; n++)
@@ -318,15 +327,16 @@ namespace VoidFlow
                             Shell(kit.scenery, kit.scenery, kit.glow, 0.12f, false, false, 0f, 0f, 0f, 0f, null, 0f);
                             // A crack of light in the roof now and then
                             if (ribs % 7 == 3) Slab(b, kit.glowAlt, lastMid.WithY(last.top + lastSpan * 0.12f - 0.4f), mid.WithY(top + span * 0.12f - 0.4f), 1.5f, 0.3f);
+                            if (ribs % 6 == 2)
+                            {
+                                Vector3 lantern = (mid + right * Rand(-span * 0.3f, span * 0.3f)).WithY(level + Rand(6f, 14f));
+                                b.Box(kit.glowAlt, lantern, Vector3.one * 2.4f, Quaternion.Euler(Rand(0f, 45f), Rand(0f, 90f), Rand(0f, 45f)));
+                                Pool(b, kit.skyPool, lantern.WithY(bottom + 0.3f), right, f, 18f, 18f);
+                            }
                         }
                         foreach (var at in new[] { A, B })
                         {
                             Vector3 inward = (mid - at).WithY(0f).normalized;
-                            if (ribs % 2 == 0)
-                            {
-                                float y = Rand(bottom + 4f, top - 6f);
-                                b.Box(kit.scenery, (at + inward * Rand(0.5f, 2f)).WithY(y), new Vector3(Rand(3f, 5f), Rand(6f, 10f), Rand(8f, 14f)), Quaternion.LookRotation(f) * Quaternion.Euler(Rand(-10f, 10f), Rand(-15f, 15f), Rand(-10f, 10f)));
-                            }
                             if (rng.NextDouble() < 0.6)
                             {
                                 Vector3 mu = at + inward * Rand(4f, 8f);
@@ -349,7 +359,9 @@ namespace VoidFlow
                         if (hasLast)
                         {
                             bool window = ribs % 5 == 2;
-                            Shell(kit.scenery, kit.scenery, kit.scenery, 0f, window, window, 4f, 16f, 0.25f, 0.75f, kit.glowAlt, 0.6f);
+                            Shell(kit.scenery, kit.scenery, kit.scenery, 0f, window, window, 4f, 16f, 0.25f, 0.75f, kit.glowAlt, 0.6f, kit.glowAlt, 2, 2);
+                            Mouldings(b, kit.accent, last, fr);
+                            if (window) foreach (bool sideA in new[] { true, false }) Shaft(b, kit.shaft, kit.skyPool, last, fr, sideA, 0.25f, 0.75f, 4f, 16f);
                             Vector3 cc = (lastMid + mid) * 0.5f;
                             float cTop = (last.top + top) * 0.5f;
                             var bay = Quaternion.LookRotation((mid - lastMid).WithY(0f).sqrMagnitude > 0.01f ? (mid - lastMid).WithY(0f) : f);
@@ -364,6 +376,8 @@ namespace VoidFlow
                         if (hasLast)
                         {
                             Shell(kit.scenery, kit.slab, null, 0f, false, false, 0f, 0f, 0f, 0f, null, 0f);
+                            Mouldings(b, kit.slab, last, fr);
+                            if (ribs % 2 == 0) foreach (bool sideA in new[] { true, false }) WallPanel(b, kit.accent, kit.slab, last, fr, sideA, 0.1f, 0.9f, 10f, 26f);
                             WallLights(b, kit.glowAlt, last, fr, lastMid, mid, 8f, 0.8f);
                             Slab(b, kit.glow, lastMid.WithY(last.top - 0.3f), mid.WithY(top - 0.3f), 2f, 0.2f);
                             // The lava floor: a glowing sea with dark grid bars over it
@@ -398,15 +412,21 @@ namespace VoidFlow
                         {
                             int side = (ribs / 3) % 2;
                             bool winA = ribs % 3 == 1 && side == 0, winB = ribs % 3 == 1 && side == 1;
-                            Shell(kit.scenery, kit.scenery, floor, 0f, winA, winB, -2f, 20f, 0.15f, 0.85f, kit.slab, 0.8f);
+                            Shell(kit.scenery, kit.scenery, floor, 0f, winA, winB, -2f, 20f, 0.15f, 0.85f, kit.slab, 0.8f, kit.slab, 4, 3);
+                            Mouldings(b, kit.slab, last, fr);
                             foreach (var (sideA, win) in new[] { (true, winA), (false, winB) })
                             {
                                 Vector3 w0 = sideA ? last.A : last.B, w1 = sideA ? A : B;
                                 Vector3 in0 = (lastMid - w0).WithY(0f).normalized, in1 = (mid - w1).WithY(0f).normalized;
-                                if (!win)
+                                if (win) Shaft(b, kit.shaft, kit.skyPool, last, fr, sideA, 0.15f, 0.85f, -2f, 20f);
+                                else
                                 {
-                                    Vector3 sc = Vector3.Lerp((w0 + in0 * 0.6f).WithY(last.level + 6f), (w1 + in1 * 0.6f).WithY(level + 6f), 0.5f);
+                                    // A raised panel lit by a warm sconce, its glow washing the wall
+                                    WallPanel(b, kit.accent, kit.slab, last, fr, sideA, 0.2f, 0.8f, -1f, 13f);
+                                    Vector3 sc = OnWall(last, fr, sideA, 0.5f, 6f, 0.8f);
                                     b.Box(kit.glow, sc, new Vector3(0.6f, 2.2f, 1.2f), Quaternion.LookRotation((w1 - w0).WithY(0f)));
+                                    Vector3 along = (w1 - w0).WithY(0f).normalized;
+                                    Pool(b, kit.pool, OnWall(last, fr, sideA, 0.5f, 6f, 0.55f), along, Vector3.up, 9f, 11f);
                                 }
                                 Slab(b, kit.glowAlt, (w0 + in0 * 1.6f).WithY(last.bottom + 0.8f), (w1 + in1 * 1.6f).WithY(bottom + 0.8f), 0.8f, 0.2f);
                             }
@@ -421,6 +441,11 @@ namespace VoidFlow
                             int side = (ribs / 4) % 2;
                             bool winA = ribs % 4 == 2 && side == 0, winB = ribs % 4 == 2 && side == 1;
                             Shell(kit.scenery, kit.slab, floor, 0f, winA, winB, -4f, 18f, 0.1f, 0.9f, kit.glow, 1.2f);
+                            foreach (var (sideA, win) in new[] { (true, winA), (false, winB) })
+                            {
+                                if (win) Shaft(b, kit.shaft, kit.skyPool, last, fr, sideA, 0.1f, 0.9f, -4f, 18f);
+                                else if (ribs % 2 == 0) WallPanel(b, kit.accent, kit.slab, last, fr, sideA, 0.12f, 0.88f, -1f, 15f);
+                            }
                             foreach (bool sideA in new[] { true, false })
                             {
                                 Vector3 w0 = sideA ? last.A : last.B, w1 = sideA ? A : B;
@@ -477,6 +502,75 @@ namespace VoidFlow
             b.Box(m, (from + to) * 0.5f, size, rot);
         }
 
+        // Where a point on one wall of a bay is: `u` along the bay, `y` above the riding level,
+        // `inward` metres into the room
+        static Vector3 OnWall(Frame last, Frame fr, bool sideA, float u, float y, float inward = 0f)
+        {
+            Vector3 a = sideA ? last.A : last.B, c = sideA ? fr.A : fr.B;
+            Vector3 in0 = (((last.A + last.B) * 0.5f) - a).WithY(0f).normalized, in1 = (((fr.A + fr.B) * 0.5f) - c).WithY(0f).normalized;
+            Vector3 inDir = Vector3.Lerp(in0, in1, u).normalized;
+            return (Vector3.Lerp(a, c, u) + inDir * inward).WithY(Mathf.Lerp(last.level, fr.level, u) + y);
+        }
+
+        static Vector3 Inward(Frame last, Frame fr, bool sideA, float u) =>
+            (OnWall(last, fr, sideA, u, 0f, 1f) - OnWall(last, fr, sideA, u, 0f)).WithY(0f).normalized;
+
+        // Light falling in through a window: soft glowing planes slanting from the window's
+        // edges down into the room, and a pool where it lands on the floor
+        static void Shaft(Batch b, Material shaft, Material pool, Frame last, Frame fr, bool sideA, float u0, float u1, float lo, float hi)
+        {
+            if (!shaft) return;
+            float um = (u0 + u1) * 0.5f;
+            Vector3 inward = Inward(last, fr, sideA, um);
+            float floorY = Mathf.Lerp(last.bottom, fr.bottom, um) - Mathf.Lerp(last.level, fr.level, um); // floor, relative to the riding level
+            float drop = hi - floorY, reach = drop * 0.55f;
+            foreach (float y in new[] { hi - 0.5f, (lo + hi) * 0.5f, lo + 0.5f })
+            {
+                Vector3 t0 = OnWall(last, fr, sideA, u0 + 0.03f, y, 0.4f), t1 = OnWall(last, fr, sideA, u1 - 0.03f, y, 0.4f);
+                Vector3 down = inward * reach * ((y - floorY) / drop) + Vector3.down * (y - floorY);
+                b.Quad(shaft, t0 + down, t1 + down, t1, t0, uv: true);
+            }
+            if (!pool) return;
+            Vector3 land = OnWall(last, fr, sideA, um, floorY + 0.15f, reach * 0.8f);
+            Vector3 along = (OnWall(last, fr, sideA, u1, 0f) - OnWall(last, fr, sideA, u0, 0f)).WithY(0f);
+            Pool(b, pool, land, along.normalized, inward, along.magnitude * 1.1f, reach * 0.9f);
+        }
+
+        // A soft glowing patch (light on a floor or wall): centred on `c`, spanning `w` along
+        // `u` and `h` along `v`
+        static void Pool(Batch b, Material m, Vector3 c, Vector3 u, Vector3 v, float w, float h)
+        {
+            if (!m) return;
+            Vector3 x = u * (w * 0.5f), y = v * (h * 0.5f);
+            b.Quad(m, c - x - y, c + x - y, c + x + y, c - x + y, uv: true);
+        }
+
+        // A raised panel on a wall between `u0..u1` along the bay and `lo..hi` above the riding
+        // level, framed by a trim moulding
+        static void WallPanel(Batch b, Material face, Material trim, Frame last, Frame fr, bool sideA, float u0, float u1, float lo, float hi)
+        {
+            Vector3 P(float u, float y, float d) => OnWall(last, fr, sideA, u, y, d);
+            b.Quad(face, P(u0, lo, 0.35f), P(u1, lo, 0.35f), P(u1, hi, 0.35f), P(u0, hi, 0.35f));
+            if (!trim) return;
+            const float t = 0.45f;
+            Line(b, trim, P(u0, lo, 0.45f), P(u1, lo, 0.45f), t);
+            Line(b, trim, P(u0, hi, 0.45f), P(u1, hi, 0.45f), t);
+            Line(b, trim, P(u0, lo, 0.45f), P(u0, hi, 0.45f), t);
+            Line(b, trim, P(u1, lo, 0.45f), P(u1, hi, 0.45f), t);
+        }
+
+        // Baseboard and crown moulding running the whole length of both walls
+        static void Mouldings(Batch b, Material trim, Frame last, Frame fr)
+        {
+            foreach (bool sideA in new[] { true, false })
+            {
+                Vector3 b0 = OnWall(last, fr, sideA, 0f, last.bottom - last.level + 1.2f, 0.5f), b1 = OnWall(last, fr, sideA, 1f, fr.bottom - fr.level + 1.2f, 0.5f);
+                Slab(b, trim, b0, b1, 1.2f, 2.4f, vertical: true);
+                Vector3 c0 = OnWall(last, fr, sideA, 0f, last.top - last.level - 1.5f, 0.6f), c1 = OnWall(last, fr, sideA, 1f, fr.top - fr.level - 1.5f, 0.6f);
+                Slab(b, trim, c0, c1, 1.2f, 1.6f, vertical: true);
+            }
+        }
+
         // A glowing line along both walls at `height` above the riding level, carried rib to rib
         // so it runs unbroken down the whole building
         static void WallLights(Batch b, Material m, Frame last, Frame fr, Vector3 lastMid, Vector3 mid, float height, float size)
@@ -493,7 +587,7 @@ namespace VoidFlow
         // through the ribs' own corners. With a window, the part between u0 and u1 along the bay
         // is split around an opening from `lo` to `hi` above the riding level, edged in `edge`.
         static void WallSide(Batch b, Material wall, Material edge, Frame last, Frame fr, bool sideA, bool window,
-            float lo, float hi, float u0, float u1, float edgeWidth)
+            float lo, float hi, float u0, float u1, float edgeWidth, Material mullion = null, int panesX = 1, int panesY = 1)
         {
             Vector3 a = sideA ? last.A : last.B, c = sideA ? fr.A : fr.B;
             Vector3 P(float u, float y0, float y1) => Vector3.Lerp(a, c, u).WithY(Mathf.Lerp(y0, y1, u));
@@ -515,6 +609,18 @@ namespace VoidFlow
             Line(b, edge, Hi(u0), Hi(u1), edgeWidth);
             Line(b, edge, Lo(u0), Hi(u0), edgeWidth);
             Line(b, edge, Lo(u1), Hi(u1), edgeWidth);
+            // Glazing bars: a grid of panes, like the windows in the white rooms
+            if (!mullion) return;
+            for (int i = 1; i < panesX; i++)
+            {
+                float u = Mathf.Lerp(u0, u1, (float)i / panesX);
+                Line(b, mullion, Lo(u), Hi(u), edgeWidth * 0.5f);
+            }
+            for (int j = 1; j < panesY; j++)
+            {
+                float k = (float)j / panesY;
+                Line(b, mullion, Vector3.Lerp(Lo(u0), Hi(u0), k), Vector3.Lerp(Lo(u1), Hi(u1), k), edgeWidth * 0.5f);
+            }
         }
 
         static void Line(Batch b, Material m, Vector3 from, Vector3 to, float thickness)

@@ -38,6 +38,9 @@ namespace VoidFlow.EditorTools
             hex = MakeHexTexture();
             panel = MakeHallPanelTexture();
             plaster = MakePlasterTexture();
+            shaftTex = MakeShaftTexture();
+            poolTex = MakePoolTexture();
+            blocks = MakeTumblingBlocksTexture();
             Material rampMat = MakeMaterial("Ramp", new Color(0.9f, 0.89f, 0.93f), grid);
             var sky = new Material(Shader.Find("VoidFlow/GradientSky"));
             AssetDatabase.CreateAsset(sky, $"{Root}/Sky.mat");
@@ -125,7 +128,22 @@ namespace VoidFlow.EditorTools
         }
 
         // Painted textures, made at the start of Build and used by the hall and biomes
-        static Texture2D tiles, stone, metal, wood, ice, hex, panel, plaster;
+        static Texture2D tiles, stone, metal, wood, ice, hex, panel, plaster, shaftTex, poolTex, blocks;
+
+        // A see-through glowing material for light itself: shafts through windows, pools on the
+        // floor and halos round lamps. Soft-edged by its texture's alpha.
+        static Material LightMaterial(Color color, Texture2D tex, float alpha, float intensity)
+        {
+            var m = ViewModel.MakeTransparent(new Material(Shader.Find("Universal Render Pipeline/Lit")));
+            m.SetTexture("_BaseMap", tex);
+            m.SetColor("_BaseColor", new Color(color.r, color.g, color.b, alpha));
+            m.SetFloat("_Smoothness", 0f);
+            m.EnableKeyword("_EMISSION");
+            m.SetTexture("_EmissionMap", tex);
+            m.SetColor("_EmissionColor", color * intensity);
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            return m;
+        }
 
         // CC0 photo textures from ambientCG (Assets/Textures/CC0, see its LICENSE.txt)
         static Texture2D CC0(string name) => AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Textures/CC0/{name}.jpg");
@@ -153,6 +171,7 @@ namespace VoidFlow.EditorTools
                 Surface.DarkStone => CC0("Bricks034"),
                 Surface.Plates => CC0("MetalPlates006"),
                 Surface.Rock => CC0("Rock051"),
+                Surface.Blocks => blocks,
                 _ => grid,
             };
 
@@ -174,6 +193,10 @@ namespace VoidFlow.EditorTools
                     glow = Save(BiomeKit.Glow(template, b.glow), "Glow"),
                     glowAlt = Save(BiomeKit.Glow(template, b.glowAlt), "GlowAlt"),
                     floor = Save(BiomeKit.Surface(template, b.floor.a > 0f ? b.floor : b.slab, Tex(b.floor.a > 0f ? b.floorSurface : b.rampSurface), Vector2.one), "Floor"),
+                    accent = Save(BiomeKit.Surface(template, b.accent.a > 0f ? b.accent : b.slab, Tex(b.accent.a > 0f ? b.accentSurface : b.scenerySurface), Vector2.one), "Accent"),
+                    shaft = Save(LightMaterial(b.shaft.a > 0f ? b.shaft : b.glowAlt, shaftTex, 0.22f, 0.9f), "Shaft"),
+                    pool = Save(LightMaterial(b.glow, poolTex, 0.5f, 1.4f), "Pool"),
+                    skyPool = Save(LightMaterial(b.shaft.a > 0f ? b.shaft : b.glowAlt, poolTex, 0.45f, 1.2f), "SkyPool"),
                 };
             }
             return kits;

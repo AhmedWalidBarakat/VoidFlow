@@ -1,3 +1,4 @@
+using UnityEditor;
 using UnityEngine;
 
 namespace VoidFlow.EditorTools
@@ -185,6 +186,62 @@ namespace VoidFlow.EditorTools
             float seam = Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(v, 1f - v));
             if (seam < 0.003f) return Grey(0.8f);
             return Grey(0.93f + (Mottle(u, v, 53) - 0.5f) * 0.05f);
+        });
+
+        // A soft beam of light: bright at the top (v = 1, the window) fading to nothing at the
+        // bottom, and soft at both sides
+        static Texture2D MakeShaftTexture() => LightTexture("Shaft", (u, v) =>
+            Mathf.Pow(v, 1.6f) * Mathf.Pow(Mathf.Sin(u * Mathf.PI), 0.9f) * (0.85f + 0.15f * Mathf.Sin(u * 23f + v * 3f)));
+
+        // A pool of light: soft round falloff from the middle
+        static Texture2D MakePoolTexture() => LightTexture("Pool", (u, v) =>
+        {
+            float r = Mathf.Clamp01(Mathf.Sqrt((u - 0.5f) * (u - 0.5f) + (v - 0.5f) * (v - 0.5f)) * 2f);
+            return Mathf.Pow(1f - r, 2.2f);
+        });
+
+        static Texture2D LightTexture(string name, System.Func<float, float, float> alpha)
+        {
+            var tex = new Texture2D(PaintSize, PaintSize, TextureFormat.RGBA32, false);
+            for (int y = 0; y < PaintSize; y++)
+            for (int x = 0; x < PaintSize; x++)
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Clamp01(alpha((x + 0.5f) / PaintSize, (y + 0.5f) / PaintSize))));
+            string path = $"{Root}/{name}.png";
+            SaveTexture(tex, path);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.alphaIsTransparency = true;
+            importer.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        // Tumbling blocks in warm wood: a field of cubes drawn from three shades of rhombus
+        // (top light, left mid, right dark), with grain running along each face
+        static Texture2D MakeTumblingBlocksTexture() => Paint("TumblingBlocks", (u, v) =>
+        {
+            const float s3 = 1.7320508f;
+            // 4 cubes across, tiling: a hex lattice of cube centres
+            float x = u * 4f, y = v * 4f * s3 / 1.5f;
+            float best = 99f;
+            Vector2 d = Vector2.zero;
+            for (int k = 0; k < 2; k++)
+            {
+                float ox = k * 0.5f, oy = k * s3 * 0.5f;
+                float cx = Mathf.Round(x - ox) + ox, cy = Mathf.Round((y - oy) / s3) * s3 + oy;
+                var dd = new Vector2(x - cx, y - cy);
+                if (dd.sqrMagnitude < best) { best = dd.sqrMagnitude; d = dd; }
+            }
+            // Which face: above the two lower edges is the top; otherwise left or right
+            float face; Vector2 grainDir;
+            if (d.y > -Mathf.Abs(d.x) / s3) { face = 0.78f; grainDir = new Vector2(1f, 0.5f); }
+            else if (d.x < 0f) { face = 0.55f; grainDir = new Vector2(0f, 1f); }
+            else { face = 0.36f; grainDir = new Vector2(0f, 1f); }
+            // Seams where faces meet
+            float seam = Mathf.Min(Mathf.Abs(d.x), Mathf.Abs(d.y + Mathf.Abs(d.x) / s3));
+            if (seam < 0.012f) return new Color(0.16f, 0.1f, 0.06f);
+            float grain = Noise(Vector2.Dot(new Vector2(x, y), grainDir) * 40f, Vector2.Dot(new Vector2(x, y), new Vector2(-grainDir.y, grainDir.x)) * 3f, 64, 71);
+            float shade = face * (0.88f + 0.24f * grain);
+            return new Color(shade * 1.05f, shade * 0.72f, shade * 0.45f);
         });
 
         static Color Grey(float v) => new(v, v, v, 1f);
