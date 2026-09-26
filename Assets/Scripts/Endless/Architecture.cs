@@ -72,10 +72,13 @@ namespace VoidFlow
                 float d = Mathf.Lerp(from, to, (float)n / count);
                 int k = Index(path, Mathf.Min(d, path.Length));
                 Vector3 p = path.ridge[k], right = path.right[k];
+                // A is always the left wall and B the right, whichever way the ramp faces: if they
+                // swapped with the face, the building joining two ramps across a flight would
+                // sweep its walls right across the jump
                 frames.Add(new Frame
                 {
                     p = p, f = path.forward[k], right = right,
-                    A = p + right * (-near * s), B = p + right * (far * s),
+                    A = p - right * (s > 0f ? near : far), B = p + right * (s > 0f ? far : near),
                     level = p.y, top = p.y + Roof, bottom = p.y - path.Depth - depth,
                 });
             }
@@ -106,6 +109,56 @@ namespace VoidFlow
                 });
             }
             return frames;
+        }
+
+        // A solid wall right across the building with a rounded hole to jump through. `hole` is
+        // the hole's centre, `facing` the way you fly through it, hw and hh its half width and
+        // height. The wall runs out past the building's walls, floor and vault (hidden behind
+        // them) so there's no way round it. Returns the wall; its solid parts get colliders.
+        public static GameObject HoleWall(Frame fr, Vector3 hole, Vector3 facing, float hw, float hh, BiomeKit kit,
+            Transform parent, List<Mesh> meshes, Mesh cube)
+        {
+            var b = new Batch(cube);
+            Vector3 normal = facing.WithY(0f).normalized, across = new Vector3(normal.z, 0f, -normal.x);
+            const float half = 1.5f; // half the wall's thickness
+            const int sides = 48;
+            float xa = Mathf.Min(Vector3.Dot(fr.A - hole, across), Vector3.Dot(fr.B - hole, across)) - 15f;
+            float xb = Mathf.Max(Vector3.Dot(fr.A - hole, across), Vector3.Dot(fr.B - hole, across)) + 15f;
+            float y0 = fr.bottom - hole.y - 10f, y1 = fr.level + (fr.top - fr.level) * 1.6f + 10f - hole.y;
+            // The hole: a squircle, round-cornered but wide open
+            Vector2 H(int i)
+            {
+                float t = i * Mathf.PI * 2f / sides, c = Mathf.Cos(t), s = Mathf.Sin(t);
+                return new Vector2(hw * Mathf.Sign(c) * Mathf.Sqrt(Mathf.Abs(c)), hh * Mathf.Sign(s) * Mathf.Sqrt(Mathf.Abs(s)));
+            }
+            // Out from the centre through a hole point to the wall's edge
+            Vector2 O(Vector2 h)
+            {
+                float tx = h.x > 0.001f ? xb / h.x : h.x < -0.001f ? xa / h.x : float.MaxValue;
+                float ty = h.y > 0.001f ? y1 / h.y : h.y < -0.001f ? y0 / h.y : float.MaxValue;
+                return h * Mathf.Min(tx, ty);
+            }
+            Vector3 W(Vector2 q, float z) => hole + across * q.x + Vector3.up * q.y + normal * z;
+            for (int i = 0; i < sides; i++)
+            {
+                Vector2 h0 = H(i), h1 = H(i + 1), o0 = O(h0), o1 = O(h1);
+                foreach (float z in new[] { -half, half })
+                {
+                    b.Quad(kit.scenery, W(h0, z), W(o0, z), W(o1, z), W(h1, z));
+                    // A glowing rim round the hole on both faces, so you can read it from the ramp
+                    Vector2 g0 = h0 + h0.normalized * 1.2f, g1 = h1 + h1.normalized * 1.2f;
+                    float zg = z + Mathf.Sign(z) * 0.06f;
+                    b.Quad(kit.glow, W(h0, zg), W(g0, zg), W(g1, zg), W(h1, zg));
+                }
+                b.Quad(kit.slab, W(h0, -half), W(h1, -half), W(h1, half), W(h0, half)); // inside the hole
+            }
+            var wall = new GameObject("HoleWall");
+            wall.transform.SetParent(parent, false);
+            b.Build(wall.transform, meshes, true);
+            foreach (var mf in wall.GetComponentsInChildren<MeshFilter>())
+                if (mf.GetComponent<MeshRenderer>().sharedMaterial != kit.glow)
+                    mf.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
+            return wall;
         }
 
         public static void Shift(ref Frame f, Vector3 delta)

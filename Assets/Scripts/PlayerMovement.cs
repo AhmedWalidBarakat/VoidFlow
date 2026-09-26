@@ -125,6 +125,8 @@ namespace VoidFlow
             transform.position += delta;
         }
 
+        public void SetVelocity(Vector3 v) => velocity = v;
+
         public void LimitHorizontalSpeed(float max)
         {
             var h = new Vector3(velocity.x, 0f, velocity.z);

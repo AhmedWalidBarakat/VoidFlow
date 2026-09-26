@@ -4,8 +4,8 @@ using UnityEngine.InputSystem;
 namespace VoidFlow
 {
     // Runs the endless mode and draws the HUD. The run starts when you leave the start
-    // hall. Every few ramps a gate marks a checkpoint: fall and you're put back there with the
-    // run still going. Fall before the first one (or press R) and you're back in the hall with a
+    // hall. Every few ramps a gate marks a checkpoint: fall and you're put back on its drop-in
+    // platform with the run still going. Fall before the first one (or press R) and you're back in the hall with a
     // fresh course.
     // Tracks distance, time, your last and best distance, and announces each biome as you
     // enter it.
@@ -76,7 +76,7 @@ namespace VoidFlow
                 if (running && course.RespawnAtCheckpoint(player))
                 {
                     falls++;
-                    Note("BACK TO CHECKPOINT");
+                    Note("CHECKPOINT  ·  drop in when you're ready");
                     return;
                 }
                 if (running)

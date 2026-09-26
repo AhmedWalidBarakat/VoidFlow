@@ -98,10 +98,12 @@ namespace VoidFlow
             public int index, biome;
             public RampShapes.RampPath path;
             public Vector3[] line;          // riding line, course-local
+            public Vector3[] flight;        // the designed flight into this ramp, course-local (may be empty)
             public GameObject root;
             public string move;
             public readonly List<Mesh> meshes = new();
             public float startProgress, flightSpeed, lowestY;
+            public Transform pad;           // the checkpoint's drop-in platform (checkpoint ramps only)
         }
 
         readonly List<Segment> segments = new();
@@ -221,9 +223,11 @@ namespace VoidFlow
             nextIndex = 0;
             current = 0;
             checkpoint = 0;
+            padInUse = null;
             last = null;
             lastFrame = null;
-            afterLaunch = false;
+            afterLaunch = afterTwin = false;
+            lastHoleWall = -99;
             nextProgress = 0f;
             Progress = 0f;
             stageThemes.Clear();
@@ -250,6 +254,7 @@ namespace VoidFlow
         {
             if (!player) return;
             UpdateCurrent(player.Position);
+            UpdatePad(dt);
             Stream(all: false);
             Recenter();
             if (envBlend < 1f)
@@ -375,6 +380,9 @@ namespace VoidFlow
             bool enclose = false;
             float extraMargin = 0f;
             Func<float, float> flightArc = null;
+            Vector3[] flightPoints = Array.Empty<Vector3>();
+            float landingEnd = 0f;
+            holePlan = null;
             float flightGap = 0f;
             RampShapes.RampPath holeWall = null, twin = null;
             int stage = i / rampsPerBiome;
@@ -458,6 +466,20 @@ namespace VoidFlow
                 }
                 flightArc = RampShapes.Flight(last, flightSpeed).height;
                 flightGap = landing.gap;
+                holePlan = PlanHoleWall(i, tier, m, biome, landing, flightSpeed);
+                {
+                    var (_, arcY, launch) = RampShapes.Flight(last, flightSpeed);
+                    Vector3 fwd = last.EndForward, side = new Vector3(fwd.z, 0f, -fwd.x);
+                    const int samples = 24;
+                    flightPoints = new Vector3[samples + 1];
+                    for (int k = 0; k <= samples; k++)
+                    {
+                        float f = (float)k / samples, d = landing.gap * f;
+                        Vector3 at = launch + fwd * d + side * (landing.shift * f * f);
+                        at.y = arcY(d);
+                        flightPoints[k] = at;
+                    }
+                }
                 if (m.bigAir)
                 {
                     move += " + big air";
@@ -483,6 +505,7 @@ namespace VoidFlow
                         airShards.Add(at);
                     }
                 }
+                landingEnd = landing.length;
                 if (m.hole) holeWall = RampShapes.HoleWall(path, 3f, landing.length + 15f, 25f);
                 // The twin stands behind the ramp you land on (seen from the flight), so it
                 // never blocks the way in
@@ -491,6 +514,7 @@ namespace VoidFlow
             }
             last = path;
             afterLaunch = move.StartsWith("launch");
+            afterTwin = twin != null;
 
             var seg = new Segment
             {
@@ -498,6 +522,7 @@ namespace VoidFlow
                 biome = biomeIndex,
                 move = move,
                 path = path,
+                flight = flightPoints,
                 flightSpeed = flightSpeed,
                 startProgress = nextProgress,
                 lowestY = float.MaxValue,
@@ -538,6 +563,7 @@ namespace VoidFlow
                 Vector3 foot = seg.line[0] + Vector3.down * 3f;
                 AddPart(seg, "CheckpointGate", foot, RampShapes.GateMesh(foot, path.forward[0], 18f, 12f, $"Checkpoint {i}"), kit.glowAlt, solid: false);
             }
+            if (i > 0 && i % checkpointEvery == 0) BuildPad(seg, path, landingEnd, kit);
             if (ringCenter is Vector3 ring)
             {
                 AddPart(seg, "Ring", ring, RampShapes.RingMesh(ring, ringFacing, 6f, $"Ring {i}"), kit.glowAlt, solid: false);
@@ -558,8 +584,45 @@ namespace VoidFlow
             Physics.SyncTransforms();
         }
 
+        // A wall across a flight with a hole to jump through: where it stands and how big
+        struct HolePlan { public Vector3 center, facing; public float hw, hh; }
+        HolePlan? holePlan;
+        int lastHoleWall = -99;
+        const int HoleWallSpacing = 5; // at least this many ramps between hole walls
+
+        // Now and then (never for beginners, never on big air or right after a launch kicker or
+        // a twin, where you could take off from either ramp; only indoors) the flight into this ramp goes through a hole in a wall. The wall stands
+        // early in the flight, where fast and slow riders are still close together, and the hole
+        // is sized to take both, with room to spare.
+        HolePlan? PlanHoleWall(int i, Tier tier, Move m, Biome biome, RampShapes.Landing landing, float flightSpeed)
+        {
+            if (i < 12 || tier == Tier.Beginner || m.bigAir || afterLaunch || afterTwin || !Architecture.Continuous(biome.style)) return null;
+            if (i - lastHoleWall < HoleWallSpacing || landing.gap < 40f) return null;
+            if ((unchecked((uint)i * 2654435761u) >> 8) % 100 >= 30) return null; // its own dice: the course itself isn't reshuffled
+            float d = Mathf.Clamp(landing.gap * 0.3f, 18f, 32f), f = d / landing.gap;
+            var (_, design, launch) = RampShapes.Flight(last, flightSpeed);
+            var slow = RampShapes.Flight(last, SlowestLikelySpeed(flightSpeed)).height;
+            var fast = RampShapes.Flight(last, Mathf.Max(flightSpeed * 1.8f, 3000f * PlayerMovement.SourceUnit)).height;
+            float lo = Mathf.Min(slow(d), Mathf.Min(fast(d), design(d))), hi = Mathf.Max(slow(d), Mathf.Max(fast(d), design(d)));
+            if (hi - lo > 16f) return null; // too spread out to make a fair hole
+            Vector3 fwd = last.EndForward, side = new Vector3(fwd.z, 0f, -fwd.x);
+            Vector3 center = launch + fwd * d + side * (landing.shift * f * f);
+            center.y = (lo + hi) * 0.5f + 1f; // the body rides above the arc of the feet
+            lastHoleWall = i;
+            return new HolePlan
+            {
+                center = center,
+                facing = (fwd + side * (2f * landing.shift * f / landing.gap)).normalized,
+                hw = 12f,
+                hh = Mathf.Clamp((hi - lo) * 0.5f + 7f, 9f, 16f),
+            };
+        }
+
+        static Vector3 Flat(Vector3 v) => new(v.x, 0f, v.z);
+
         readonly List<Vector3> airShards = new();
         bool afterLaunch; // the ramp just built ends in a launch kicker
+        bool afterTwin;   // ...has a twin beside it (you might launch from either)
 
         // The last cross-section of the previous ramp's building, if it was a continuous one:
         // the next building starts by joining onto it across the flight
@@ -589,6 +652,15 @@ namespace VoidFlow
             {
                 var join = Architecture.FlightFrames(prev, frames[0], flightArc, flightGap, step);
                 frames.InsertRange(0, join);
+                if (holePlan is HolePlan hp)
+                {
+                    // The wall fits the cross-section of the building nearest to it
+                    var near = join[0];
+                    foreach (var jf in join)
+                        if (Flat(jf.p - hp.center).sqrMagnitude < Flat(near.p - hp.center).sqrMagnitude) near = jf;
+                    Architecture.HoleWall(near, hp.center, hp.facing, hp.hw, hp.hh, kit, seg.root.transform, seg.meshes, cube);
+                    seg.move += " + hole in the wall";
+                }
                 if (stageStart) doorway = Mathf.Min(1, frames.Count - 1);
             }
             Architecture.Build(frames, biome, kit, seg.root.transform, seg.meshes, decor, cube, doorway);
@@ -908,8 +980,82 @@ namespace VoidFlow
             p.Teleport(pos, yaw, along.normalized * (seg.flightSpeed * 0.9f));
         }
 
+        // The drop-in platform over a checkpoint ramp: it floats 6m over the riding line just
+        // past the landing hill, where flights have already come down and riders are sliding
+        // along the surface under it. It's only solid while someone respawns on it, so it can
+        // never catch a rider coming through; step off any edge and you're sent down the ramp
+        // at the speed it was built for.
+        const float PadHeight = 6f, PadWidth = 7f, PadLength = 9f;
+
+        void BuildPad(Segment seg, RampShapes.RampPath path, float landingEnd, BiomeKit kit)
+        {
+            float want = Mathf.Min(landingEnd + 15f, path.Length * 0.4f);
+            int k = 0;
+            while (k < path.distance.Count - 1 && path.distance[k] < want) k++;
+            Vector3 fwd = path.forward[k];
+            var pad = new GameObject("CheckpointPad").transform;
+            pad.SetParent(seg.root.transform, false);
+            pad.SetLocalPositionAndRotation(seg.line[k] + Vector3.up * PadHeight, Quaternion.LookRotation(fwd, Vector3.up));
+            void Block(string name, Vector3 at, Vector3 size, Quaternion turn, Material mat, bool solid = false)
+            {
+                var go = new GameObject(name);
+                go.transform.SetParent(pad, false);
+                go.transform.SetLocalPositionAndRotation(at, turn);
+                go.transform.localScale = size;
+                go.AddComponent<MeshFilter>().sharedMesh = cube;
+                var r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = mat;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                if (solid) go.AddComponent<BoxCollider>().enabled = false;
+            }
+            Block("Deck", new Vector3(0f, -0.4f, 0f), new Vector3(PadWidth, 0.8f, PadLength), Quaternion.identity, kit.slab, solid: true);
+            // A glowing rim, and chevrons pointing down the ramp
+            foreach (float x in new[] { -1f, 1f })
+                Block("Rim", new Vector3(x * PadWidth * 0.5f, 0.02f, 0f), new Vector3(0.25f, 0.1f, PadLength), Quaternion.identity, kit.glow);
+            foreach (float z in new[] { -1f, 1f })
+                Block("Rim", new Vector3(0f, 0.02f, z * PadLength * 0.5f), new Vector3(PadWidth, 0.1f, 0.25f), Quaternion.identity, kit.glow);
+            for (int c = 0; c < 2; c++)
+                foreach (float x in new[] { -1f, 1f })
+                    Block("Chevron", new Vector3(x * 0.55f, 0.03f, 0.8f + c * 1.8f), new Vector3(0.25f, 0.06f, 1.6f), Quaternion.Euler(0f, -x * 45f, 0f), kit.glowAlt);
+            Block("Glow", new Vector3(0f, -0.85f, 0f), new Vector3(PadWidth - 1f, 0.1f, PadLength - 1f), Quaternion.identity, kit.glow);
+            seg.pad = pad;
+        }
+
+        Segment padInUse;
+        bool padLeft;
+        float padTimer;
+
+        // While someone's on a checkpoint platform: once they leave it, send them down the ramp,
+        // and a moment later make the platform ghostly again
+        void UpdatePad(float dt)
+        {
+            if (padInUse == null || !padInUse.pad) { padInUse = null; return; }
+            var pad = padInUse.pad;
+            Vector3 local = pad.InverseTransformPoint(player.Position);
+            bool on = Mathf.Abs(local.x) < PadWidth * 0.5f + 0.6f && Mathf.Abs(local.z) < PadLength * 0.5f + 0.6f && local.y > -1.5f;
+            if (!padLeft && !on)
+            {
+                padLeft = true;
+                Vector3 v = player.Velocity;
+                float speed = Mathf.Max(padInUse.flightSpeed * 0.9f, new Vector2(v.x, v.z).magnitude);
+                Vector3 h = pad.forward * speed;
+                player.SetVelocity(new Vector3(h.x, Mathf.Min(v.y, 0f), h.z));
+            }
+            if (padLeft && (padTimer += dt) > 1.5f)
+            {
+                SetPadSolid(padInUse, false);
+                padInUse = null;
+            }
+        }
+
+        static void SetPadSolid(Segment seg, bool solid)
+        {
+            if (!seg.pad) return;
+            foreach (var c in seg.pad.GetComponentsInChildren<Collider>(true)) c.enabled = solid;
+        }
+
         // Back to the last checkpoint after a fall: the ramps since it come back, and you're
-        // put at the top of its ramp already moving, so the run flows on. False if you haven't
+        // put on its drop-in platform to go again when you're ready. False if you haven't
         // reached one yet.
         public bool RespawnAtCheckpoint(PlayerMovement p)
         {
@@ -924,10 +1070,27 @@ namespace VoidFlow
                 envBlend = 1f;
                 ApplyEnvironment(envTo, envTo, 1f);
             }
-            RespawnPlayer(p);
-            Progress = Seg(current).startProgress;
+            var seg = Seg(current);
+            if (padInUse != null) SetPadSolid(padInUse, false);
+            if (seg.pad)
+            {
+                SetPadSolid(seg, true);
+                padInUse = seg;
+                padLeft = false;
+                padTimer = 0f;
+                Physics.SyncTransforms();
+                p.Teleport(seg.pad.position + Vector3.up * 0.1f, Mathf.Atan2(seg.pad.forward.x, seg.pad.forward.z) * Mathf.Rad2Deg);
+            }
+            else RespawnPlayer(p);
+            Progress = seg.startProgress;
             Physics.SyncTransforms();
             return true;
+        }
+
+        // For tests: every live ramp's number, move, riding line, flight in, and root
+        public IEnumerable<(int index, string move, Vector3[] line, Vector3[] flight, GameObject root)> LiveRamps()
+        {
+            foreach (var s in segments) yield return (s.index, s.move, s.line, s.flight, s.root);
         }
 
         // Keeps the world near the origin: once the player is recenterDistance out, shift
@@ -942,6 +1105,7 @@ namespace VoidFlow
                 seg.root.transform.localPosition += delta;
                 for (int k = 0; k < seg.path.ridge.Count; k++) seg.path.ridge[k] += delta;
                 for (int k = 0; k < seg.line.Length; k++) seg.line[k] += delta;
+                for (int k = 0; k < seg.flight.Length; k++) seg.flight[k] += delta;
                 seg.lowestY += delta.y;
             }
             courseStartY += delta.y;
