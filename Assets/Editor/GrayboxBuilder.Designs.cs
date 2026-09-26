@@ -182,8 +182,10 @@ namespace VoidFlow.EditorTools
         static Texture2D MakeRampNeon() => Design("RampNeon", (u, v) =>
         {
             float x = u * 8f, y = v * 8f;
-            if (Mathf.Min(ToLine(u * 2f), ToLine(v * 2f)) * 4f < 0.07f) return Rgb(0.3f, 0.95f, 1f);
-            if (Mathf.Min(ToLine(x), ToLine(y)) < 0.03f) return Rgb(0.9f, 0.25f, 0.95f) * 0.8f;
+            if (ToLine(v * 2f) * 4f < 0.07f) return Rgb(0.3f, 0.95f, 1f);
+            if (ToLine(u * 2f) * 4f < 0.07f) return Rgb(0.12f, 0.35f, 0.4f); // across the ramp: faint, so it doesn't flicker
+            if (ToLine(y) < 0.03f) return Solid(Rgb(0.9f, 0.25f, 0.95f) * 0.8f);
+            if (ToLine(x) < 0.03f) return Rgb(0.2f, 0.08f, 0.25f);
             float cx = x - Mathf.Floor(x) - 0.5f, cy = y - Mathf.Floor(y) - 0.5f;
             float panel = Hash(Wrap(Mathf.FloorToInt(x), 8), Wrap(Mathf.FloorToInt(y), 8), 171);
             float shade = 0.8f + 0.4f * panel + 0.25f * Mottle(u, v, 173);
@@ -196,8 +198,10 @@ namespace VoidFlow.EditorTools
         static Texture2D MakeRampWire() => Design("RampWire", (u, v) =>
         {
             float x = u * 8f, y = v * 8f;
-            if (Mathf.Min(ToLine(u * 2f), ToLine(v * 2f)) * 4f < 0.05f) return Rgb(0.9f, 0.12f, 0.1f);
-            if (Mathf.Min(ToLine(x), ToLine(y)) < 0.02f) return Rgb(0.45f, 0.06f, 0.06f);
+            if (ToLine(v * 2f) * 4f < 0.05f) return Rgb(0.9f, 0.12f, 0.1f);
+            if (ToLine(u * 2f) * 4f < 0.05f) return Rgb(0.3f, 0.04f, 0.04f);
+            if (ToLine(y) < 0.02f) return Rgb(0.45f, 0.06f, 0.06f);
+            if (ToLine(x) < 0.02f) return Rgb(0.12f, 0.03f, 0.03f);
             return Solid(Rgb(0.035f, 0.033f, 0.04f) * (0.8f + 0.4f * Mottle(u, v, 181)));
         });
 

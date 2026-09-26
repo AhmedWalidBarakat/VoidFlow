@@ -374,6 +374,9 @@ namespace VoidFlow
             int biomeIndex = BiomeOf(i);
             Biome biome = Biome.All[biomeIndex];
             BiomeKit kit = kits[biomeIndex];
+            // Spectrum zones run through their hues, one ramp at a time
+            if (kit.rampHues != null && kit.rampHues.Length > 0)
+                kit = kit.Hue(i % rampsPerBiome * kit.rampHues.Length / rampsPerBiome);
             float t = Difficulty(i);
             float flightSpeed = 0f;
             string move = "opening drop";
@@ -538,7 +541,7 @@ namespace VoidFlow
             seg.root = new GameObject($"Ramp {i}: {move} ({theme}, {biome.name}, {path.width:0}m)");
             seg.root.transform.SetParent(transform, false);
 
-            Material surface = path.kind == RampShapes.Kind.Slab ? kit.slab : kit.ramp;
+            Material surface = kit.ramp;
             AddPart(seg, "Surface", path.ridge[0], RampShapes.BuildMesh(path, $"Ramp {i}"), surface, solid: true);
             AddPart(seg, "Trim", path.ridge[0], RampShapes.TrimMesh(path, $"Trim {i}"), kit.trim, solid: false);
             if (holeWall != null)

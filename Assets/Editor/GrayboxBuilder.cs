@@ -192,13 +192,47 @@ namespace VoidFlow.EditorTools
                 Surface.WallBlocks => MakeWallBlocks(),
                 Surface.WallHexVents => MakeWallHexVents(),
                 Surface.WallWood => MakeWallWood(),
+                Surface.RampSpectrum => MakeRampSpectrum(),
+                Surface.WallGrid => MakeWallGrid(),
                 _ => grid,
             };
 
             // The designs cover 8m: ramps map 2m per UV, walls 4m. Ramp designs and the wood
             // carry their own colors, so they aren't tinted.
             bool IsDesign(Surface s) => s >= Surface.RampCrimson;
-            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s == Surface.WallWood;
+            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s is Surface.WallWood or Surface.RampSpectrum or Surface.WallGrid;
+            // What glows: ramp masks carry their own colors, wall masks take the zone's glow
+            var glowMade = new Dictionary<Surface, Texture2D>();
+            Texture2D GlowOf(Surface s)
+            {
+                if (glowMade.TryGetValue(s, out var t)) return t;
+                t = s switch
+                {
+                    Surface.RampCrimson => MakeRampCrimsonGlow(),
+                    Surface.RampForge => MakeRampForgeGlow(),
+                    Surface.RampGallery => MakeRampGalleryGlow(),
+                    Surface.RampPalace => MakeRampPalaceGlow(),
+                    Surface.RampNeon => MakeRampNeonGlow(),
+                    Surface.RampWire => MakeRampWireGlow(),
+                    Surface.RampGrotto => MakeRampGrottoGlow(),
+                    Surface.RampSpectrum => MakeRampSpectrumGlow(),
+                    Surface.WallGrid => MakeWallGridGlow(),
+                    Surface.WallTracery => MakeWallTraceryGlow(),
+                    Surface.WallHexVents => MakeWallHexVentsGlow(),
+                    _ => null,
+                };
+                return glowMade[s] = t;
+            }
+            Material Lit(Material m, Surface s, Color color)
+            {
+                var mask = GlowOf(s);
+                if (!mask) return m;
+                m.EnableKeyword("_EMISSION");
+                m.SetTexture("_EmissionMap", mask);
+                m.SetColor("_EmissionColor", color);
+                m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                return m;
+            }
             Vector2 RampTile(Surface s) => IsDesign(s) ? Vector2.one * 0.25f : Vector2.one;
             Vector2 WallTile(Surface s) => IsDesign(s) ? Vector2.one * 0.5f : Vector2.one;
             Material Paint(Color c, Surface s, Vector2 tile) => BiomeKit.Surface(template, Baked(s) ? Color.white : c, Tex(s), tile);
@@ -215,17 +249,28 @@ namespace VoidFlow.EditorTools
                 }
                 kits[i] = new BiomeKit
                 {
-                    ramp = Save(Paint(b.ramp, b.rampSurface, RampTile(b.rampSurface)), "Ramp"),
+                    ramp = Save(Lit(Paint(b.ramp, b.rampSurface, RampTile(b.rampSurface)), b.rampSurface, Color.white * 1.3f), "Ramp"),
                     slab = Save(Paint(b.slab, b.slabSurface, WallTile(b.slabSurface)), "Slab"),
-                    scenery = Save(Paint(b.scenery, b.scenerySurface, WallTile(b.scenerySurface)), "Scenery"),
+                    scenery = Save(Lit(Paint(b.scenery, b.scenerySurface, WallTile(b.scenerySurface)), b.scenerySurface, b.glow * 0.9f), "Scenery"),
                     glow = Save(BiomeKit.Glow(template, b.glow), "Glow"),
                     glowAlt = Save(BiomeKit.Glow(template, b.glowAlt), "GlowAlt"),
-                    floor = Save(b.floor.a > 0f ? Paint(b.floor, b.floorSurface, WallTile(b.floorSurface)) : Paint(b.slab, b.slabSurface, WallTile(b.slabSurface)), "Floor"),
+                    floor = Save(b.floor.a > 0f ? Lit(Paint(b.floor, b.floorSurface, WallTile(b.floorSurface)), b.floorSurface, b.glow * 0.5f) : Paint(b.slab, b.slabSurface, WallTile(b.slabSurface)), "Floor"),
                     accent = Save(b.accent.a > 0f ? Paint(b.accent, b.accentSurface, WallTile(b.accentSurface)) : Paint(b.slab, b.scenerySurface, WallTile(b.scenerySurface)), "Accent"),
                     shaft = Save(LightMaterial(b.shaft.a > 0f ? b.shaft : b.glowAlt, shaftTex, 0.22f, 0.9f), "Shaft"),
                     pool = Save(LightMaterial(b.glow, poolTex, 0.5f, 1.4f), "Pool"),
                     skyPool = Save(LightMaterial(b.shaft.a > 0f ? b.shaft : b.glowAlt, poolTex, 0.45f, 1.2f), "SkyPool"),
                 };
+                if (b.hues != null)
+                {
+                    // Spectrum: a ramp and a glow for every hue
+                    kits[i].rampHues = new Material[b.hues.Length];
+                    kits[i].glowHues = new Material[b.hues.Length];
+                    for (int h = 0; h < b.hues.Length; h++)
+                    {
+                        kits[i].rampHues[h] = Save(Lit(Paint(b.ramp, b.rampSurface, RampTile(b.rampSurface)), b.rampSurface, b.hues[h] * 1.6f), $"Ramp{h}");
+                        kits[i].glowHues[h] = Save(BiomeKit.Glow(template, b.hues[h]), $"Glow{h}");
+                    }
+                }
             }
             return kits;
         }

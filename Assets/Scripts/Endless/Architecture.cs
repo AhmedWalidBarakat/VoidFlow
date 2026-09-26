@@ -9,7 +9,7 @@ namespace VoidFlow
     // the most beautiful surf maps feel: the building wraps each ramp end to end and carries on
     // through the flight to the next one, so rooms flow into rooms and you never drop out into
     // empty air. Its gaps are deliberate ones: windows onto the sky, light slots, a doorway
-    // where one zone gives way to the next. The Sky Palace and Neon Rings stay open, as the
+    // where one zone gives way to the next. The Sky Palace and Spectrum stay open, as the
     // breaths of fresh air between interiors (and twin and canyon ramps stay open vistas).
     //
     // Zones (all original designs, after kinds of spaces from the maps people call the most
@@ -41,7 +41,7 @@ namespace VoidFlow
             public float level, top, bottom;
         }
 
-        public static bool Continuous(SceneryStyle s) => s != SceneryStyle.Palace;
+        public static bool Continuous(SceneryStyle s) => s != SceneryStyle.Palace && s != SceneryStyle.Spectrum;
 
         public static float StepFor(SceneryStyle s) => s switch
         {
@@ -533,17 +533,46 @@ namespace VoidFlow
                     }
                     case SceneryStyle.Wire:
                     {
-                        Material m = ribs % 2 == 0 ? kit.glow : kit.glowAlt;
-                        float wireBottom = Mathf.Max(bottom, level - 20f);
-                        if (ribs % 4 == 0) Portal(b, m, A, B, wireBottom, top, rot, 0.45f);
-                        if (hasLast)
+                        // A room walled in glowing grid, its long edges traced in unbroken
+                        // lines. (No more rings of beams across the way: they flickered past.)
+                        if (!hasLast) break;
+                        Room(kit.scenery, kit.scenery, kit.scenery, kit.floor, false, false, 0f, 0f, 0f, 0f, null, 0f);
+                        foreach (var (w0, w1) in new[] { (last.A, A), (last.B, B) })
                         {
-                            float lastWire = Mathf.Max(last.bottom, last.level - 20f);
-                            foreach (var (w0, w1) in new[] { (last.A, A), (last.B, B) })
-                            {
-                                Line(b, kit.glow, w0.WithY(last.top), w1.WithY(top), 0.4f);
-                                Line(b, kit.glow, w0.WithY(lastWire), w1.WithY(wireBottom), 0.4f);
-                            }
+                            Slab(b, kit.glow, w0.WithY(last.top - 0.4f), w1.WithY(top - 0.4f), 0.6f, 0.6f);
+                            Slab(b, kit.glow, w0.WithY(last.bottom + 0.4f), w1.WithY(bottom + 0.4f), 0.6f, 0.6f);
+                        }
+                        Slab(b, kit.glow, lastMid.WithY(last.top - 0.3f), mid.WithY(top - 0.3f), 1.2f, 0.3f);
+                        break;
+                    }
+                    case SceneryStyle.Spectrum:
+                    {
+                        // An open void like the neon surf classics: the ramp held up by glowing
+                        // lattice towers, and giant grid panels hanging far out to the sides.
+                        // Nothing comes near the riding line or the flights.
+                        if (ribs % 4 == 2)
+                        {
+                            float y0 = fr.bottom + 23.5f, y1 = y0 - 70f;
+                            Vector3 r = right * 2f, g = f * 2f;
+                            var corner = new[] { fr.p + r + g, fr.p + r - g, fr.p - r - g, fr.p - r + g };
+                            foreach (var c in corner) Line(b, kit.glow, c.WithY(y0), c.WithY(y1), 0.3f);
+                            for (float y = y0; y - 6f >= y1; y -= 6f)
+                                for (int k = 0; k < 4; k++)
+                                    Line(b, kit.glow, corner[k].WithY(y), corner[(k + 1) % 4].WithY(y - 6f), 0.16f);
+                        }
+                        if (ribs % 5 == 0)
+                        {
+                            float side = rng.NextDouble() < 0.5 ? -1f : 1f;
+                            Vector3 c = fr.p + right * (side * Rand(100f, 150f)) + Vector3.up * Rand(-40f, 30f);
+                            float w = Rand(30f, 55f), hgt = Rand(18f, 32f);
+                            var q = Quaternion.LookRotation(right * side, Vector3.up) * Quaternion.Euler(Rand(-35f, 35f), Rand(-30f, 30f), Rand(-20f, 20f));
+                            Vector3 ax = q * Vector3.right * (w * 0.5f), ay = q * Vector3.up * (hgt * 0.5f);
+                            Vector3 p0 = c - ax - ay, p1 = c + ax - ay, p2 = c + ax + ay, p3 = c - ax + ay;
+                            b.Quad(kit.scenery, p0, p1, p2, p3);
+                            Line(b, kit.glow, p0, p1, 0.5f);
+                            Line(b, kit.glow, p1, p2, 0.5f);
+                            Line(b, kit.glow, p2, p3, 0.5f);
+                            Line(b, kit.glow, p3, p0, 0.5f);
                         }
                         break;
                     }

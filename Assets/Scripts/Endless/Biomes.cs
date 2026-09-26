@@ -12,12 +12,13 @@ namespace VoidFlow
     // sky, candy, neon, wire red, grotto teal and round again). Each sets the sky, fog and
     // light, the ramp colors, the building the ramps run through (Architecture) and the
     // scenery further out.
-    public enum SceneryStyle { Cathedral, Palace, Rings, Grotto, Candy, Forge, Wire, Gallery, Sunset, Library }
+    public enum SceneryStyle { Cathedral, Palace, Rings, Grotto, Candy, Forge, Wire, Gallery, Sunset, Library, Spectrum }
 
     public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice, Hex, Panel, Plaster, Concrete, HexTile, WhiteTile, DarkStone, Plates, Rock, Blocks, Books,
         // Each zone's own ramp design, and wall patterns (8m tiles)
         RampCrimson, RampForge, RampSunset, RampGallery, RampPalace, RampCandy, RampNeon, RampWire, RampGrotto, RampLibrary,
-        WallTracery, WallGrate, WallPanels, WallBlocks, WallHexVents, WallWood }
+        WallTracery, WallGrate, WallPanels, WallBlocks, WallHexVents, WallWood,
+        RampSpectrum, WallGrid }
 
     public class Biome
     {
@@ -40,6 +41,7 @@ namespace VoidFlow
         public Surface accentSurface;
         public Color shaft;               // light falling in through windows (clear: glowAlt)
         public SceneryStyle style;
+        public Color[] hues;              // Spectrum: each ramp in the zone takes the next of these
 
         public static readonly Biome[] All =
         {
@@ -146,7 +148,8 @@ namespace VoidFlow
                 sunColor = new Color(1f, 0.5f, 0.4f), sunIntensity = 0.6f,
                 ramp = new Color(0.18f, 0.16f, 0.17f), slab = new Color(0.18f, 0.03f, 0.03f), rampSurface = Surface.RampWire,
                 glow = new Color(1f, 0.12f, 0.08f), glowAlt = new Color(1f, 0.5f, 0.1f),
-                scenery = new Color(0.03f, 0.03f, 0.035f), scenerySurface = Surface.Metal, style = SceneryStyle.Wire,
+                scenery = new Color(1f, 1f, 1f), scenerySurface = Surface.WallGrid, style = SceneryStyle.Wire,
+                floor = new Color(1f, 1f, 1f), floorSurface = Surface.WallGrid,
             },
             new Biome
             {
@@ -175,6 +178,20 @@ namespace VoidFlow
                 accent = new Color(1f, 1f, 1f), accentSurface = Surface.Books,
                 shaft = new Color(1f, 0.82f, 0.55f),
             },
+            new Biome
+            {
+                name = "SPECTRUM", sky = new Color(0.01f, 0.01f, 0.015f), skyTop = new Color(0f, 0f, 0f), skyBottom = new Color(0f, 0f, 0.005f),
+                fogStart = 250f, fogEnd = 1400f,
+                ambientSky = new Color(0.22f, 0.22f, 0.26f), ambientEquator = new Color(0.12f, 0.12f, 0.15f), ambientGround = new Color(0.03f, 0.03f, 0.04f),
+                sunColor = new Color(0.8f, 0.82f, 0.9f), sunIntensity = 0.35f,
+                ramp = new Color(1f, 1f, 1f), slab = new Color(0.08f, 0.08f, 0.1f), rampSurface = Surface.RampSpectrum, slabSurface = Surface.Metal,
+                glow = new Color(1f, 1f, 1f), glowAlt = new Color(0.85f, 0.9f, 1f),
+                scenery = new Color(1f, 1f, 1f), scenerySurface = Surface.WallGrid, style = SceneryStyle.Spectrum,
+                shaft = new Color(0.85f, 0.9f, 1f),
+                // Red, orange, yellow, green, blue, violet: one per ramp through the zone
+                hues = new[] { new Color(1f, 0.1f, 0.12f), new Color(1f, 0.45f, 0.05f), new Color(1f, 0.9f, 0.1f),
+                    new Color(0.2f, 1f, 0.3f), new Color(0.15f, 0.55f, 1f), new Color(0.65f, 0.2f, 1f) },
+            },
         };
     }
 
@@ -187,6 +204,17 @@ namespace VoidFlow
     {
         public Material ramp, slab, scenery, glow, glowAlt, floor, accent, shaft, pool, skyPool;
         public Material trim => glow;
+        public Material[] rampHues, glowHues; // Spectrum: a ramp and a glow per hue
+
+        // This kit as one hue of a Spectrum zone: the ramp, its outline and every glow in that color
+        public BiomeKit Hue(int i)
+        {
+            if (rampHues == null || rampHues.Length == 0) return this;
+            var k = (BiomeKit)MemberwiseClone();
+            k.ramp = rampHues[i % rampHues.Length];
+            k.glow = glowHues[i % glowHues.Length];
+            return k;
+        }
 
         public static Material Surface(Material template, Color color, Texture texture, Vector2 tiling)
         {
@@ -224,6 +252,7 @@ namespace VoidFlow
         public static void Line(RampShapes.RampPath path, Biome biome, BiomeKit kit, Transform parent, System.Random rng, Mesh cube)
         {
             float Rand(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+            if (biome.style == SceneryStyle.Spectrum) return;
 
             for (int p = 0; p < PiecesPerRamp; p++)
             {
