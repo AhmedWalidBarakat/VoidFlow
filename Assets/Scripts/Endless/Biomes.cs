@@ -7,11 +7,14 @@ namespace VoidFlow
     // beautiful surf maps are known for (all original designs): a blood-red gothic hall, a
     // white palace over the clouds, a void of neon rings, a glowing grotto, candy-colored
     // box rooms among floating blocks, an orange forge over lava, and a tunnel drawn in
-    // glowing edges. Each sets the sky, fog and light, the ramp colors, the building the
-    // ramps run through (Architecture) and the scenery further out.
-    public enum SceneryStyle { Cathedral, Palace, Rings, Grotto, Candy, Forge, Wire }
+    // glowing edges, and after Raphaelo a white gallery and salmon sunset rooms. They run in
+    // an order whose colors flow into each other (crimson, forge orange, sunset salmon, white,
+    // sky, candy, neon, wire red, grotto teal and round again). Each sets the sky, fog and
+    // light, the ramp colors, the building the ramps run through (Architecture) and the
+    // scenery further out.
+    public enum SceneryStyle { Cathedral, Palace, Rings, Grotto, Candy, Forge, Wire, Gallery, Sunset }
 
-    public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice }
+    public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice, Hex, Panel, Plaster }
 
     public class Biome
     {
@@ -27,6 +30,8 @@ namespace VoidFlow
         public Color glow, glowAlt;       // trims and scenery lights
         public Color scenery;             // main scenery color
         public Surface scenerySurface;
+        public Color floor;               // the building's floor (clear: the slab color)
+        public Surface floorSurface;
         public SceneryStyle style;
 
         public static readonly Biome[] All =
@@ -43,6 +48,38 @@ namespace VoidFlow
             },
             new Biome
             {
+                name = "FORGE", sky = new Color(0.45f, 0.15f, 0.03f), skyTop = new Color(0.08f, 0.02f, 0f), skyBottom = new Color(0.15f, 0.04f, 0f),
+                fogStart = 70f, fogEnd = 500f,
+                ambientSky = new Color(0.72f, 0.38f, 0.16f), ambientEquator = new Color(0.45f, 0.2f, 0.08f), ambientGround = new Color(0.15f, 0.05f, 0.02f),
+                sunColor = new Color(1f, 0.6f, 0.3f), sunIntensity = 0.9f,
+                ramp = new Color(0.18f, 0.16f, 0.15f), slab = new Color(0.9f, 0.45f, 0.1f), rampSurface = Surface.Metal,
+                glow = new Color(1f, 0.45f, 0.05f), glowAlt = new Color(1f, 0.85f, 0.3f),
+                scenery = new Color(0.75f, 0.35f, 0.1f), scenerySurface = Surface.Metal, style = SceneryStyle.Forge,
+            },
+            new Biome
+            {
+                name = "SUNSET ROOMS", sky = new Color(0.95f, 0.55f, 0.4f), skyTop = new Color(0.28f, 0.2f, 0.45f), skyBottom = new Color(0.35f, 0.16f, 0.12f),
+                fogStart = 120f, fogEnd = 700f,
+                ambientSky = new Color(0.95f, 0.72f, 0.66f), ambientEquator = new Color(0.7f, 0.46f, 0.42f), ambientGround = new Color(0.22f, 0.14f, 0.14f),
+                sunColor = new Color(1f, 0.72f, 0.5f), sunIntensity = 1.1f,
+                ramp = new Color(0.52f, 0.5f, 0.52f), slab = new Color(0.2f, 0.17f, 0.2f), rampSurface = Surface.Plaster,
+                glow = new Color(1f, 0.5f, 0.18f), glowAlt = new Color(1f, 0.68f, 0.52f),
+                scenery = new Color(0.86f, 0.56f, 0.5f), scenerySurface = Surface.Plaster, style = SceneryStyle.Sunset,
+                floor = new Color(0.12f, 0.11f, 0.13f), floorSurface = Surface.Hex,
+            },
+            new Biome
+            {
+                name = "WHITE GALLERY", sky = new Color(0.82f, 0.9f, 1f), skyTop = new Color(0.35f, 0.6f, 0.95f), skyBottom = new Color(0.9f, 0.93f, 0.98f),
+                fogStart = 160f, fogEnd = 800f,
+                ambientSky = new Color(0.95f, 0.97f, 1f), ambientEquator = new Color(0.82f, 0.85f, 0.9f), ambientGround = new Color(0.62f, 0.64f, 0.7f),
+                sunColor = new Color(1f, 0.97f, 0.9f), sunIntensity = 1.25f,
+                ramp = new Color(0.5f, 0.51f, 0.54f), slab = new Color(0.62f, 0.63f, 0.67f), rampSurface = Surface.Plaster,
+                glow = new Color(1f, 0.62f, 0.3f), glowAlt = new Color(0.45f, 0.78f, 1f),
+                scenery = new Color(0.94f, 0.94f, 0.95f), scenerySurface = Surface.Plaster, style = SceneryStyle.Gallery,
+                floor = new Color(0.84f, 0.85f, 0.87f), floorSurface = Surface.Tiles,
+            },
+            new Biome
+            {
                 name = "SKY PALACE", sky = new Color(0.78f, 0.87f, 0.98f), skyTop = new Color(0.3f, 0.55f, 0.92f), skyBottom = new Color(0.95f, 0.96f, 0.99f),
                 fogStart = 220f, fogEnd = 950f,
                 ambientSky = new Color(0.95f, 0.97f, 1f), ambientEquator = new Color(0.85f, 0.88f, 0.95f), ambientGround = new Color(0.7f, 0.72f, 0.78f),
@@ -50,26 +87,6 @@ namespace VoidFlow
                 ramp = new Color(0.11f, 0.11f, 0.15f), slab = new Color(0.92f, 0.92f, 0.95f), rampSurface = Surface.Metal,
                 glow = new Color(1f, 0.75f, 0.3f), glowAlt = new Color(0.4f, 0.72f, 1f),
                 scenery = new Color(1f, 1f, 1f), scenerySurface = Surface.Grid, style = SceneryStyle.Palace,
-            },
-            new Biome
-            {
-                name = "NEON RINGS", sky = new Color(0.08f, 0.02f, 0.12f), skyTop = new Color(0f, 0f, 0.01f), skyBottom = new Color(0.02f, 0f, 0.04f),
-                fogStart = 90f, fogEnd = 560f,
-                ambientSky = new Color(0.4f, 0.22f, 0.55f), ambientEquator = new Color(0.22f, 0.1f, 0.32f), ambientGround = new Color(0.05f, 0.02f, 0.08f),
-                sunColor = new Color(0.9f, 0.7f, 1f), sunIntensity = 0.6f,
-                ramp = new Color(0.1f, 0.08f, 0.14f), slab = new Color(0.2f, 0.06f, 0.28f), rampSurface = Surface.Grid,
-                glow = new Color(1f, 0.25f, 0.85f), glowAlt = new Color(0.15f, 0.95f, 1f),
-                scenery = new Color(0.05f, 0.04f, 0.08f), scenerySurface = Surface.Metal, style = SceneryStyle.Rings,
-            },
-            new Biome
-            {
-                name = "GROTTO", sky = new Color(0.02f, 0.14f, 0.16f), skyTop = new Color(0f, 0.02f, 0.03f), skyBottom = new Color(0f, 0.05f, 0.06f),
-                fogStart = 50f, fogEnd = 420f,
-                ambientSky = new Color(0.22f, 0.5f, 0.55f), ambientEquator = new Color(0.1f, 0.26f, 0.3f), ambientGround = new Color(0.02f, 0.08f, 0.1f),
-                sunColor = new Color(0.6f, 0.9f, 1f), sunIntensity = 0.55f,
-                ramp = new Color(0.26f, 0.22f, 0.42f), slab = new Color(0.15f, 0.3f, 0.35f), rampSurface = Surface.Stone,
-                glow = new Color(0.1f, 1f, 0.8f), glowAlt = new Color(0.7f, 0.3f, 1f),
-                scenery = new Color(0.15f, 0.14f, 0.19f), scenerySurface = Surface.Stone, style = SceneryStyle.Grotto,
             },
             new Biome
             {
@@ -83,13 +100,13 @@ namespace VoidFlow
             },
             new Biome
             {
-                name = "FORGE", sky = new Color(0.45f, 0.15f, 0.03f), skyTop = new Color(0.08f, 0.02f, 0f), skyBottom = new Color(0.15f, 0.04f, 0f),
-                fogStart = 70f, fogEnd = 500f,
-                ambientSky = new Color(0.72f, 0.38f, 0.16f), ambientEquator = new Color(0.45f, 0.2f, 0.08f), ambientGround = new Color(0.15f, 0.05f, 0.02f),
-                sunColor = new Color(1f, 0.6f, 0.3f), sunIntensity = 0.9f,
-                ramp = new Color(0.18f, 0.16f, 0.15f), slab = new Color(0.9f, 0.45f, 0.1f), rampSurface = Surface.Metal,
-                glow = new Color(1f, 0.45f, 0.05f), glowAlt = new Color(1f, 0.85f, 0.3f),
-                scenery = new Color(0.75f, 0.35f, 0.1f), scenerySurface = Surface.Metal, style = SceneryStyle.Forge,
+                name = "NEON RINGS", sky = new Color(0.08f, 0.02f, 0.12f), skyTop = new Color(0f, 0f, 0.01f), skyBottom = new Color(0.02f, 0f, 0.04f),
+                fogStart = 90f, fogEnd = 560f,
+                ambientSky = new Color(0.4f, 0.22f, 0.55f), ambientEquator = new Color(0.22f, 0.1f, 0.32f), ambientGround = new Color(0.05f, 0.02f, 0.08f),
+                sunColor = new Color(0.9f, 0.7f, 1f), sunIntensity = 0.6f,
+                ramp = new Color(0.1f, 0.08f, 0.14f), slab = new Color(0.2f, 0.06f, 0.28f), rampSurface = Surface.Grid,
+                glow = new Color(1f, 0.25f, 0.85f), glowAlt = new Color(0.15f, 0.95f, 1f),
+                scenery = new Color(0.05f, 0.04f, 0.08f), scenerySurface = Surface.Metal, style = SceneryStyle.Rings,
             },
             new Biome
             {
@@ -101,6 +118,16 @@ namespace VoidFlow
                 glow = new Color(1f, 0.12f, 0.08f), glowAlt = new Color(1f, 0.5f, 0.1f),
                 scenery = new Color(0.03f, 0.03f, 0.035f), scenerySurface = Surface.Metal, style = SceneryStyle.Wire,
             },
+            new Biome
+            {
+                name = "GROTTO", sky = new Color(0.02f, 0.14f, 0.16f), skyTop = new Color(0f, 0.02f, 0.03f), skyBottom = new Color(0f, 0.05f, 0.06f),
+                fogStart = 50f, fogEnd = 420f,
+                ambientSky = new Color(0.22f, 0.5f, 0.55f), ambientEquator = new Color(0.1f, 0.26f, 0.3f), ambientGround = new Color(0.02f, 0.08f, 0.1f),
+                sunColor = new Color(0.6f, 0.9f, 1f), sunIntensity = 0.55f,
+                ramp = new Color(0.26f, 0.22f, 0.42f), slab = new Color(0.15f, 0.3f, 0.35f), rampSurface = Surface.Stone,
+                glow = new Color(0.1f, 1f, 0.8f), glowAlt = new Color(0.7f, 0.3f, 1f),
+                scenery = new Color(0.15f, 0.14f, 0.19f), scenerySurface = Surface.Stone, style = SceneryStyle.Grotto,
+            },
         };
     }
 
@@ -111,7 +138,7 @@ namespace VoidFlow
     [Serializable]
     public class BiomeKit
     {
-        public Material ramp, slab, scenery, glow, glowAlt;
+        public Material ramp, slab, scenery, glow, glowAlt, floor;
         public Material trim => glow;
 
         public static Material Surface(Material template, Color color, Texture texture, Vector2 tiling)
@@ -210,6 +237,15 @@ namespace VoidFlow
                         float h = Rand(60f, 130f), w = Rand(5f, 9f), top = Rand(-10f, 25f);
                         Part(piece, cube, kit.slab, new Vector3(0f, top - h * 0.5f, 0f), new Vector3(w, h, w));
                         Part(piece, cube, kit.glow, new Vector3(0f, top + 0.5f, 0f), new Vector3(w - 1f, 1f, w - 1f));
+                        break;
+                    }
+                    case SceneryStyle.Gallery:
+                    case SceneryStyle.Sunset:
+                    {
+                        // Seen through the windows: pale towers and clouds (gallery), or
+                        // salmon blocks against the sunset
+                        Part(piece, cube, kit.scenery, new Vector3(0f, Rand(-60f, -20f), 0f), new Vector3(Rand(20f, 50f), Rand(40f, 90f), Rand(20f, 50f)));
+                        if (rng.Next(2) == 0) Part(piece, cube, kit.scenery, new Vector3(Rand(-20f, 20f), Rand(-80f, -50f), Rand(-20f, 20f)), new Vector3(Rand(50f, 90f), Rand(6f, 12f), Rand(40f, 80f)));
                         break;
                     }
                     case SceneryStyle.Wire:

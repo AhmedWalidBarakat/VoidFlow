@@ -38,7 +38,8 @@ namespace VoidFlow
     //  - twin:   a blade with an identical one alongside
     //  - sweep:  a long prism curving steadily one way, usually into its face, sometimes away
     //            from it (the kind you hold the opposite key on)
-    //  - loop:   a long prism curling right round (180-240 degrees) as it drops
+    //  - loop:   a long prism curling right round (160-210 degrees) as it drops, wide enough
+    //            to hold at full speed
     // Plain blades also bend a little once the course gets going, so it's rarely dead straight.
     // and any flight can be big air: extra long, with a glowing ring at the top to fly
     // through. Harder moves unlock as you go.
@@ -86,7 +87,7 @@ namespace VoidFlow
         [Tooltip("Speed (u/s) flights are designed around. Faster runs fly further and must air-brake or land later on the landing hill.")]
         public float designSpeed = 2300f;
 
-        const float BiomeBlendSeconds = 3f;
+        const float BiomeBlendSeconds = 5f; // zones melt into each other
         const int MaxRebuilds = 6;
         const float FallMargin = 40f;
 
@@ -215,6 +216,7 @@ namespace VoidFlow
             nextIndex = 0;
             current = 0;
             last = null;
+            lastFrame = null;
             nextProgress = 0f;
             Progress = 0f;
             stageThemes.Clear();
@@ -357,6 +359,8 @@ namespace VoidFlow
             float flightSpeed = 0f;
             string move = "opening drop";
             bool enclose = false;
+            Func<float, float> flightArc = null;
+            float flightGap = 0f;
             RampShapes.RampPath holeWall = null, twin = null;
             int stage = i / rampsPerBiome;
             string theme = ThemeOf(stage);
@@ -425,6 +429,8 @@ namespace VoidFlow
                     landing.shift *= 0.8f;
                     path = RampShapes.LandingRamp(last, landing, m.kind, m.width, m.shape, m.bend);
                 }
+                flightArc = RampShapes.Flight(last, flightSpeed).height;
+                flightGap = landing.gap;
                 if (m.bigAir)
                 {
                     move += " + big air";
@@ -508,12 +514,46 @@ namespace VoidFlow
             if (i > 0) PlaceShards(seg, path, twin, TierOf(stage));
 
             Scenery.Line(path, biome, kit, seg.root.transform, rng, cube);
-            if (enclose) Architecture.Build(path, biome, kit, seg.root.transform, seg.meshes, rng, cube);
+            BuildArchitecture(seg, path, biome, kit, i, enclose, stageStart, flightArc, flightGap);
             segments.Add(seg);
             Physics.SyncTransforms();
         }
 
         readonly List<Vector3> airShards = new();
+
+        // The last cross-section of the previous ramp's building, if it was a continuous one:
+        // the next building starts by joining onto it across the flight
+        Architecture.Frame? lastFrame;
+
+        void BuildArchitecture(Segment seg, RampShapes.RampPath path, Biome biome, BiomeKit kit, int i, bool enclose, bool stageStart,
+            Func<float, float> flightArc, float flightGap)
+        {
+            var style = biome.style;
+            if (!enclose) { lastFrame = null; return; }
+            float step = Architecture.StepFor(style);
+            if (!Architecture.Continuous(style))
+            {
+                // Open zones: a building over the middle of the ramp only
+                float from = Mathf.Min(path.Length * 0.1f, 30f), to = Mathf.Min(path.Length * 0.88f, path.Length - 25f);
+                if (to - from >= 30f)
+                    Architecture.Build(Architecture.RampFrames(path, from, to, step), biome, kit, seg.root.transform, seg.meshes, rng, cube);
+                lastFrame = null;
+                return;
+            }
+            // Continuous: the whole ramp (the opening drop starts clear of the hall), joined to
+            // the building before it across the flight
+            var frames = Architecture.RampFrames(path, i == 0 ? 45f : 0f, path.Length, step, Architecture.DepthFor(style));
+            if (frames.Count == 0) { lastFrame = null; return; }
+            int doorway = stageStart ? 0 : -1;
+            if (lastFrame is Architecture.Frame prev && flightArc != null)
+            {
+                var join = Architecture.FlightFrames(prev, frames[0], flightArc, flightGap, step);
+                frames.InsertRange(0, join);
+                if (stageStart) doorway = Mathf.Min(1, frames.Count - 1);
+            }
+            Architecture.Build(frames, biome, kit, seg.root.transform, seg.meshes, rng, cube, doorway);
+            lastFrame = frames[^1];
+        }
 
         // Void Shards for this ramp, on the line its tier rewards: beginner on the plain
         // riding line, intermediate high up near the ridge, technical on the twin route, and
@@ -697,9 +737,9 @@ namespace VoidFlow
                 {
                     m.kind = RampShapes.Kind.Prism;
                     m.width = Mathf.Lerp(11f, 8f, t);
-                    float length = Rand(380f, 440f);
+                    float length = Rand(450f, 520f);
                     m.shape = new[] { (40f, -0.15f), (length - 30f, -0.15f), (length, 0.07f) };
-                    float degrees = Rand(180f, 240f);
+                    float degrees = Rand(160f, 210f);
                     m.bend = new[] { (20f, 0f), (length - 30f, degrees), (length, degrees) };
                     break;
                 }
@@ -832,6 +872,11 @@ namespace VoidFlow
                 seg.lowestY += delta.y;
             }
             courseStartY += delta.y;
+            if (lastFrame is Architecture.Frame lf)
+            {
+                Architecture.Shift(ref lf, delta);
+                lastFrame = lf;
+            }
             if (startHall)
             {
                 startHall.position += delta;

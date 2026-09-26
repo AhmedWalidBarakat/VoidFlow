@@ -158,6 +158,35 @@ namespace VoidFlow.EditorTools
             return Grey(c < 0.012f ? 0.9f : 0f);
         });
 
+        // Dark hexagon floor tiles: flat-topped hexes (4 across, 7 down, tiling seamlessly) with
+        // thin dark seams and a slight sheen on each
+        static Texture2D MakeHexTexture() => Paint("Hex", (u, v) =>
+        {
+            const float s3 = 1.7320508f;
+            float x = u * 12f, y = v * 7f * s3;
+            float best = 99f;
+            Vector2 near = Vector2.zero;
+            for (int k = 0; k < 2; k++)
+            {
+                float ox = k * 1.5f, oy = k * s3 * 0.5f;
+                float cx = Mathf.Round((x - ox) / 3f) * 3f + ox, cy = Mathf.Round((y - oy) / s3) * s3 + oy;
+                var d = new Vector2(x - cx, y - cy);
+                if (d.sqrMagnitude < best) { best = d.sqrMagnitude; near = d; }
+            }
+            Vector2 q = new(Mathf.Abs(near.x), Mathf.Abs(near.y));
+            float edge = Mathf.Max(q.y, q.x * s3 * 0.5f + q.y * 0.5f) / (s3 * 0.5f);
+            if (edge > 0.93f) return Grey(0.08f);
+            return Grey(0.5f + 0.08f * (1f - edge) + (Mottle(u, v, 41) - 0.5f) * 0.06f);
+        });
+
+        // Smooth plaster: nearly flat, the faintest mottling and one fine panel seam per tile
+        static Texture2D MakePlasterTexture() => Paint("Plaster", (u, v) =>
+        {
+            float seam = Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(v, 1f - v));
+            if (seam < 0.003f) return Grey(0.8f);
+            return Grey(0.93f + (Mottle(u, v, 53) - 0.5f) * 0.05f);
+        });
+
         static Color Grey(float v) => new(v, v, v, 1f);
     }
 }

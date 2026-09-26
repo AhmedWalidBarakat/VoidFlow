@@ -35,7 +35,7 @@ namespace VoidFlow.EditorTools
             floor.SetFloat("_Smoothness", 0.3f);
             floor.SetFloat("_Metallic", 0.1f);
             GlowMap(floor, MakeHallFloorGlowTexture(), new Color(0.25f, 0.75f, 1f) * 0.7f);
-            Material wall = MakeMaterial("HallWall", new Color(0.15f, 0.15f, 0.19f), MakeHallPanelTexture());
+            Material wall = MakeMaterial("HallWall", new Color(0.15f, 0.15f, 0.19f), panel);
             wall.SetFloat("_Smoothness", 0.35f);
             wall.SetFloat("_Metallic", 0.45f);
             Material dark = MakeMaterial("HallDark", new Color(0.045f, 0.045f, 0.06f), GrayboxBuilder.metal);

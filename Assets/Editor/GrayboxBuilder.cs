@@ -35,6 +35,9 @@ namespace VoidFlow.EditorTools
             metal = MakeMetalTexture();
             wood = MakeWoodTexture();
             ice = MakeIceTexture();
+            hex = MakeHexTexture();
+            panel = MakeHallPanelTexture();
+            plaster = MakePlasterTexture();
             Material rampMat = MakeMaterial("Ramp", new Color(0.9f, 0.89f, 0.93f), grid);
             var sky = new Material(Shader.Find("VoidFlow/GradientSky"));
             AssetDatabase.CreateAsset(sky, $"{Root}/Sky.mat");
@@ -127,7 +130,7 @@ namespace VoidFlow.EditorTools
         }
 
         // Painted textures, made at the start of Build and used by the hall and biomes
-        static Texture2D tiles, stone, metal, wood, ice;
+        static Texture2D tiles, stone, metal, wood, ice, hex, panel, plaster;
 
         // Every biome's materials, saved as assets under Graybox/Biomes
         static BiomeKit[] MakeBiomeKits(Material template, Texture2D grid, Texture2D stripes, Texture2D hazard, Texture2D bricks)
@@ -143,6 +146,9 @@ namespace VoidFlow.EditorTools
                 Surface.Metal => metal,
                 Surface.Wood => wood,
                 Surface.Ice => ice,
+                Surface.Hex => hex,
+                Surface.Panel => panel,
+                Surface.Plaster => plaster,
                 _ => grid,
             };
 
@@ -163,6 +169,7 @@ namespace VoidFlow.EditorTools
                     scenery = Save(BiomeKit.Surface(template, b.scenery, Tex(b.scenerySurface), new Vector2(1f, 4f)), "Scenery"),
                     glow = Save(BiomeKit.Glow(template, b.glow), "Glow"),
                     glowAlt = Save(BiomeKit.Glow(template, b.glowAlt), "GlowAlt"),
+                    floor = Save(BiomeKit.Surface(template, b.floor.a > 0f ? b.floor : b.slab, Tex(b.floor.a > 0f ? b.floorSurface : b.rampSurface), Vector2.one), "Floor"),
                 };
             }
             return kits;
