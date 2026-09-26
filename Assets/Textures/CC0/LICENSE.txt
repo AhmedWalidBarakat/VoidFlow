@@ -1,0 +1,6 @@
+Textures in this folder are from ambientCG (https://ambientcg.com) and are released under the
+Creative Commons CC0 1.0 Universal license (public domain): free to use, modify and publish,
+commercially too, with no attribution required. Credit is given here anyway.
+
+Plaster001, Concrete034, Tiles072, Tiles107, Bricks034, MetalPlates006, Rock051 -- color maps
+only, resized to 512x512. Used for the course's buildings and ramps.

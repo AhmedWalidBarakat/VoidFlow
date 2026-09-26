@@ -46,16 +46,16 @@ namespace VoidFlow
         public static float StepFor(SceneryStyle s) => s switch
         {
             SceneryStyle.Rings => 42f,
-            SceneryStyle.Candy => 8f,
+            SceneryStyle.Candy => 10f,
             SceneryStyle.Grotto => 9f,
             _ => 12f,
         };
 
-        const float Roof = 18f, Margin = 12f;
+        const float Roof = 32f, Margin = 30f; // roomy: you can air-strafe a long way and stay inside
 
         // How far the floor lies below the ramp: the rooms after Raphaelo have theirs close by
         // (you see it), the rest drop away into depth
-        public static float DepthFor(SceneryStyle s) => s is SceneryStyle.Sunset or SceneryStyle.Gallery ? 8f : 24f;
+        public static float DepthFor(SceneryStyle s) => s is SceneryStyle.Sunset or SceneryStyle.Gallery ? 12f : 30f;
 
         // Cross-sections along a ramp, between two distances along it
         public static List<Frame> RampFrames(RampShapes.RampPath path, float from, float to, float step, float depth = 24f)
@@ -64,7 +64,7 @@ namespace VoidFlow
             bool prism = path.kind == RampShapes.Kind.Prism;
             // Walls stand clear of the whole face (a slab's face hangs on one side only)
             float s = prism ? 1f : path.side;
-            float near = prism ? path.width + Margin : 9f, far = path.width + Margin;
+            float near = prism ? path.width + Margin : Margin * 0.7f, far = path.width + Margin;
             // Ribs every `step`, and always one exactly at the end, so the building meets the
             // next piece with no hole
             int count = Mathf.Max(1, Mathf.CeilToInt((to - from) / step - 0.01f));
@@ -102,7 +102,7 @@ namespace VoidFlow
                     p = Vector3.Lerp(from.p, to.p, u).WithY(level), f = f, right = right,
                     A = Vector3.Lerp(from.A, to.A, u), B = Vector3.Lerp(from.B, to.B, u),
                     level = level,
-                    top = Mathf.Max(Mathf.Lerp(from.top, to.top, u), level + Margin),
+                    top = Mathf.Max(Mathf.Lerp(from.top, to.top, u), level + 24f),
                     bottom = Mathf.Min(Mathf.Lerp(from.bottom, to.bottom, u), level - 16f),
                 });
             }
@@ -124,6 +124,7 @@ namespace VoidFlow
         class Batch
         {
             readonly Dictionary<Material, List<CombineInstance>> parts = new();
+            readonly Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)> quads = new();
             readonly Mesh cube;
             public Batch(Mesh cube) { this.cube = cube; }
 
@@ -134,12 +135,44 @@ namespace VoidFlow
                 list.Add(new CombineInstance { mesh = cube, transform = Matrix4x4.TRS(center, rotation, size) });
             }
 
+            // A four-cornered face (a, b, c, d in order round it), showing from both sides
+            public void Quad(Material m, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+            {
+                if (!m) return;
+                Vector3 normal = Vector3.Cross(b - a, d - a) + Vector3.Cross(d - c, b - c);
+                if (normal.sqrMagnitude < 1e-6f) return;
+                normal.Normalize();
+                if (!quads.TryGetValue(m, out var q)) quads[m] = q = (new List<Vector3>(), new List<Vector3>(), new List<int>());
+                foreach (float s in new[] { 1f, -1f })
+                {
+                    int i = q.v.Count;
+                    q.v.AddRange(new[] { a, b, c, d });
+                    for (int k = 0; k < 4; k++) q.n.Add(normal * s);
+                    if (s > 0f) q.t.AddRange(new[] { i, i + 2, i + 1, i, i + 3, i + 2 });
+                    else q.t.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
+                }
+            }
+
             public void Build(Transform parent, List<Mesh> meshes, bool worldUv)
             {
-                foreach (var (m, list) in parts)
+                var all = new HashSet<Material>(parts.Keys);
+                all.UnionWith(quads.Keys);
+                foreach (var m in all)
                 {
+                    var list = parts.TryGetValue(m, out var l) ? new List<CombineInstance>(l) : new List<CombineInstance>();
+                    Mesh shell = null;
+                    if (quads.TryGetValue(m, out var q))
+                    {
+                        shell = new Mesh { indexFormat = IndexFormat.UInt32 };
+                        shell.SetVertices(q.v);
+                        shell.SetNormals(q.n);
+                        shell.SetUVs(0, new Vector2[q.v.Count]);
+                        shell.SetTriangles(q.t, 0);
+                        list.Add(new CombineInstance { mesh = shell, transform = Matrix4x4.identity });
+                    }
                     var mesh = new Mesh { name = "Architecture", indexFormat = IndexFormat.UInt32 };
                     mesh.CombineMeshes(list.ToArray(), true, true);
+                    if (shell) WeaponBuilder.Kill(shell);
                     if (worldUv) WorldUvs(mesh);
                     mesh.RecalculateBounds();
                     meshes.Add(mesh);
@@ -153,7 +186,7 @@ namespace VoidFlow
                 }
             }
 
-            // Textures tile at a fixed size in the world (every 4m), whatever the box's size,
+            // Textures tile at a fixed size in the world (every 4m), whatever the piece's size,
             // projected onto each face from its main direction
             static void WorldUvs(Mesh mesh)
             {
@@ -191,54 +224,58 @@ namespace VoidFlow
                 var last = hasLast ? frames[ribs - 1] : fr;
                 Vector3 lastMid = (last.A + last.B) * 0.5f;
                 float lastSpan = Vector3.Distance(last.A.WithY(0f), last.B.WithY(0f));
-                float width = Mathf.Max(span, lastSpan);
 
-                // Pieces that run from the last rib to this one, following the slope and the
-                // curve: `dy` is a height relative to each rib's roof / floor / riding level
-                void Roof(Material m, float dy, float w, float thick) => Slab(b, m, lastMid.WithY(last.top + dy), mid.WithY(top + dy), w, thick);
-                void Floor(Material m, float dy, float w, float thick) => Slab(b, m, lastMid.WithY(last.bottom + dy), mid.WithY(bottom + dy), w, thick);
-                void AtLevel(Material m, Vector3 fromOffset, Vector3 toOffset, float dy, float w, float thick) =>
-                    Slab(b, m, (lastMid + fromOffset).WithY(last.level + dy), (mid + toOffset).WithY(level + dy), w, thick);
+                // The shell between the last rib and this one: both walls, roof (flat or pitched
+                // up to a ridge) and floor, stitched through the ribs' own corner points so it
+                // is watertight. A window leaves an opening in a wall between `lo` and `hi`
+                // above the riding level, over the middle part of the bay (u0..u1), edged in
+                // `edge`.
+                void Shell(Material wall, Material roof, Material fl, float rise, bool winA, bool winB,
+                    float lo, float hi, float u0, float u1, Material edge, float edgeWidth)
+                {
+                    WallSide(b, wall, edge, last, fr, true, winA, lo, hi, u0, u1, edgeWidth);
+                    WallSide(b, wall, edge, last, fr, false, winB, lo, hi, u0, u1, edgeWidth);
+                    Vector3 tl0 = last.A.WithY(last.top), tl1 = A.WithY(top), tr0 = last.B.WithY(last.top), tr1 = B.WithY(top);
+                    if (rise > 0f)
+                    {
+                        Vector3 r0 = lastMid.WithY(last.top + lastSpan * rise), r1 = mid.WithY(top + span * rise);
+                        b.Quad(roof, tl0, tl1, r1, r0);
+                        b.Quad(roof, r0, r1, tr1, tr0);
+                    }
+                    else b.Quad(roof, tl0, tl1, tr1, tr0);
+                    if (fl) b.Quad(fl, last.A.WithY(last.bottom), A.WithY(bottom), B.WithY(bottom), last.B.WithY(last.bottom));
+                }
 
                 switch (biome.style)
                 {
                     case SceneryStyle.Cathedral:
                     {
+                        const float rise = 0.22f;
                         foreach (var at in new[] { A, B })
                         {
-                            b.Box(kit.scenery, new Vector3(at.x, (top + bottom) * 0.5f, at.z), new Vector3(2.2f, h, 2.2f), rot);
-                            b.Box(kit.glow, new Vector3(at.x, level - 2f, at.z) + (mid - at).WithY(0f).normalized * 1.2f, new Vector3(0.3f, h * 0.6f, 0.3f), rot);
+                            Vector3 inward = (mid - at).WithY(0f).normalized;
+                            b.Box(kit.slab, (at + inward * 1.4f).WithY((top + bottom) * 0.5f), new Vector3(3f, h, 3f), rot);
+                            b.Box(kit.glow, (at + inward * 3.1f).WithY(level - 2f), new Vector3(0.4f, h * 0.6f, 0.4f), rot);
                         }
-                        float rise = span * 0.28f;
-                        Vector3 apex = mid.WithY(top + rise);
+                        // Arched rib across the vault
+                        Vector3 apex = mid.WithY(top + span * rise);
                         foreach (var at in new[] { A, B })
-                        {
-                            Vector3 foot = at.WithY(top);
-                            b.Box(kit.scenery, (foot + apex) * 0.5f, new Vector3(1.6f, 1.6f, (apex - foot).magnitude + 1f), Quaternion.LookRotation(apex - foot, f));
-                        }
+                            Line(b, kit.slab, at.WithY(top), apex, 2f);
                         if (hasLast)
                         {
-                            bool window = ribs % 4 == 2;
-                            WallBay(b, kit.scenery, kit.glow, last, fr, true, 1f, window, 2f, 14f, 0.3f, narrow: true);
-                            WallBay(b, kit.scenery, kit.glow, last, fr, false, 1f, window, 2f, 14f, 0.3f, narrow: true);
-                            // The pitched roof, each side a panel from the eave up to the ridge
-                            float lastRise = lastSpan * 0.28f;
-                            Pitch(b, kit.slab, last.A.WithY(last.top), A.WithY(top), lastMid.WithY(last.top + lastRise), apex, 0.8f);
-                            Pitch(b, kit.slab, last.B.WithY(last.top), B.WithY(top), lastMid.WithY(last.top + lastRise), apex, 0.8f);
+                            bool window = ribs % 3 == 1;
+                            Shell(kit.scenery, kit.slab, floor, rise, window, window, 4f, 22f, 0.38f, 0.62f, kit.glow, 0.5f);
+                            // Spikes down the ridge, the red floor line
+                            Vector3 r0 = lastMid.WithY(last.top + lastSpan * rise);
                             for (int n = 0; n < 2; n++)
-                            {
-                                float u = (n + 0.5f) / 2f;
-                                Vector3 spike = Vector3.Lerp(lastMid.WithY(last.top + lastRise), apex, u);
-                                b.Box(kit.glowAlt, spike + Vector3.down * Rand(1f, 3f), new Vector3(0.7f, Rand(3f, 6f), 0.7f), Quaternion.Euler(45f, Rand(0f, 90f), 45f));
-                            }
-                            Floor(floor, 0f, width, 1f);
-                            Floor(kit.glow, 0.6f, 0.8f, 0.4f);
+                                b.Box(kit.glowAlt, Vector3.Lerp(r0, apex, (n + 0.5f) / 2f) + Vector3.down * Rand(2f, 4f), new Vector3(1f, Rand(4f, 8f), 1f), Quaternion.Euler(45f, Rand(0f, 90f), 45f));
+                            Slab(b, kit.glow, lastMid.WithY(last.bottom + 0.6f), mid.WithY(bottom + 0.6f), 1.2f, 0.4f);
                         }
                         if (ribs % 2 == 1)
                             foreach (var at in new[] { A, B })
                             {
-                                Vector3 ch = at + (mid - at).WithY(0f).normalized * 3.5f;
-                                b.Box(kit.slab, new Vector3(ch.x, top - 7f, ch.z), new Vector3(0.35f, 14f, 0.35f), rot);
+                                Vector3 ch = at + (mid - at).WithY(0f).normalized * 6f;
+                                b.Box(kit.slab, ch.WithY(top - 10f), new Vector3(0.5f, 20f, 0.5f), rot);
                             }
                         break;
                     }
@@ -246,10 +283,10 @@ namespace VoidFlow
                     {
                         foreach (var at in new[] { A, B })
                         {
-                            b.Box(kit.scenery, new Vector3(at.x, (top + bottom) * 0.5f, at.z), new Vector3(1.8f, h, 1.8f), rot);
-                            b.Box(kit.scenery, new Vector3(at.x, top - 0.5f, at.z), new Vector3(3f, 1f, 3f), rot);
+                            b.Box(kit.scenery, at.WithY((top + bottom) * 0.5f), new Vector3(1.8f, h, 1.8f), rot);
+                            b.Box(kit.scenery, at.WithY(top - 0.5f), new Vector3(3f, 1f, 3f), rot);
                         }
-                        b.Box(kit.scenery, new Vector3(mid.x, top + 0.8f, mid.z), new Vector3(span + 3f, 1.6f, 1.6f), rot);
+                        b.Box(kit.scenery, mid.WithY(top + 0.8f), new Vector3(span + 3f, 1.6f, 1.6f), rot);
                         if (hasLast)
                         {
                             Line(b, kit.glow, last.A.WithY(last.top + 1.8f), A.WithY(top + 1.8f), 0.35f);
@@ -259,7 +296,7 @@ namespace VoidFlow
                             if (ribs % 2 == 0)
                             {
                                 Vector3 cloud = cc + right * Rand(-60f, 60f);
-                                b.Box(kit.scenery, new Vector3(cloud.x, bottom - Rand(20f, 45f), cloud.z), new Vector3(Rand(30f, 70f), Rand(4f, 9f), Rand(25f, 50f)), Quaternion.Euler(0f, Rand(0f, 360f), 0f));
+                                b.Box(kit.scenery, cloud.WithY(bottom - Rand(20f, 45f)), new Vector3(Rand(30f, 70f), Rand(4f, 9f), Rand(25f, 50f)), Quaternion.Euler(0f, Rand(0f, 360f), 0f));
                             }
                         }
                         break;
@@ -269,13 +306,13 @@ namespace VoidFlow
                         Vector3 center = mid.WithY(level + 2f);
                         float radius = span * 0.5f + 4f;
                         Material m = ribs % 2 == 0 ? kit.glow : kit.glowAlt;
-                        const int blocks = 32;
+                        const int blocks = 40;
                         for (int n = 0; n < blocks; n++)
                         {
                             float a0 = n * Mathf.PI * 2f / blocks, a1 = (n + 1) * Mathf.PI * 2f / blocks;
                             Vector3 p0 = center + (right * Mathf.Cos(a0) + Vector3.up * Mathf.Sin(a0)) * radius;
                             Vector3 p1 = center + (right * Mathf.Cos(a1) + Vector3.up * Mathf.Sin(a1)) * radius;
-                            b.Box(m, (p0 + p1) * 0.5f, new Vector3(1.1f, 1.1f, (p1 - p0).magnitude + 0.5f), Quaternion.LookRotation(p1 - p0, f));
+                            b.Box(m, (p0 + p1) * 0.5f, new Vector3(1.4f, 1.4f, (p1 - p0).magnitude + 0.6f), Quaternion.LookRotation(p1 - p0, f));
                         }
                         Vector3 plat = center + right * Rand(-radius, radius);
                         float py = bottom - Rand(5f, 25f);
@@ -288,38 +325,32 @@ namespace VoidFlow
                     {
                         if (hasLast)
                         {
-                            WallBay(b, kit.scenery, null, last, fr, true, 3f, false, 0f, 0f, 0f);
-                            WallBay(b, kit.scenery, null, last, fr, false, 3f, false, 0f, 0f, 0f);
-                            Roof(kit.scenery, 1.5f, width + 6f, 3f);
-                            Floor(kit.glow, 0f, width + 2f, 0.3f);
-                            if (ribs % 7 == 3) Roof(kit.glowAlt, 0.1f, 1.2f, 0.4f);
+                            Shell(kit.scenery, kit.scenery, kit.glow, 0.12f, false, false, 0f, 0f, 0f, 0f, null, 0f);
+                            // A crack of light in the roof now and then
+                            if (ribs % 7 == 3) Slab(b, kit.glowAlt, lastMid.WithY(last.top + lastSpan * 0.12f - 0.4f), mid.WithY(top + span * 0.12f - 0.4f), 1.5f, 0.3f);
                         }
                         foreach (var at in new[] { A, B })
                         {
                             Vector3 inward = (mid - at).WithY(0f).normalized;
-                            for (int n = 0; n < 2; n++)
+                            for (int n = 0; n < 3; n++)
                             {
-                                float y = Mathf.Lerp(bottom + 4f, top - 2f, n) + Rand(-3f, 3f);
-                                Vector3 rc = at + inward * Rand(0f, 3f);
-                                b.Box(kit.scenery, rc.WithY(y), new Vector3(Rand(6f, 11f), Rand(6f, 11f), Rand(7f, 12f)), Quaternion.Euler(Rand(-30f, 30f), Rand(0f, 360f), Rand(-30f, 30f)));
+                                float y = Mathf.Lerp(bottom + 4f, top - 3f, n / 2f) + Rand(-3f, 3f);
+                                b.Box(kit.scenery, (at + inward * Rand(1f, 5f)).WithY(y), new Vector3(Rand(8f, 14f), Rand(7f, 13f), Rand(9f, 15f)), Quaternion.Euler(Rand(-30f, 30f), Rand(0f, 360f), Rand(-30f, 30f)));
                             }
-                            if (rng.NextDouble() < 0.5)
+                            if (rng.NextDouble() < 0.6)
                             {
-                                Vector3 mu = at + inward * Rand(2f, 4f);
-                                float y = bottom + Rand(3f, 10f), stem = Rand(1.5f, 3f);
-                                b.Box(kit.slab, mu.WithY(y + stem * 0.5f), new Vector3(0.5f, stem, 0.5f), rot);
-                                b.Box(kit.glow, mu.WithY(y + stem), new Vector3(Rand(1.8f, 3f), 0.6f, Rand(1.8f, 3f)), Quaternion.Euler(0f, 45f, 0f));
+                                Vector3 mu = at + inward * Rand(4f, 8f);
+                                float y = bottom + Rand(1f, 6f), stem = Rand(2f, 4f);
+                                b.Box(kit.slab, mu.WithY(y + stem * 0.5f), new Vector3(0.6f, stem, 0.6f), rot);
+                                b.Box(kit.glow, mu.WithY(y + stem), new Vector3(Rand(2.5f, 4f), 0.7f, Rand(2.5f, 4f)), Quaternion.Euler(0f, 45f, 0f));
                             }
-                            if (rng.NextDouble() < 0.35)
-                            {
-                                Vector3 cr = at + inward * Rand(1f, 3f);
-                                b.Box(kit.glowAlt, cr.WithY(level + Rand(4f, 12f)), new Vector3(0.9f, Rand(3f, 6f), 0.9f), Quaternion.Euler(Rand(-35f, 35f), Rand(0f, 90f), Rand(-35f, 35f)));
-                            }
+                            if (rng.NextDouble() < 0.4)
+                                b.Box(kit.glowAlt, (at + inward * Rand(2f, 6f)).WithY(level + Rand(4f, 16f)), new Vector3(1.2f, Rand(4f, 8f), 1.2f), Quaternion.Euler(Rand(-35f, 35f), Rand(0f, 90f), Rand(-35f, 35f)));
                         }
-                        if (rng.NextDouble() < 0.6)
+                        if (rng.NextDouble() < 0.7)
                         {
-                            Vector3 st = mid + right * Rand(-span * 0.45f, span * 0.45f);
-                            b.Box(kit.scenery, st.WithY(top - 3f), new Vector3(1.4f, 7f, 1.4f), Quaternion.Euler(Rand(-8f, 8f), 45f, Rand(-8f, 8f)));
+                            Vector3 st = mid + right * Rand(-span * 0.4f, span * 0.4f);
+                            b.Box(kit.scenery, st.WithY(top - 4f), new Vector3(2f, 9f, 2f), Quaternion.Euler(Rand(-8f, 8f), 45f, Rand(-8f, 8f)));
                         }
                         break;
                     }
@@ -328,47 +359,42 @@ namespace VoidFlow
                         if (hasLast)
                         {
                             bool window = ribs % 5 == 2;
-                            WallBay(b, kit.scenery, kit.glowAlt, last, fr, true, 1.2f, window, 3f, 11f, 0.4f);
-                            WallBay(b, kit.scenery, kit.glowAlt, last, fr, false, 1.2f, window, 3f, 11f, 0.4f);
-                            Roof(kit.scenery, 0f, width + 1f, 1.2f);
-                            Floor(kit.scenery, 0f, width + 1f, 1.2f);
+                            Shell(kit.scenery, kit.scenery, kit.scenery, 0f, window, window, 4f, 16f, 0.25f, 0.75f, kit.glowAlt, 0.6f);
                             Vector3 cc = (lastMid + mid) * 0.5f;
                             float cTop = (last.top + top) * 0.5f;
                             var bay = Quaternion.LookRotation((mid - lastMid).WithY(0f).sqrMagnitude > 0.01f ? (mid - lastMid).WithY(0f) : f);
-                            b.Box(kit.glow, cc.WithY(cTop - 0.7f), new Vector3(3.2f, 0.3f, 3.2f), bay * Quaternion.Euler(0f, 45f, 0f));
-                            b.Box(kit.glowAlt, cc.WithY(cTop - 0.7f), new Vector3(2.2f, 0.32f, 2.2f), bay);
+                            b.Box(kit.glow, cc.WithY(cTop - 0.7f), new Vector3(5f, 0.3f, 5f), bay * Quaternion.Euler(0f, 45f, 0f));
+                            b.Box(kit.glowAlt, cc.WithY(cTop - 0.7f), new Vector3(3.4f, 0.32f, 3.4f), bay);
                         }
-                        if (ribs % 5 == 0) Portal(b, kit.glowAlt, A, B, bottom, top, rot, 0.8f);
+                        if (ribs % 5 == 0) Portal(b, kit.glowAlt, A, B, bottom, top, rot, 1.2f);
                         if (ribs % 3 == 0)
                         {
                             var mats = new[] { kit.ramp, kit.slab, kit.glow, kit.glowAlt };
-                            Vector3 o = mid + right * (rng.NextDouble() < 0.5 ? -1f : 1f) * Rand(span * 0.5f + 20f, span * 0.5f + 70f);
+                            Vector3 o = mid + right * (rng.NextDouble() < 0.5 ? -1f : 1f) * Rand(span * 0.5f + 25f, span * 0.5f + 80f);
                             b.Box(mats[rng.Next(mats.Length)], o.WithY(level + Rand(-40f, 30f)), new Vector3(Rand(6f, 22f), Rand(6f, 30f), Rand(6f, 22f)), Quaternion.Euler(0f, Rand(0f, 90f), 0f));
                         }
                         break;
                     }
                     case SceneryStyle.Forge:
                     {
-                        Portal(b, kit.scenery, A, B, bottom, top, rot, 2.4f);
+                        Portal(b, kit.slab, A, B, bottom, top, rot, 3f);
                         if (hasLast)
                         {
-                            WallBay(b, kit.scenery, null, last, fr, true, 1.4f, false, 0f, 0f, 0f);
-                            WallBay(b, kit.scenery, null, last, fr, false, 1.4f, false, 0f, 0f, 0f);
+                            Shell(kit.scenery, kit.slab, null, 0f, false, false, 0f, 0f, 0f, 0f, null, 0f);
                             foreach (bool sideA in new[] { true, false })
                             {
                                 Vector3 w0 = sideA ? last.A : last.B, w1 = sideA ? A : B;
-                                Vector3 in0 = (lastMid - w0).WithY(0f).normalized * 0.8f, in1 = (mid - w1).WithY(0f).normalized * 0.8f;
-                                Vector3 s0 = (w0 + in0).WithY(last.level + 6f), s1 = (w1 + in1).WithY(level + 6f);
-                                Vector3 m0 = Vector3.Lerp(s0, s1, 0.2f), m1 = Vector3.Lerp(s0, s1, 0.8f);
-                                Slab(b, kit.glowAlt, m0, m1, 0.3f, 1f, vertical: true);
+                                Vector3 in0 = (lastMid - w0).WithY(0f).normalized * 0.6f, in1 = (mid - w1).WithY(0f).normalized * 0.6f;
+                                Vector3 s0 = (w0 + in0).WithY(last.level + 8f), s1 = (w1 + in1).WithY(level + 8f);
+                                Slab(b, kit.glowAlt, Vector3.Lerp(s0, s1, 0.2f), Vector3.Lerp(s0, s1, 0.8f), 0.4f, 1.5f, vertical: true);
                             }
-                            Roof(kit.slab, 0.8f, width, 1f);
-                            if (ribs % 3 == 0) Roof(kit.glow, 0.25f, width * 0.5f, 0.2f);
-                            Floor(kit.glow, 0f, width, 0.5f);
-                            for (int n = -2; n <= 2; n++)
+                            if (ribs % 3 == 0) Slab(b, kit.glow, lastMid.WithY(last.top - 0.3f), mid.WithY(top - 0.3f), span * 0.4f, 0.2f);
+                            // The lava floor: a glowing sea with dark grid bars over it
+                            b.Quad(kit.glow, last.A.WithY(last.bottom), A.WithY(bottom), B.WithY(bottom), last.B.WithY(last.bottom));
+                            for (int n = -3; n <= 3; n++)
                             {
-                                Vector3 o0 = last.right * (n * lastSpan * 0.2f), o1 = right * (n * span * 0.2f);
-                                Slab(b, kit.glow, (lastMid + o0).WithY(last.bottom), (mid + o1).WithY(bottom), 0.6f, 0.5f);
+                                Vector3 o0 = last.right * (n * lastSpan / 7f), o1 = right * (n * span / 7f);
+                                Slab(b, kit.slab, (lastMid + o0).WithY(last.bottom + 0.4f), (mid + o1).WithY(bottom + 0.4f), 0.8f, 0.6f);
                             }
                         }
                         break;
@@ -376,15 +402,15 @@ namespace VoidFlow
                     case SceneryStyle.Wire:
                     {
                         Material m = ribs % 2 == 0 ? kit.glow : kit.glowAlt;
-                        float wireBottom = Mathf.Max(bottom, level - 16f);
-                        Portal(b, m, A, B, wireBottom, top, rot, 0.35f);
+                        float wireBottom = Mathf.Max(bottom, level - 20f);
+                        Portal(b, m, A, B, wireBottom, top, rot, 0.45f);
                         if (hasLast)
                         {
-                            float lastWire = Mathf.Max(last.bottom, last.level - 16f);
+                            float lastWire = Mathf.Max(last.bottom, last.level - 20f);
                             foreach (var (w0, w1) in new[] { (last.A, A), (last.B, B) })
                             {
-                                Line(b, kit.glow, w0.WithY(last.top), w1.WithY(top), 0.3f);
-                                Line(b, kit.glow, w0.WithY(lastWire), w1.WithY(wireBottom), 0.3f);
+                                Line(b, kit.glow, w0.WithY(last.top), w1.WithY(top), 0.4f);
+                                Line(b, kit.glow, w0.WithY(lastWire), w1.WithY(wireBottom), 0.4f);
                             }
                         }
                         break;
@@ -393,29 +419,26 @@ namespace VoidFlow
                     {
                         foreach (var at in new[] { A, B })
                         {
-                            Vector3 pil = at + (mid - at).WithY(0f).normalized * 1.2f;
-                            b.Box(kit.slab, pil.WithY((top + bottom) * 0.5f), new Vector3(2.4f, h, 2.4f), rot);
+                            Vector3 pil = at + (mid - at).WithY(0f).normalized * 1.6f;
+                            b.Box(kit.slab, pil.WithY((top + bottom) * 0.5f), new Vector3(3.2f, h, 3.2f), rot);
                         }
                         if (hasLast)
                         {
                             int side = (ribs / 3) % 2;
-                            bool windowA = ribs % 3 == 1 && side == 0, windowB = ribs % 3 == 1 && side == 1;
-                            WallBay(b, kit.scenery, kit.slab, last, fr, true, 1f, windowA, -2f, 13f, 0.5f);
-                            WallBay(b, kit.scenery, kit.slab, last, fr, false, 1f, windowB, -2f, 13f, 0.5f);
-                            foreach (var (sideA, win) in new[] { (true, windowA), (false, windowB) })
+                            bool winA = ribs % 3 == 1 && side == 0, winB = ribs % 3 == 1 && side == 1;
+                            Shell(kit.scenery, kit.scenery, floor, 0f, winA, winB, -2f, 20f, 0.15f, 0.85f, kit.slab, 0.8f);
+                            foreach (var (sideA, win) in new[] { (true, winA), (false, winB) })
                             {
                                 Vector3 w0 = sideA ? last.A : last.B, w1 = sideA ? A : B;
                                 Vector3 in0 = (lastMid - w0).WithY(0f).normalized, in1 = (mid - w1).WithY(0f).normalized;
                                 if (!win)
                                 {
-                                    Vector3 sc = Vector3.Lerp((w0 + in0 * 0.7f).WithY(last.level + 4f), (w1 + in1 * 0.7f).WithY(level + 4f), 0.5f);
-                                    b.Box(kit.glow, sc, new Vector3(0.5f, 1.6f, 0.9f), Quaternion.LookRotation((w1 - w0).WithY(0f)));
+                                    Vector3 sc = Vector3.Lerp((w0 + in0 * 0.6f).WithY(last.level + 6f), (w1 + in1 * 0.6f).WithY(level + 6f), 0.5f);
+                                    b.Box(kit.glow, sc, new Vector3(0.6f, 2.2f, 1.2f), Quaternion.LookRotation((w1 - w0).WithY(0f)));
                                 }
-                                Slab(b, kit.glowAlt, (w0 + in0 * 1.2f).WithY(last.bottom + 0.9f), (w1 + in1 * 1.2f).WithY(bottom + 0.9f), 0.6f, 0.2f);
+                                Slab(b, kit.glowAlt, (w0 + in0 * 1.6f).WithY(last.bottom + 0.8f), (w1 + in1 * 1.6f).WithY(bottom + 0.8f), 0.8f, 0.2f);
                             }
-                            Roof(kit.scenery, 0f, width + 2f, 1f);
-                            Roof(kit.glowAlt, -0.55f, 2f, 0.15f);
-                            Floor(floor, 0f, width + 2f, 1f);
+                            Slab(b, kit.glowAlt, lastMid.WithY(last.top - 0.3f), mid.WithY(top - 0.3f), 3f, 0.2f);
                         }
                         break;
                     }
@@ -424,25 +447,19 @@ namespace VoidFlow
                         if (hasLast)
                         {
                             int side = (ribs / 4) % 2;
-                            bool windowA = ribs % 4 == 2 && side == 0, windowB = ribs % 4 == 2 && side == 1;
-                            WallBay(b, kit.scenery, kit.glow, last, fr, true, 1f, windowA, -4f, 12f, 0.9f);
-                            WallBay(b, kit.scenery, kit.glow, last, fr, false, 1f, windowB, -4f, 12f, 0.9f);
+                            bool winA = ribs % 4 == 2 && side == 0, winB = ribs % 4 == 2 && side == 1;
+                            Shell(kit.scenery, kit.slab, floor, 0f, winA, winB, -4f, 18f, 0.1f, 0.9f, kit.glow, 1.2f);
                             foreach (bool sideA in new[] { true, false })
                             {
                                 Vector3 w0 = sideA ? last.A : last.B, w1 = sideA ? A : B;
                                 Vector3 in0 = (lastMid - w0).WithY(0f).normalized, in1 = (mid - w1).WithY(0f).normalized;
-                                // The sloped foot of the wall, leaning into the room
-                                Vector3 f0 = (w0 + in0 * 3f).WithY(last.bottom + 4f), f1 = (w1 + in1 * 3f).WithY(bottom + 4f);
-                                Vector3 along = f1 - f0;
-                                if (along.sqrMagnitude > 0.01f)
-                                {
-                                    Vector3 lean = (Vector3.up * 0.82f + ((in0 + in1) * 0.5f).normalized * 0.57f).normalized;
-                                    b.Box(kit.scenery, (f0 + f1) * 0.5f, new Vector3(7f, 1f, along.magnitude + 1f), Quaternion.LookRotation(along, lean));
-                                }
-                                Slab(b, kit.glowAlt, (w0 + in0 * 0.6f).WithY(last.top - 1.2f), (w1 + in1 * 0.6f).WithY(top - 1.2f), 0.4f, 0.5f);
+                                // The sloped foot of the wall, leaning into the room: a band of
+                                // quads from the wall down to the floor, stitched like the shell
+                                Vector3 a0 = w0.WithY(last.bottom + 9f), a1 = w1.WithY(bottom + 9f);
+                                Vector3 c0 = (w0 + in0 * 6f).WithY(last.bottom), c1 = (w1 + in1 * 6f).WithY(bottom);
+                                b.Quad(kit.scenery, a0, a1, c1, c0);
+                                Slab(b, kit.glowAlt, (w0 + in0 * 0.6f).WithY(last.top - 1.5f), (w1 + in1 * 0.6f).WithY(top - 1.5f), 0.5f, 0.6f);
                             }
-                            Roof(kit.slab, 0f, width + 2f, 1f);
-                            Floor(floor, 0f, width + 2f, 1f);
                         }
                         break;
                     }
@@ -488,61 +505,32 @@ namespace VoidFlow
             b.Box(m, (from + to) * 0.5f, size, rot);
         }
 
-        // A roof panel between two eaves and two ridge points (a quad, laid as one box)
-        static void Pitch(Batch b, Material m, Vector3 eave0, Vector3 eave1, Vector3 ridge0, Vector3 ridge1, float thick)
-        {
-            Vector3 along = ((eave1 - eave0) + (ridge1 - ridge0)) * 0.5f;
-            Vector3 across = (ridge0 + ridge1) * 0.5f - (eave0 + eave1) * 0.5f;
-            if (along.sqrMagnitude < 0.01f || across.sqrMagnitude < 0.01f) return;
-            Vector3 up = Vector3.Cross(along, across).normalized;
-            if (up.y < 0f) up = -up;
-            b.Box(m, (eave0 + eave1 + ridge0 + ridge1) * 0.25f, new Vector3(across.magnitude + 1.2f, thick, along.magnitude + 1.2f), Quaternion.LookRotation(along, up));
-        }
-
-        // A wall bay from the last rib's wall line to this one's, on side A or B. It follows the
-        // slope: the wall is laid as a slab running from rib to rib along the riding level, as
-        // deep as the building (from the floor to the roof). With a window, it's split around
-        // an opening between `lo` and `hi` above the riding level, edged in `frame`.
-        static void WallBay(Batch b, Material wall, Material frame, Frame last, Frame fr, bool sideA, float thickness,
-            bool window, float lo, float hi, float frameWidth, bool narrow = false)
+        // One wall of a bay, from the last rib's wall line to this rib's, floor to roof, stitched
+        // through the ribs' own corners. With a window, the part between u0 and u1 along the bay
+        // is split around an opening from `lo` to `hi` above the riding level, edged in `edge`.
+        static void WallSide(Batch b, Material wall, Material edge, Frame last, Frame fr, bool sideA, bool window,
+            float lo, float hi, float u0, float u1, float edgeWidth)
         {
             Vector3 a = sideA ? last.A : last.B, c = sideA ? fr.A : fr.B;
-            // Heights relative to the riding level at each end
-            float down = Mathf.Max(last.level - last.bottom, fr.level - fr.bottom);
-            float up = Mathf.Max(last.top - last.level, fr.top - fr.level);
-            Vector3 from = a.WithY(last.level), to = c.WithY(fr.level);
-            Vector3 d = to - from;
-            float len = d.magnitude;
-            if (len < 0.01f) return;
-            // Upright wall along the sloping line: forward along the wall, up as close to up as
-            // the slope allows
-            Vector3 fwd = d / len;
-            Vector3 upright = (Vector3.up - fwd * Vector3.Dot(Vector3.up, fwd)).normalized;
-            var rot = Quaternion.LookRotation(fwd, upright);
-            Vector3 center = (from + to) * 0.5f;
-            void Band(Material m, float y0, float y1, float along0, float along1, float thick)
-            {
-                if (y1 - y0 < 0.01f || along1 - along0 < 0.01f) return;
-                Vector3 at = center + upright * ((y0 + y1) * 0.5f) + fwd * ((along0 + along1) * 0.5f);
-                b.Box(m, at, new Vector3(thick, y1 - y0, along1 - along0), rot);
-            }
-            float half = len * 0.5f + 0.6f; // overlap the next bay so bends close
+            Vector3 P(float u, float y0, float y1) => Vector3.Lerp(a, c, u).WithY(Mathf.Lerp(y0, y1, u));
+            Vector3 Bot(float u) => P(u, last.bottom, fr.bottom);
+            Vector3 Top(float u) => P(u, last.top, fr.top);
+            Vector3 Lo(float u) => P(u, last.level + lo, fr.level + lo);
+            Vector3 Hi(float u) => P(u, last.level + hi, fr.level + hi);
             if (!window || hi <= lo)
             {
-                Band(wall, -down, up, -half, half, thickness);
+                b.Quad(wall, Bot(0f), Bot(1f), Top(1f), Top(0f));
                 return;
             }
-            float open = narrow ? len * 0.3f : Mathf.Max(len - 3f, len * 0.6f);
-            Band(wall, -down, lo, -half, half, thickness);
-            Band(wall, hi, up, -half, half, thickness);
-            Band(wall, lo, hi, -half, -open * 0.5f, thickness);
-            Band(wall, lo, hi, open * 0.5f, half, thickness);
-            if (!frame || frameWidth <= 0f) return;
-            float t = thickness + 0.2f, w = frameWidth * 0.5f;
-            Band(frame, lo - w, lo + w, -open * 0.5f - w, open * 0.5f + w, t);
-            Band(frame, hi - w, hi + w, -open * 0.5f - w, open * 0.5f + w, t);
-            Band(frame, lo, hi, -open * 0.5f - w, -open * 0.5f + w, t);
-            Band(frame, lo, hi, open * 0.5f - w, open * 0.5f + w, t);
+            b.Quad(wall, Bot(0f), Bot(u0), Top(u0), Top(0f));
+            b.Quad(wall, Bot(u1), Bot(1f), Top(1f), Top(u1));
+            b.Quad(wall, Bot(u0), Bot(u1), Lo(u1), Lo(u0));
+            b.Quad(wall, Hi(u0), Hi(u1), Top(u1), Top(u0));
+            if (!edge || edgeWidth <= 0f) return;
+            Line(b, edge, Lo(u0), Lo(u1), edgeWidth);
+            Line(b, edge, Hi(u0), Hi(u1), edgeWidth);
+            Line(b, edge, Lo(u0), Hi(u0), edgeWidth);
+            Line(b, edge, Lo(u1), Hi(u1), edgeWidth);
         }
 
         static void Line(Batch b, Material m, Vector3 from, Vector3 to, float thickness)

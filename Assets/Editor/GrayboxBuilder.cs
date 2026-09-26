@@ -132,6 +132,9 @@ namespace VoidFlow.EditorTools
         // Painted textures, made at the start of Build and used by the hall and biomes
         static Texture2D tiles, stone, metal, wood, ice, hex, panel, plaster;
 
+        // CC0 photo textures from ambientCG (Assets/Textures/CC0, see its LICENSE.txt)
+        static Texture2D CC0(string name) => AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Textures/CC0/{name}.jpg");
+
         // Every biome's materials, saved as assets under Graybox/Biomes
         static BiomeKit[] MakeBiomeKits(Material template, Texture2D grid, Texture2D stripes, Texture2D hazard, Texture2D bricks)
         {
@@ -148,7 +151,13 @@ namespace VoidFlow.EditorTools
                 Surface.Ice => ice,
                 Surface.Hex => hex,
                 Surface.Panel => panel,
-                Surface.Plaster => plaster,
+                Surface.Plaster => CC0("Plaster001"),
+                Surface.Concrete => CC0("Concrete034"),
+                Surface.HexTile => CC0("Tiles072"),
+                Surface.WhiteTile => CC0("Tiles107"),
+                Surface.DarkStone => CC0("Bricks034"),
+                Surface.Plates => CC0("MetalPlates006"),
+                Surface.Rock => CC0("Rock051"),
                 _ => grid,
             };
 
@@ -166,7 +175,7 @@ namespace VoidFlow.EditorTools
                 {
                     ramp = Save(BiomeKit.Surface(template, b.ramp, Tex(b.rampSurface), Vector2.one), "Ramp"),
                     slab = Save(BiomeKit.Surface(template, b.slab, Tex(b.rampSurface), Vector2.one), "Slab"),
-                    scenery = Save(BiomeKit.Surface(template, b.scenery, Tex(b.scenerySurface), new Vector2(1f, 4f)), "Scenery"),
+                    scenery = Save(BiomeKit.Surface(template, b.scenery, Tex(b.scenerySurface), Vector2.one), "Scenery"),
                     glow = Save(BiomeKit.Glow(template, b.glow), "Glow"),
                     glowAlt = Save(BiomeKit.Glow(template, b.glowAlt), "GlowAlt"),
                     floor = Save(BiomeKit.Surface(template, b.floor.a > 0f ? b.floor : b.slab, Tex(b.floor.a > 0f ? b.floorSurface : b.rampSurface), Vector2.one), "Floor"),
