@@ -41,30 +41,29 @@ namespace VoidFlow
             public float level, top, bottom;
         }
 
-        public static bool Continuous(SceneryStyle s) => s is not (SceneryStyle.Palace or SceneryStyle.Rings);
+        public static bool Continuous(SceneryStyle s) => s != SceneryStyle.Palace;
 
         public static float StepFor(SceneryStyle s) => s switch
         {
-            SceneryStyle.Rings => 42f,
             SceneryStyle.Candy => 10f,
             SceneryStyle.Grotto => 9f,
             _ => 12f,
         };
 
-        const float Roof = 32f, Margin = 30f; // roomy: you can air-strafe a long way and stay inside
+        const float Roof = 48f, Margin = 60f; // roomy: walls 60m out from the ramp, so you can air-strafe a long way and stay inside
 
         // How far the floor lies below the ramp: the rooms after Raphaelo have theirs close by
         // (you see it), the rest drop away into depth
         public static float DepthFor(SceneryStyle s) => s is SceneryStyle.Sunset or SceneryStyle.Gallery ? 12f : 30f;
 
         // Cross-sections along a ramp, between two distances along it
-        public static List<Frame> RampFrames(RampShapes.RampPath path, float from, float to, float step, float depth = 24f)
+        public static List<Frame> RampFrames(RampShapes.RampPath path, float from, float to, float step, float depth = 24f, float extra = 0f)
         {
             var frames = new List<Frame>();
             bool prism = path.kind == RampShapes.Kind.Prism;
             // Walls stand clear of the whole face (a slab's face hangs on one side only)
             float s = prism ? 1f : path.side;
-            float near = prism ? path.width + Margin : Margin * 0.7f, far = path.width + Margin;
+            float near = (prism ? path.width + Margin : Margin * 0.7f) + extra, far = path.width + Margin + extra;
             // Ribs every `step`, and always one exactly at the end, so the building meets the
             // next piece with no hole
             int count = Mathf.Max(1, Mathf.CeilToInt((to - from) / step - 0.01f));
@@ -102,7 +101,7 @@ namespace VoidFlow
                     p = Vector3.Lerp(from.p, to.p, u).WithY(level), f = f, right = right,
                     A = Vector3.Lerp(from.A, to.A, u), B = Vector3.Lerp(from.B, to.B, u),
                     level = level,
-                    top = Mathf.Max(Mathf.Lerp(from.top, to.top, u), level + 24f),
+                    top = Mathf.Max(Mathf.Lerp(from.top, to.top, u), level + 36f),
                     bottom = Mathf.Min(Mathf.Lerp(from.bottom, to.bottom, u), level - 16f),
                 });
             }
@@ -289,22 +288,27 @@ namespace VoidFlow
                     }
                     case SceneryStyle.Rings:
                     {
-                        Vector3 center = mid.WithY(level + 2f);
-                        float radius = span * 0.5f + 4f;
-                        Material m = ribs % 2 == 0 ? kit.glow : kit.glowAlt;
-                        const int blocks = 40;
-                        for (int n = 0; n < blocks; n++)
+                        if (hasLast)
                         {
-                            float a0 = n * Mathf.PI * 2f / blocks, a1 = (n + 1) * Mathf.PI * 2f / blocks;
-                            Vector3 p0 = center + (right * Mathf.Cos(a0) + Vector3.up * Mathf.Sin(a0)) * radius;
-                            Vector3 p1 = center + (right * Mathf.Cos(a1) + Vector3.up * Mathf.Sin(a1)) * radius;
-                            b.Box(m, (p0 + p1) * 0.5f, new Vector3(1.4f, 1.4f, (p1 - p0).magnitude + 0.6f), Quaternion.LookRotation(p1 - p0, f));
+                            Shell(kit.scenery, kit.scenery, kit.scenery, 0f, false, false, 0f, 0f, 0f, 0f, null, 0f);
+                            WallLights(b, kit.glowAlt, last, fr, lastMid, mid, 0f, 0.5f);
+                            Slab(b, kit.glow, lastMid.WithY(last.bottom + 0.3f), mid.WithY(bottom + 0.3f), 1.5f, 0.3f);
                         }
-                        Vector3 plat = center + right * Rand(-radius, radius);
-                        float py = bottom - Rand(5f, 25f);
-                        var platRot = Quaternion.Euler(0f, Rand(0f, 90f), 0f);
-                        b.Box(kit.scenery, plat.WithY(py), new Vector3(16f, 1.5f, 16f), platRot);
-                        b.Box(kit.glowAlt, plat.WithY(py + 0.8f), new Vector3(16.4f, 0.2f, 16.4f), platRot);
+                        // A glowing ring standing in the tunnel every fourth rib, alternating colors
+                        if (ribs % 4 == 0)
+                        {
+                            float radius = Mathf.Min(span * 0.5f - 3f, top - level - 4f);
+                            Vector3 center = mid.WithY(level + 2f);
+                            Material m = (ribs / 4) % 2 == 0 ? kit.glow : kit.glowAlt;
+                            const int blocks = 36;
+                            for (int n = 0; n < blocks; n++)
+                            {
+                                float a0 = n * Mathf.PI * 2f / blocks, a1 = (n + 1) * Mathf.PI * 2f / blocks;
+                                Vector3 p0 = center + (right * Mathf.Cos(a0) + Vector3.up * Mathf.Sin(a0)) * radius;
+                                Vector3 p1 = center + (right * Mathf.Cos(a1) + Vector3.up * Mathf.Sin(a1)) * radius;
+                                b.Box(m, (p0 + p1) * 0.5f, new Vector3(1.2f, 1.2f, (p1 - p0).magnitude + 0.5f), Quaternion.LookRotation(p1 - p0, f));
+                            }
+                        }
                         break;
                     }
                     case SceneryStyle.Grotto:
@@ -318,10 +322,10 @@ namespace VoidFlow
                         foreach (var at in new[] { A, B })
                         {
                             Vector3 inward = (mid - at).WithY(0f).normalized;
-                            for (int n = 0; n < 3; n++)
+                            if (ribs % 2 == 0)
                             {
-                                float y = Mathf.Lerp(bottom + 4f, top - 3f, n / 2f) + Rand(-3f, 3f);
-                                b.Box(kit.scenery, (at + inward * Rand(1f, 5f)).WithY(y), new Vector3(Rand(8f, 14f), Rand(7f, 13f), Rand(9f, 15f)), Quaternion.Euler(Rand(-30f, 30f), Rand(0f, 360f), Rand(-30f, 30f)));
+                                float y = Rand(bottom + 4f, top - 6f);
+                                b.Box(kit.scenery, (at + inward * Rand(0.5f, 2f)).WithY(y), new Vector3(Rand(3f, 5f), Rand(6f, 10f), Rand(8f, 14f)), Quaternion.LookRotation(f) * Quaternion.Euler(Rand(-10f, 10f), Rand(-15f, 15f), Rand(-10f, 10f)));
                             }
                             if (rng.NextDouble() < 0.6)
                             {
@@ -333,7 +337,7 @@ namespace VoidFlow
                             if (rng.NextDouble() < 0.4)
                                 b.Box(kit.glowAlt, (at + inward * Rand(2f, 6f)).WithY(level + Rand(4f, 16f)), new Vector3(1.2f, Rand(4f, 8f), 1.2f), Quaternion.Euler(Rand(-35f, 35f), Rand(0f, 90f), Rand(-35f, 35f)));
                         }
-                        if (rng.NextDouble() < 0.7)
+                        if (rng.NextDouble() < 0.3)
                         {
                             Vector3 st = mid + right * Rand(-span * 0.4f, span * 0.4f);
                             b.Box(kit.scenery, st.WithY(top - 4f), new Vector3(2f, 9f, 2f), Quaternion.Euler(Rand(-8f, 8f), 45f, Rand(-8f, 8f)));
@@ -353,12 +357,6 @@ namespace VoidFlow
                             b.Box(kit.glowAlt, cc.WithY(cTop - 0.7f), new Vector3(3.4f, 0.32f, 3.4f), bay);
                         }
                         if (hasLast) WallLights(b, kit.glowAlt, last, fr, lastMid, mid, 1f, 0.4f);
-                        if (ribs % 3 == 0)
-                        {
-                            var mats = new[] { kit.ramp, kit.slab, kit.glow, kit.glowAlt };
-                            Vector3 o = mid + right * (rng.NextDouble() < 0.5 ? -1f : 1f) * Rand(span * 0.5f + 25f, span * 0.5f + 80f);
-                            b.Box(mats[rng.Next(mats.Length)], o.WithY(level + Rand(-40f, 30f)), new Vector3(Rand(6f, 22f), Rand(6f, 30f), Rand(6f, 22f)), Quaternion.Euler(0f, Rand(0f, 90f), 0f));
-                        }
                         break;
                     }
                     case SceneryStyle.Forge:

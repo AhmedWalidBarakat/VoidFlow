@@ -38,7 +38,7 @@ namespace VoidFlow
     //  - twin:   a blade with an identical one alongside
     //  - sweep:  a long prism curving steadily one way, usually into its face, sometimes away
     //            from it (the kind you hold the opposite key on)
-    //  - loop:   a long prism curling right round (160-210 degrees) as it drops, wide enough
+    //  - loop:   a long prism curling round (130-170 degrees) as it drops, wide enough
     //            to hold at full speed
     // Plain blades also bend a little once the course gets going, so it's rarely dead straight.
     // and any flight can be big air: extra long, with a glowing ring at the top to fly
@@ -359,6 +359,7 @@ namespace VoidFlow
             float flightSpeed = 0f;
             string move = "opening drop";
             bool enclose = false;
+            float extraMargin = 0f;
             Func<float, float> flightArc = null;
             float flightGap = 0f;
             RampShapes.RampPath holeWall = null, twin = null;
@@ -383,7 +384,10 @@ namespace VoidFlow
                 var tier = TierOf(stage);
                 var m = ChooseMove(i, t, theme, tier);
                 move = m.name;
-                enclose = !m.twin && !m.hole;
+                // Every ramp is enclosed; twin and canyon ramps get a wider building so the second
+                // ramp or the canyon wall is inside it too
+                enclose = true;
+                extraMargin = m.twin ? 14f : m.hole ? 20f : 0f;
                 flightSpeed = FlightSpeed(last, courseStartY);
                 var landing = new RampShapes.Landing
                 {
@@ -513,8 +517,13 @@ namespace VoidFlow
             }
             if (i > 0) PlaceShards(seg, path, twin, TierOf(stage));
 
-            Scenery.Line(path, biome, kit, seg.root.transform, rng, cube);
-            BuildArchitecture(seg, path, biome, kit, i, enclose, stageStart, flightArc, flightGap);
+            // Outside scenery only for the open-air Sky Palace (its clouds); every other zone is
+            // one enclosed interior
+            // Decoration has its own random numbers (from the ramp's number), so changing how the
+            // buildings look never reshuffles the course itself
+            var decor = new System.Random(unchecked(i * 7919 + 13));
+            if (!Architecture.Continuous(biome.style)) Scenery.Line(path, biome, kit, seg.root.transform, decor, cube);
+            BuildArchitecture(seg, path, biome, kit, i, enclose || i == 0, stageStart, flightArc, flightGap, extraMargin, decor);
             segments.Add(seg);
             Physics.SyncTransforms();
         }
@@ -526,7 +535,7 @@ namespace VoidFlow
         Architecture.Frame? lastFrame;
 
         void BuildArchitecture(Segment seg, RampShapes.RampPath path, Biome biome, BiomeKit kit, int i, bool enclose, bool stageStart,
-            Func<float, float> flightArc, float flightGap)
+            Func<float, float> flightArc, float flightGap, float extraMargin, System.Random decor)
         {
             var style = biome.style;
             if (!enclose) { lastFrame = null; return; }
@@ -536,13 +545,13 @@ namespace VoidFlow
                 // Open zones: a building over the middle of the ramp only
                 float from = Mathf.Min(path.Length * 0.1f, 30f), to = Mathf.Min(path.Length * 0.88f, path.Length - 25f);
                 if (to - from >= 30f)
-                    Architecture.Build(Architecture.RampFrames(path, from, to, step), biome, kit, seg.root.transform, seg.meshes, rng, cube);
+                    Architecture.Build(Architecture.RampFrames(path, from, to, step, 24f, extraMargin), biome, kit, seg.root.transform, seg.meshes, decor, cube);
                 lastFrame = null;
                 return;
             }
             // Continuous: the whole ramp (the opening drop starts clear of the hall), joined to
             // the building before it across the flight
-            var frames = Architecture.RampFrames(path, i == 0 ? 45f : 0f, path.Length, step, Architecture.DepthFor(style));
+            var frames = Architecture.RampFrames(path, i == 0 ? 45f : 0f, path.Length, step, Architecture.DepthFor(style), extraMargin);
             if (frames.Count == 0) { lastFrame = null; return; }
             int doorway = stageStart ? 0 : -1;
             if (lastFrame is Architecture.Frame prev && flightArc != null)
@@ -551,7 +560,7 @@ namespace VoidFlow
                 frames.InsertRange(0, join);
                 if (stageStart) doorway = Mathf.Min(1, frames.Count - 1);
             }
-            Architecture.Build(frames, biome, kit, seg.root.transform, seg.meshes, rng, cube, doorway);
+            Architecture.Build(frames, biome, kit, seg.root.transform, seg.meshes, decor, cube, doorway);
             lastFrame = frames[^1];
         }
 
@@ -662,8 +671,9 @@ namespace VoidFlow
                 pick -= o.Item2;
             }
 
-            // Loops come once the course gets going
+            // Loops come once the course gets going; the very first stage keeps its ramps straight
             if (name == "loop" && t < 0.25f) name = "sweep";
+            if (name == "sweep" && t < 0.1f) name = "blade";
             bool calm = name is "hole" or "spiral" or "winding" or "sweep" or "loop";
             double airChance = theme == "BIG AIR" ? 0.7 : tier switch { Tier.Beginner => 0.0, Tier.Advanced or Tier.Technical => 0.4, _ => 0.2 };
             var m = new Move { name = name, bigAir = t >= 0.08f && !calm && rng.NextDouble() < airChance };
@@ -728,8 +738,10 @@ namespace VoidFlow
                     float length = Rand(200f, 260f);
                     m.shape = new[] { (40f, -0.1f), (length - 30f, -0.1f), (length, 0.07f) };
                     // Into the face, mostly; in the Curved Room always, so the turns keep flowing
-                    float way = theme == "CURVED ROOM" || rng.NextDouble() < 0.7 ? 1f : -1f;
-                    float degrees = Mathf.Lerp(35f, 75f, t) * Rand(0.8f, 1f) * way;
+                    // Beginners only get curves into the face (the easy way), and gentler ones
+                    bool intoFace = rng.NextDouble() < 0.7;
+                    float way = theme == "CURVED ROOM" || tier == Tier.Beginner || intoFace ? 1f : -1f;
+                    float degrees = Mathf.Lerp(35f, 75f, t) * Rand(0.8f, 1f) * way * (tier == Tier.Beginner ? 0.7f : 1f);
                     m.bend = new[] { (20f, 0f), (length - 30f, degrees), (length, degrees) };
                     break;
                 }
@@ -737,9 +749,9 @@ namespace VoidFlow
                 {
                     m.kind = RampShapes.Kind.Prism;
                     m.width = Mathf.Lerp(11f, 8f, t);
-                    float length = Rand(450f, 520f);
+                    float length = Rand(540f, 620f);
                     m.shape = new[] { (40f, -0.15f), (length - 30f, -0.15f), (length, 0.07f) };
-                    float degrees = Rand(160f, 210f);
+                    float degrees = Rand(130f, 170f);
                     m.bend = new[] { (20f, 0f), (length - 30f, degrees), (length, degrees) };
                     break;
                 }
