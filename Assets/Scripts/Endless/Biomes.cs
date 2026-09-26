@@ -3,10 +3,13 @@ using UnityEngine;
 
 namespace VoidFlow
 {
-    // The looks the endless course cycles through, taken from the kinds of worlds the best
-    // surf maps have. Each biome sets the sky, fog and light, the ramp colors, and which
-    // scenery lines the course.
-    public enum SceneryStyle { Pillars, NeonTowers, Industrial, Ice, Temple, Abyss, Inferno, Monoliths }
+    // The zones the endless course cycles through, each after a kind of space the most
+    // beautiful surf maps are known for (all original designs): a blood-red gothic hall, a
+    // white palace over the clouds, a void of neon rings, a glowing grotto, candy-colored
+    // box rooms among floating blocks, an orange forge over lava, and a tunnel drawn in
+    // glowing edges. Each sets the sky, fog and light, the ramp colors, the building the
+    // ramps run through (Architecture) and the scenery further out.
+    public enum SceneryStyle { Cathedral, Palace, Rings, Grotto, Candy, Forge, Wire }
 
     public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice }
 
@@ -30,83 +33,73 @@ namespace VoidFlow
         {
             new Biome
             {
-                name = "UTOPIA", sky = new Color(0.55f, 0.68f, 0.88f), skyTop = new Color(0.16f, 0.36f, 0.78f), skyBottom = new Color(0.18f, 0.22f, 0.32f),
-                fogStart = 150f, fogEnd = 700f,
-                ambientSky = new Color(0.7f, 0.76f, 0.9f), ambientEquator = new Color(0.55f, 0.56f, 0.62f), ambientGround = new Color(0.3f, 0.28f, 0.3f),
-                sunColor = new Color(1f, 0.93f, 0.8f), sunIntensity = 1.35f,
-                ramp = new Color(0.95f, 0.94f, 0.97f), slab = new Color(0.55f, 0.78f, 1f), rampSurface = Surface.Tiles,
-                glow = new Color(1f, 0.33f, 0.02f), glowAlt = new Color(0.2f, 0.35f, 1f),
-                scenery = Color.white, scenerySurface = Surface.Stripes, style = SceneryStyle.Pillars,
-            },
-            new Biome
-            {
-                name = "NEON CITY", sky = new Color(0.32f, 0.05f, 0.34f), skyTop = new Color(0.02f, 0f, 0.07f), skyBottom = new Color(0.02f, 0f, 0.05f),
-                fogStart = 120f, fogEnd = 600f,
-                ambientSky = new Color(0.4f, 0.22f, 0.55f), ambientEquator = new Color(0.28f, 0.12f, 0.35f), ambientGround = new Color(0.1f, 0.04f, 0.15f),
-                sunColor = new Color(0.9f, 0.82f, 1f), sunIntensity = 0.75f,
-                ramp = new Color(1f, 0.85f, 0.15f), slab = new Color(1f, 0.3f, 0.6f), rampSurface = Surface.Tiles,
-                glow = new Color(0.1f, 0.9f, 1f), glowAlt = new Color(1f, 0.1f, 0.7f),
-                scenery = new Color(0.12f, 0.1f, 0.18f), scenerySurface = Surface.Metal, style = SceneryStyle.NeonTowers,
-            },
-            new Biome
-            {
-                name = "INDUSTRIAL", sky = new Color(0.32f, 0.24f, 0.2f), skyTop = new Color(0.05f, 0.05f, 0.07f), skyBottom = new Color(0.03f, 0.03f, 0.04f),
-                fogStart = 100f, fogEnd = 550f,
-                ambientSky = new Color(0.5f, 0.48f, 0.5f), ambientEquator = new Color(0.32f, 0.3f, 0.3f), ambientGround = new Color(0.12f, 0.12f, 0.13f),
-                sunColor = new Color(1f, 0.85f, 0.7f), sunIntensity = 1f,
-                ramp = new Color(0.62f, 0.64f, 0.7f), slab = new Color(0.85f, 0.18f, 0.12f), rampSurface = Surface.Metal,
-                glow = new Color(1f, 0.08f, 0.05f), glowAlt = new Color(1f, 1f, 1f),
-                scenery = new Color(0.95f, 0.95f, 0.95f), scenerySurface = Surface.Hazard, style = SceneryStyle.Industrial,
-            },
-            new Biome
-            {
-                name = "GLACIER", sky = new Color(0.72f, 0.82f, 0.92f), skyTop = new Color(0.25f, 0.45f, 0.75f), skyBottom = new Color(0.55f, 0.6f, 0.68f),
-                fogStart = 100f, fogEnd = 600f,
-                ambientSky = new Color(0.8f, 0.87f, 1f), ambientEquator = new Color(0.62f, 0.68f, 0.78f), ambientGround = new Color(0.45f, 0.48f, 0.55f),
-                sunColor = new Color(0.95f, 0.97f, 1f), sunIntensity = 1.2f,
-                ramp = new Color(0.88f, 0.94f, 1f), slab = new Color(0.55f, 0.82f, 1f), rampSurface = Surface.Ice,
-                glow = new Color(0.3f, 0.85f, 1f), glowAlt = new Color(0.8f, 0.95f, 1f),
-                scenery = new Color(0.62f, 0.66f, 0.74f), scenerySurface = Surface.Stone, style = SceneryStyle.Ice,
-            },
-            new Biome
-            {
-                name = "TEMPLE", sky = new Color(0.95f, 0.58f, 0.3f), skyTop = new Color(0.32f, 0.22f, 0.5f), skyBottom = new Color(0.28f, 0.16f, 0.1f),
-                fogStart = 100f, fogEnd = 560f,
-                ambientSky = new Color(0.8f, 0.62f, 0.5f), ambientEquator = new Color(0.58f, 0.42f, 0.3f), ambientGround = new Color(0.25f, 0.16f, 0.1f),
-                sunColor = new Color(1f, 0.75f, 0.45f), sunIntensity = 1.25f,
-                ramp = new Color(0.95f, 0.8f, 0.58f), slab = new Color(0.8f, 0.55f, 0.3f), rampSurface = Surface.Stone,
-                glow = new Color(1f, 0.55f, 0.1f), glowAlt = new Color(1f, 0.85f, 0.1f),
-                scenery = new Color(0.88f, 0.74f, 0.52f), scenerySurface = Surface.Stone, style = SceneryStyle.Temple,
-            },
-            new Biome
-            {
-                name = "ABYSS", sky = new Color(0.03f, 0.22f, 0.26f), skyTop = new Color(0f, 0.02f, 0.05f), skyBottom = new Color(0f, 0.03f, 0.04f),
+                name = "CRIMSON HALL", sky = new Color(0.3f, 0.02f, 0.04f), skyTop = new Color(0.05f, 0f, 0.01f), skyBottom = new Color(0.08f, 0f, 0.01f),
                 fogStart = 50f, fogEnd = 420f,
-                ambientSky = new Color(0.25f, 0.5f, 0.55f), ambientEquator = new Color(0.12f, 0.3f, 0.32f), ambientGround = new Color(0.03f, 0.1f, 0.12f),
-                sunColor = new Color(0.4f, 0.9f, 1f), sunIntensity = 0.75f,
-                ramp = new Color(0.45f, 0.72f, 0.72f), slab = new Color(0.3f, 0.9f, 0.95f), rampSurface = Surface.Stone,
-                glow = new Color(0.1f, 1f, 0.9f), glowAlt = new Color(0.2f, 0.5f, 1f),
-                scenery = new Color(0.28f, 0.45f, 0.48f), scenerySurface = Surface.Stone, style = SceneryStyle.Abyss,
+                ambientSky = new Color(0.6f, 0.12f, 0.14f), ambientEquator = new Color(0.35f, 0.05f, 0.07f), ambientGround = new Color(0.1f, 0.01f, 0.02f),
+                sunColor = new Color(1f, 0.4f, 0.4f), sunIntensity = 0.75f,
+                ramp = new Color(0.07f, 0.06f, 0.07f), slab = new Color(0.22f, 0.03f, 0.05f), rampSurface = Surface.Metal,
+                glow = new Color(1f, 0.08f, 0.12f), glowAlt = new Color(0.75f, 0.03f, 0.1f),
+                scenery = new Color(0.4f, 0.04f, 0.06f), scenerySurface = Surface.Stripes, style = SceneryStyle.Cathedral,
             },
             new Biome
             {
-                name = "INFERNO", sky = new Color(0.5f, 0.1f, 0.02f), skyTop = new Color(0.06f, 0f, 0f), skyBottom = new Color(0.12f, 0.02f, 0f),
+                name = "SKY PALACE", sky = new Color(0.78f, 0.87f, 0.98f), skyTop = new Color(0.3f, 0.55f, 0.92f), skyBottom = new Color(0.95f, 0.96f, 0.99f),
+                fogStart = 220f, fogEnd = 950f,
+                ambientSky = new Color(0.95f, 0.97f, 1f), ambientEquator = new Color(0.85f, 0.88f, 0.95f), ambientGround = new Color(0.7f, 0.72f, 0.78f),
+                sunColor = new Color(1f, 1f, 1f), sunIntensity = 1.3f,
+                ramp = new Color(0.11f, 0.11f, 0.15f), slab = new Color(0.92f, 0.92f, 0.95f), rampSurface = Surface.Metal,
+                glow = new Color(1f, 0.75f, 0.3f), glowAlt = new Color(0.4f, 0.72f, 1f),
+                scenery = new Color(1f, 1f, 1f), scenerySurface = Surface.Grid, style = SceneryStyle.Palace,
+            },
+            new Biome
+            {
+                name = "NEON RINGS", sky = new Color(0.08f, 0.02f, 0.12f), skyTop = new Color(0f, 0f, 0.01f), skyBottom = new Color(0.02f, 0f, 0.04f),
+                fogStart = 90f, fogEnd = 560f,
+                ambientSky = new Color(0.4f, 0.22f, 0.55f), ambientEquator = new Color(0.22f, 0.1f, 0.32f), ambientGround = new Color(0.05f, 0.02f, 0.08f),
+                sunColor = new Color(0.9f, 0.7f, 1f), sunIntensity = 0.6f,
+                ramp = new Color(0.1f, 0.08f, 0.14f), slab = new Color(0.2f, 0.06f, 0.28f), rampSurface = Surface.Grid,
+                glow = new Color(1f, 0.25f, 0.85f), glowAlt = new Color(0.15f, 0.95f, 1f),
+                scenery = new Color(0.05f, 0.04f, 0.08f), scenerySurface = Surface.Metal, style = SceneryStyle.Rings,
+            },
+            new Biome
+            {
+                name = "GROTTO", sky = new Color(0.02f, 0.14f, 0.16f), skyTop = new Color(0f, 0.02f, 0.03f), skyBottom = new Color(0f, 0.05f, 0.06f),
                 fogStart = 50f, fogEnd = 420f,
-                ambientSky = new Color(0.6f, 0.2f, 0.1f), ambientEquator = new Color(0.38f, 0.1f, 0.05f), ambientGround = new Color(0.15f, 0.03f, 0.01f),
-                sunColor = new Color(1f, 0.45f, 0.2f), sunIntensity = 0.85f,
-                ramp = new Color(0.6f, 0.28f, 0.2f), slab = new Color(0.95f, 0.35f, 0.08f), rampSurface = Surface.Bricks,
-                glow = new Color(1f, 0.25f, 0f), glowAlt = new Color(1f, 0.6f, 0.05f),
-                scenery = new Color(0.35f, 0.16f, 0.12f), scenerySurface = Surface.Stone, style = SceneryStyle.Inferno,
+                ambientSky = new Color(0.22f, 0.5f, 0.55f), ambientEquator = new Color(0.1f, 0.26f, 0.3f), ambientGround = new Color(0.02f, 0.08f, 0.1f),
+                sunColor = new Color(0.6f, 0.9f, 1f), sunIntensity = 0.55f,
+                ramp = new Color(0.26f, 0.22f, 0.42f), slab = new Color(0.15f, 0.3f, 0.35f), rampSurface = Surface.Stone,
+                glow = new Color(0.1f, 1f, 0.8f), glowAlt = new Color(0.7f, 0.3f, 1f),
+                scenery = new Color(0.15f, 0.14f, 0.19f), scenerySurface = Surface.Stone, style = SceneryStyle.Grotto,
             },
             new Biome
             {
-                name = "VOID", sky = new Color(0.09f, 0.09f, 0.12f), skyTop = new Color(0f, 0f, 0f), skyBottom = new Color(0f, 0f, 0f),
-                fogStart = 60f, fogEnd = 480f,
-                ambientSky = new Color(0.38f, 0.38f, 0.42f), ambientEquator = new Color(0.22f, 0.22f, 0.24f), ambientGround = new Color(0.05f, 0.05f, 0.06f),
-                sunColor = Color.white, sunIntensity = 0.85f,
-                ramp = new Color(0.85f, 0.85f, 0.88f), slab = new Color(0.22f, 0.22f, 0.25f), rampSurface = Surface.Tiles,
-                glow = new Color(1f, 1f, 1f), glowAlt = new Color(0.7f, 0.7f, 0.75f),
-                scenery = new Color(0.08f, 0.08f, 0.1f), scenerySurface = Surface.Metal, style = SceneryStyle.Monoliths,
+                name = "CANDY BLOCKS", sky = new Color(0.06f, 0.03f, 0.12f), skyTop = new Color(0f, 0f, 0.02f), skyBottom = new Color(0.02f, 0.01f, 0.05f),
+                fogStart = 160f, fogEnd = 820f,
+                ambientSky = new Color(0.85f, 0.8f, 0.95f), ambientEquator = new Color(0.62f, 0.58f, 0.72f), ambientGround = new Color(0.3f, 0.25f, 0.4f),
+                sunColor = new Color(1f, 1f, 1f), sunIntensity = 1.2f,
+                ramp = new Color(1f, 0.35f, 0.75f), slab = new Color(0.25f, 0.9f, 1f), rampSurface = Surface.Tiles,
+                glow = new Color(1f, 0.85f, 0.2f), glowAlt = new Color(0.2f, 1f, 0.95f),
+                scenery = new Color(0.78f, 0.7f, 0.95f), scenerySurface = Surface.Tiles, style = SceneryStyle.Candy,
+            },
+            new Biome
+            {
+                name = "FORGE", sky = new Color(0.45f, 0.15f, 0.03f), skyTop = new Color(0.08f, 0.02f, 0f), skyBottom = new Color(0.15f, 0.04f, 0f),
+                fogStart = 70f, fogEnd = 500f,
+                ambientSky = new Color(0.72f, 0.38f, 0.16f), ambientEquator = new Color(0.45f, 0.2f, 0.08f), ambientGround = new Color(0.15f, 0.05f, 0.02f),
+                sunColor = new Color(1f, 0.6f, 0.3f), sunIntensity = 0.9f,
+                ramp = new Color(0.18f, 0.16f, 0.15f), slab = new Color(0.9f, 0.45f, 0.1f), rampSurface = Surface.Metal,
+                glow = new Color(1f, 0.45f, 0.05f), glowAlt = new Color(1f, 0.85f, 0.3f),
+                scenery = new Color(0.75f, 0.35f, 0.1f), scenerySurface = Surface.Metal, style = SceneryStyle.Forge,
+            },
+            new Biome
+            {
+                name = "WIREFRAME", sky = new Color(0.04f, 0.02f, 0.02f), skyTop = new Color(0f, 0f, 0f), skyBottom = new Color(0.01f, 0f, 0f),
+                fogStart = 60f, fogEnd = 500f,
+                ambientSky = new Color(0.38f, 0.3f, 0.3f), ambientEquator = new Color(0.2f, 0.15f, 0.15f), ambientGround = new Color(0.04f, 0.03f, 0.03f),
+                sunColor = new Color(1f, 0.5f, 0.4f), sunIntensity = 0.6f,
+                ramp = new Color(0.06f, 0.06f, 0.07f), slab = new Color(0.18f, 0.03f, 0.03f), rampSurface = Surface.Grid,
+                glow = new Color(1f, 0.12f, 0.08f), glowAlt = new Color(1f, 0.5f, 0.1f),
+                scenery = new Color(0.03f, 0.03f, 0.035f), scenerySurface = Surface.Metal, style = SceneryStyle.Wire,
             },
         };
     }
@@ -170,75 +163,68 @@ namespace VoidFlow
 
                 switch (biome.style)
                 {
-                    case SceneryStyle.Pillars:
+                    case SceneryStyle.Cathedral:
                     {
-                        float h = Rand(60f, 140f), w = Rand(4f, 9f);
-                        Part(piece, cube, kit.scenery, new Vector3(0f, -h * 0.5f + Rand(0f, 30f), 0f), new Vector3(w, h, w));
-                        if (rng.Next(3) == 0) Floater(piece, cube, rng.Next(2) == 0 ? kit.glow : kit.glowAlt, new Vector3(0f, Rand(10f, 35f), 0f), Rand(1.5f, 4f), rng);
-                        break;
-                    }
-                    case SceneryStyle.NeonTowers:
-                    {
-                        float h = Rand(80f, 180f), w = Rand(6f, 14f), top = Rand(-10f, 40f);
+                        // Dark spires with a red glowing slit
+                        float h = Rand(60f, 140f), w = Rand(5f, 10f), top = Rand(0f, 40f);
                         Part(piece, cube, kit.scenery, new Vector3(0f, top - h * 0.5f, 0f), new Vector3(w, h, w));
-                        Material stripe = rng.Next(2) == 0 ? kit.glow : kit.glowAlt;
-                        int bands = rng.Next(3, 7);
-                        for (int s = 0; s < bands; s++)
-                            Part(piece, cube, stripe, new Vector3(0f, top - Rand(2f, h * 0.8f), 0f), new Vector3(w + 0.3f, 0.6f, w + 0.3f));
+                        Part(piece, cube, kit.scenery, new Vector3(0f, top + w * 0.5f, 0f), new Vector3(w * 0.7f, w * 0.7f, w * 0.7f), Quaternion.Euler(45f, 0f, 45f));
+                        Part(piece, cube, kit.glow, new Vector3(w * 0.5f + 0.1f, top - h * 0.3f, 0f), new Vector3(0.3f, h * 0.3f, 1.2f));
                         break;
                     }
-                    case SceneryStyle.Industrial:
+                    case SceneryStyle.Palace:
                     {
-                        float h = Rand(70f, 150f), w = Rand(3f, 6f);
-                        Part(piece, cube, kit.scenery, new Vector3(0f, Rand(-20f, 20f) - h * 0.5f, 0f), new Vector3(w, h, w));
-                        // A girder reaching toward the course, high overhead
-                        float reach = Rand(20f, 35f);
-                        Part(piece.parent, cube, kit.scenery, basePoint + Vector3.up * Rand(28f, 40f) - path.right[i] * (side * reach * 0.5f),
-                            new Vector3(reach, 1.2f, 1.2f), Quaternion.LookRotation(path.forward[i]));
-                        Part(piece, cube, kit.glow, new Vector3(0f, Rand(-5f, 15f), 0f), new Vector3(w + 0.4f, 0.8f, w + 0.4f));
+                        // Clouds drifting, and now and then a white tower
+                        Part(piece, cube, kit.scenery, new Vector3(0f, Rand(-70f, -30f), 0f), new Vector3(Rand(40f, 90f), Rand(6f, 12f), Rand(30f, 70f)));
+                        if (rng.Next(3) == 0) Part(piece, cube, kit.scenery, new Vector3(0f, Rand(-40f, 0f), 0f), new Vector3(Rand(6f, 10f), Rand(60f, 120f), Rand(6f, 10f)));
+                        if (rng.Next(3) == 0) Floater(piece, cube, kit.scenery, new Vector3(0f, Rand(10f, 35f), 0f), Rand(2f, 5f), rng);
                         break;
                     }
-                    case SceneryStyle.Ice:
+                    case SceneryStyle.Rings:
                     {
-                        int rocks = rng.Next(2, 4);
-                        for (int r = 0; r < rocks; r++)
-                            Part(piece, cube, kit.scenery, new Vector3(Rand(-8f, 8f), Rand(-50f, -10f), Rand(-8f, 8f)),
-                                new Vector3(Rand(8f, 20f), Rand(10f, 30f), Rand(8f, 20f)), Quaternion.Euler(Rand(-25f, 25f), Rand(0f, 90f), Rand(-25f, 25f)));
-                        Part(piece, cube, kit.glowAlt, new Vector3(0f, Rand(-15f, 5f), 0f), new Vector3(1.2f, Rand(20f, 40f), 1.2f),
-                            Quaternion.Euler(Rand(-12f, 12f), 0f, Rand(-12f, 12f)));
+                        // Black monoliths edged in cyan, glowing cubes drifting
+                        float h = Rand(40f, 110f), top = Rand(-10f, 30f), w = Rand(3f, 6f);
+                        Part(piece, cube, kit.scenery, new Vector3(0f, top - h * 0.5f, 0f), new Vector3(w, h, Rand(8f, 16f)));
+                        Part(piece, cube, kit.glowAlt, new Vector3(w * 0.5f + 0.1f, top - h * 0.5f, 0f), new Vector3(0.3f, h, 0.4f));
+                        if (rng.Next(2) == 0) Floater(piece, cube, kit.glow, new Vector3(0f, Rand(10f, 30f), 0f), Rand(1.5f, 3.5f), rng);
                         break;
                     }
-                    case SceneryStyle.Temple:
+                    case SceneryStyle.Grotto:
                     {
-                        float h = Rand(50f, 110f), w = Rand(5f, 8f), top = Rand(-5f, 25f);
-                        Part(piece, cube, kit.scenery, new Vector3(0f, top - h * 0.5f, 0f), new Vector3(w, h, w));
-                        Part(piece, cube, kit.scenery, new Vector3(0f, top + 1f, 0f), new Vector3(w + 2f, 2f, w + 2f));
-                        Part(piece, cube, kit.glow, new Vector3(0f, top + 3f, 0f), new Vector3(1.5f, 2f, 1.5f));
+                        // Stalagmites with glowing crystals
+                        Part(piece, cube, kit.scenery, new Vector3(0f, Rand(-60f, -20f), 0f), new Vector3(Rand(10f, 22f), Rand(30f, 60f), Rand(10f, 22f)), Quaternion.Euler(Rand(-10f, 10f), Rand(0f, 90f), Rand(-10f, 10f)));
+                        Part(piece, cube, rng.Next(2) == 0 ? kit.glow : kit.glowAlt, new Vector3(0f, Rand(-15f, 5f), 0f), new Vector3(1.4f, Rand(10f, 22f), 1.4f), Quaternion.Euler(Rand(-20f, 20f), 45f, Rand(-20f, 20f)));
                         break;
                     }
-                    case SceneryStyle.Abyss:
+                    case SceneryStyle.Candy:
                     {
-                        Part(piece, cube, kit.scenery, new Vector3(0f, Rand(-60f, -20f), 0f), new Vector3(Rand(10f, 25f), Rand(20f, 50f), Rand(10f, 25f)));
-                        // A glowing sheet of water standing on end
-                        Part(piece, cube, kit.glow, new Vector3(0f, Rand(-10f, 15f), 0f), new Vector3(Rand(15f, 30f), Rand(20f, 40f), 0.3f));
-                        if (rng.Next(2) == 0) Floater(piece, cube, kit.glowAlt, new Vector3(0f, Rand(15f, 30f), 0f), Rand(1f, 2.5f), rng);
+                        // Big floating blocks in flat saturated colors
+                        var mats = new[] { kit.ramp, kit.slab, kit.glow, kit.glowAlt, kit.scenery };
+                        Part(piece, cube, mats[rng.Next(mats.Length)], new Vector3(0f, Rand(-50f, 30f), 0f), new Vector3(Rand(8f, 30f), Rand(8f, 40f), Rand(8f, 30f)));
+                        if (rng.Next(3) == 0) Floater(piece, cube, mats[rng.Next(mats.Length)], new Vector3(0f, Rand(15f, 40f), 0f), Rand(3f, 7f), rng);
                         break;
                     }
-                    case SceneryStyle.Inferno:
+                    case SceneryStyle.Forge:
                     {
-                        float h = Rand(60f, 130f), w = Rand(5f, 10f), top = Rand(-10f, 25f);
-                        Part(piece, cube, kit.scenery, new Vector3(0f, top - h * 0.5f, 0f), new Vector3(w, h, w));
-                        // Lava cracks running up the column
-                        Part(piece, cube, kit.glow, new Vector3(w * 0.5f, top - h * 0.4f, 0f), new Vector3(0.4f, h * 0.6f, 0.6f));
-                        if (rng.Next(2) == 0) Floater(piece, cube, kit.glowAlt, new Vector3(Rand(-6f, 6f), Rand(-40f, -15f), Rand(-6f, 6f)), Rand(3f, 7f), rng);
+                        // Chimneys glowing at the top
+                        float h = Rand(60f, 130f), w = Rand(5f, 9f), top = Rand(-10f, 25f);
+                        Part(piece, cube, kit.slab, new Vector3(0f, top - h * 0.5f, 0f), new Vector3(w, h, w));
+                        Part(piece, cube, kit.glow, new Vector3(0f, top + 0.5f, 0f), new Vector3(w - 1f, 1f, w - 1f));
                         break;
                     }
-                    case SceneryStyle.Monoliths:
+                    case SceneryStyle.Wire:
                     {
-                        float h = Rand(40f, 120f), top = Rand(-10f, 35f), w = Rand(3f, 6f);
-                        Part(piece, cube, kit.scenery, new Vector3(0f, top - h * 0.5f, 0f), new Vector3(w, h, Rand(10f, 20f)));
-                        // A thin light strip down the face of the monolith
-                        Part(piece, cube, kit.glow, new Vector3(w * 0.5f + 0.1f, top - h * 0.5f, 0f), new Vector3(0.3f, h, 0.4f));
+                        // Wireframe cubes hanging in the dark
+                        float size = Rand(8f, 20f), y = Rand(-40f, 30f);
+                        Material m = rng.Next(2) == 0 ? kit.glow : kit.glowAlt;
+                        for (int e = 0; e < 12; e++)
+                        {
+                            int axis = e / 4, n = e % 4;
+                            float u = (n & 1) == 0 ? -0.5f : 0.5f, v = (n & 2) == 0 ? -0.5f : 0.5f;
+                            Vector3 at = axis == 0 ? new Vector3(0f, u, v) : axis == 1 ? new Vector3(u, 0f, v) : new Vector3(u, v, 0f);
+                            Vector3 sz = axis == 0 ? new Vector3(1f, 0.02f, 0.02f) : axis == 1 ? new Vector3(0.02f, 1f, 0.02f) : new Vector3(0.02f, 0.02f, 1f);
+                            Part(piece, cube, m, new Vector3(0f, y, 0f) + at * size, sz * size + Vector3.one * 0.3f);
+                        }
                         break;
                     }
                 }

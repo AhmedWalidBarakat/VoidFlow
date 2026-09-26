@@ -55,8 +55,8 @@ namespace VoidFlow
                 return c.name.Contains("Floor") ? WeaponSounds.Surface.Stone : WeaponSounds.Surface.Metal;
             return course ? course.CurrentBiome.name switch
             {
-                "GLACIER" => WeaponSounds.Surface.Ice,
-                "TEMPLE" or "UTOPIA" => WeaponSounds.Surface.Stone,
+                "SKY PALACE" or "CANDY BLOCKS" => WeaponSounds.Surface.Stone,
+                "GROTTO" => WeaponSounds.Surface.Ice,
                 _ => WeaponSounds.Surface.Metal,
             } : WeaponSounds.Surface.Metal;
         }
