@@ -77,6 +77,8 @@ namespace VoidFlow
         [Header("Streaming")]
         public int rampsAhead = 3;
         public int rampsBehind = 1;
+        [Tooltip("A checkpoint every this many ramps: fall and you're put back at the last one.")]
+        public int checkpointEvery = 3;
         public float recenterDistance = 2000f;
         public int rampsPerBiome = 6;
         [Tooltip("0 makes a new random course every run")]
@@ -104,7 +106,8 @@ namespace VoidFlow
 
         readonly List<Segment> segments = new();
         System.Random rng;
-        int nextIndex, current;
+        int nextIndex, current, checkpoint;
+        const float CheckpointReach = 12f; // metres from the riding line that count as on the ramp
         float nextProgress;
         RampShapes.RampPath last;
         Mesh cube;
@@ -121,6 +124,8 @@ namespace VoidFlow
         public int RebuiltRamps { get; private set; }     // ramps rebuilt because the flight check failed
         public int ImpossibleRamps { get; private set; }  // ramps still failing after every rebuild (should stay 0)
         public event Action<Biome> BiomeEntered;
+        public event Action CheckpointReached;
+        public bool HasCheckpoint => checkpoint > 0;
 
         public static readonly string[] Themes = { "CLASSIC", "WINDING", "SPIRAL", "ROLLERCOASTER", "CANYON", "BIG AIR", "TWIN PEAKS", "CURVED ROOM" };
         readonly Dictionary<int, string> stageThemes = new();
@@ -215,6 +220,7 @@ namespace VoidFlow
             rng = new System.Random(seed != 0 ? seed : Environment.TickCount);
             nextIndex = 0;
             current = 0;
+            checkpoint = 0;
             last = null;
             lastFrame = null;
             afterLaunch = false;
@@ -269,10 +275,17 @@ namespace VoidFlow
                 Generate();
                 if (!all) break; // at most one new ramp per frame, so there are no hitches
             }
-            while (segments.Count > 0 && segments[0].index < current - rampsBehind)
+            // Ramps behind you vanish. Those since the last checkpoint are only hidden, so a fall
+            // can bring them back; older ones go for good.
+            while (segments.Count > 0 && segments[0].index < Mathf.Min(checkpoint, current - rampsBehind))
             {
                 DestroySegment(segments[0]);
                 segments.RemoveAt(0);
+            }
+            foreach (var s in segments)
+            {
+                bool show = s.index >= current - rampsBehind;
+                if (s.root && s.root.activeSelf != show) s.root.SetActive(show);
             }
             if (startHall) startHall.gameObject.SetActive(current < 2);
         }
@@ -518,6 +531,12 @@ namespace VoidFlow
                 // A gate over the start of the landing hill, marking the new stage
                 Vector3 foot = seg.line[0] + Vector3.down * 3f;
                 AddPart(seg, "StageGate", foot, RampShapes.GateMesh(foot, path.forward[0], 22f, 16f, $"Gate {i}"), kit.glow, solid: false);
+            }
+            else if (i > 0 && i % checkpointEvery == 0)
+            {
+                // A checkpoint: a lighter gate over the start of the landing hill
+                Vector3 foot = seg.line[0] + Vector3.down * 3f;
+                AddPart(seg, "CheckpointGate", foot, RampShapes.GateMesh(foot, path.forward[0], 18f, 12f, $"Checkpoint {i}"), kit.glowAlt, solid: false);
             }
             if (ringCenter is Vector3 ring)
             {
@@ -843,8 +862,14 @@ namespace VoidFlow
             Segment seg = Seg(current);
             if (seg != null)
             {
-                DistanceToLine(seg, p, out int nearest);
+                float off = DistanceToLine(seg, p, out int nearest);
                 Progress = seg.startProgress + seg.path.distance[nearest];
+                // A checkpoint counts once you're riding its ramp, not falling past under it
+                if (current % checkpointEvery == 0 && current > checkpoint && off < CheckpointReach)
+                {
+                    checkpoint = current;
+                    CheckpointReached?.Invoke();
+                }
             }
         }
 
@@ -881,6 +906,28 @@ namespace VoidFlow
             Vector3 along = path.ridge[i + 1] - path.ridge[i];
             float yaw = Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg;
             p.Teleport(pos, yaw, along.normalized * (seg.flightSpeed * 0.9f));
+        }
+
+        // Back to the last checkpoint after a fall: the ramps since it come back, and you're
+        // put at the top of its ramp already moving, so the run flows on. False if you haven't
+        // reached one yet.
+        public bool RespawnAtCheckpoint(PlayerMovement p)
+        {
+            if (checkpoint <= 0 || Seg(checkpoint) == null) return false;
+            int from = current;
+            current = checkpoint;
+            foreach (var s in segments)
+                if (s.root) s.root.SetActive(s.index >= current - rampsBehind);
+            if (Seg(from) is Segment was && was.biome != Seg(current).biome)
+            {
+                envFrom = envTo = Biome.All[Seg(current).biome];
+                envBlend = 1f;
+                ApplyEnvironment(envTo, envTo, 1f);
+            }
+            RespawnPlayer(p);
+            Progress = Seg(current).startProgress;
+            Physics.SyncTransforms();
+            return true;
         }
 
         // Keeps the world near the origin: once the player is recenterDistance out, shift

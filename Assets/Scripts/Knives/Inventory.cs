@@ -39,8 +39,8 @@ namespace VoidFlow
             VoidCases = 10;
         }
 
-        // While the game is being built: start every session owning everything (set false to ship)
-        const bool GiveEverything = true;
+        // For testing: start every session owning everything (true), or empty as players do
+        const bool GiveEverything = false;
 
         // An unboxed skin
         public static void Add(ItemSlot slot, int index)

@@ -4,7 +4,9 @@ using UnityEngine.InputSystem;
 namespace VoidFlow
 {
     // Runs the endless mode and draws the HUD. The run starts when you leave the start
-    // hall. Fall off (or press R) and it's over: you're back in the hall with a fresh course.
+    // hall. Every few ramps a gate marks a checkpoint: fall and you're put back there with the
+    // run still going. Fall before the first one (or press R) and you're back in the hall with a
+    // fresh course.
     // Tracks distance, time, your last and best distance, and announces each biome as you
     // enter it.
     public class RunTimer : MonoBehaviour
@@ -25,11 +27,15 @@ namespace VoidFlow
         float lastRun;
         string banner;
         float bannerTime = -99f;
+        string note;
+        float noteTime = -99f;
+        int falls;
         GUIStyle bigStyle, smallStyle, centeredStyle, bannerStyle;
 
         void Start()
         {
             best = PlayerPrefs.GetFloat(BestKey, 0f);
+            course.CheckpointReached += () => Note("CHECKPOINT");
             course.BiomeEntered += b => { banner = $"{b.name}\nSTAGE {course.CurrentStage + 1}  ·  {course.CurrentTierName}  ·  {course.CurrentStageName}"; bannerTime = Time.time; };
             Restart();
         }
@@ -39,7 +45,10 @@ namespace VoidFlow
             course.ResetCourse();
             player.Teleport(spawnPoint.position, spawnPoint.eulerAngles.y);
             running = false;
+            falls = 0;
         }
+
+        void Note(string text) { note = text; noteTime = Time.time; }
 
         void Update()
         {
@@ -64,7 +73,12 @@ namespace VoidFlow
 
             if (course.IsFallen(p) && !player.Flying)
             {
-                // No checkpoints: a fall ends the run
+                if (running && course.RespawnAtCheckpoint(player))
+                {
+                    falls++;
+                    Note("BACK TO CHECKPOINT");
+                    return;
+                }
                 if (running)
                 {
                     lastRun = course.Progress;
@@ -102,7 +116,7 @@ namespace VoidFlow
             {
                 GUI.Label(new Rect(0, 16, w, 40), Distance(course.Progress), bigStyle);
                 GUI.Label(new Rect(0, 52, w, 24),
-                    $"stage {course.CurrentStage + 1}: {course.CurrentTierName} {course.CurrentStageName}   ·   ramp {course.CurrentRamp + 1}   ·   {course.CurrentBiome.name}   ·   {Format(Time.time - startTime)}",
+                    $"stage {course.CurrentStage + 1}: {course.CurrentTierName} {course.CurrentStageName}   ·   ramp {course.CurrentRamp + 1}   ·   {course.CurrentBiome.name}   ·   {Format(Time.time - startTime)}" + (falls > 0 ? $"   ·   {falls} fall{(falls == 1 ? "" : "s")}" : ""),
                     centeredStyle);
             }
             else
@@ -119,6 +133,15 @@ namespace VoidFlow
                 GUI.color = old;
             }
 
+            float noteAge = Time.time - noteTime;
+            if (note != null && noteAge < 1.6f)
+            {
+                var old = GUI.color;
+                GUI.color = new Color(0.75f, 1f, 0.8f, Mathf.Clamp01(Mathf.Min(noteAge * 5f, (1.6f - noteAge) * 2f)));
+                GUI.Label(new Rect(0, h * 0.16f, w, 40), note, bigStyle);
+                GUI.color = old;
+            }
+
             float speed = player.HorizontalSpeed / PlayerMovement.SourceUnit;
             GUI.Label(new Rect(0, h - 90, w, 40), $"{speed:0} u/s", bigStyle);
 
@@ -128,7 +151,7 @@ namespace VoidFlow
             if (player.Flying)
                 GUI.Label(new Rect(0, 84, w, 24), "NOCLIP   ·   WASD fly · Space up · Ctrl down · Shift fast · double tap Space to land", centeredStyle);
             string help = Cursor.lockState == CursorLockMode.Locked
-                ? "WASD move · Space jump (hold to bhop) · R restart · double tap Space noclip · Esc release mouse\n1 sniper · 2 knife · Q last weapon · Click fire · Right click scope · F inspect · E use · I inventory\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
+                ? "WASD move · Space jump (hold to bhop) · R restart the run · double tap Space noclip · Esc release mouse\n1 sniper · 2 knife · Q last weapon · Click fire · Right click scope · F inspect · E use · I inventory\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
                 : "Click to capture the mouse";
             // The controls only show in the hall; once you drop in the screen is clear for the run
             if (!running || Cursor.lockState != CursorLockMode.Locked) GUI.Label(new Rect(12, h - 66, w - 24, 62), help, smallStyle);
