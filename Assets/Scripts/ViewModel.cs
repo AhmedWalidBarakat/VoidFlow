@@ -244,6 +244,9 @@ namespace VoidFlow
                 nameStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight };
                 detailStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, alignment = TextAnchor.MiddleRight };
             }
+            // The weapon box only shows in the hall: once the run starts the screen stays clear
+            if (!runTimer) runTimer = FindAnyObjectByType<RunTimer>();
+            if (runTimer && runTimer.Running && !AutoInspect) return;
             var skin = CurrentSkin;
             Color color = Skins.RarityColor(skin.rarity);
             const float w = 300f, h = 58f, margin = 16f;
@@ -509,6 +512,7 @@ namespace VoidFlow
 
         BlockArm rightHand, leftHand;
         float knifeScale = 1f;
+        RunTimer runTimer;
         static readonly Vector3 KnifeHandle = new(0f, -0.055f, 0f);
 
         void BuildKnifeModel()

@@ -130,7 +130,8 @@ namespace VoidFlow
             string help = Cursor.lockState == CursorLockMode.Locked
                 ? "WASD move · Space jump (hold to bhop) · R restart · double tap Space noclip · Esc release mouse\n1 sniper · 2 knife · Q last weapon · Click fire · Right click scope · F inspect · E use · I inventory\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
                 : "Click to capture the mouse";
-            GUI.Label(new Rect(12, h - 66, w - 24, 62), help, smallStyle);
+            // The controls only show in the hall; once you drop in the screen is clear for the run
+            if (!running || Cursor.lockState != CursorLockMode.Locked) GUI.Label(new Rect(12, h - 66, w - 24, 62), help, smallStyle);
         }
     }
 }
