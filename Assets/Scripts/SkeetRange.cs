@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace VoidFlow
 {
-    // Something a sniper shot breaks (skeet discs, Void Beasts): shots look for these on
+    // Something a sniper shot breaks (skeet discs): shots look for these on
     // trigger colliders
     public interface ISnipeTarget { void Break(); }
 

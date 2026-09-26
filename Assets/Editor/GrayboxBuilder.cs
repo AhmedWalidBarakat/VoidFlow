@@ -69,11 +69,6 @@ namespace VoidFlow.EditorTools
             timer.startZone = startZone;
             timer.spawnPoint = spawn;
 
-            // Void Beasts: flaming monsters that turn up along the course; snipe one for a Void Case
-            var beasts = new GameObject("VoidBeasts").AddComponent<VoidBeasts>();
-            beasts.course = course;
-            beasts.player = player;
-            beasts.template = rampMat;
 
             // The course's rewards (Void Shards, speed rings, stage times) and the sounds of
             // your own movement

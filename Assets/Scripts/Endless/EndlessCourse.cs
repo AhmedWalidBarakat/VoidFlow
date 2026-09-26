@@ -888,7 +888,7 @@ namespace VoidFlow
 
         // A spot on the riding line of the ramp `ahead` past the one you're on, `along` (0..1)
         // of the way down it, with its travel directions and the ramp's root: things parented
-        // to it move with the floating origin and go when the ramp does (Void Beasts)
+        // to it move with the floating origin and go when the ramp does
         public bool TrySpotAhead(int ahead, float along, out Vector3 point, out Vector3 forward, out Vector3 right, out Transform root)
         {
             point = forward = right = Vector3.zero;

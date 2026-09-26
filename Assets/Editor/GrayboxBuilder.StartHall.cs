@@ -184,7 +184,7 @@ namespace VoidFlow.EditorTools
                 Label("VOID CASE", sign, new Vector3(0f, 1.55f, -0.03f), 0f, 0.8f, Color.white, local: true);
                 Label("knives  ·  snipers  ·  gloves   ·   Void 6%", sign, new Vector3(0f, 0.95f, -0.03f), 0f, 0.26f, new Color(1f, 0.6f, 0.9f), local: true);
                 Label("HOW TO EARN ONE", sign, new Vector3(0f, 0.35f, -0.03f), 0f, 0.3f, new Color(0.55f, 0.85f, 1f), local: true);
-                Label("snipe a Void Beast out on the course\nhit 4 of 10 at the skeet range\ncollect 25 Void Shards",
+                Label("hit 4 of 10 at the skeet range\ncollect 25 Void Shards on the course",
                     sign, new Vector3(0f, -0.65f, -0.03f), 0f, 0.3f, Color.white, local: true);
                 Label("open them from your inventory  ( I )", sign, new Vector3(0f, -1.75f, -0.03f), 0f, 0.24f, new Color(1f, 0.6f, 0.9f), local: true);
             }

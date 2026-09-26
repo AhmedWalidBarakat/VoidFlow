@@ -203,7 +203,7 @@ namespace VoidFlow
                 if (player && hit.collider.transform.IsChildOf(player.transform)) continue;
                 if (hit.distance < bestDistance) { best = hit; bestDistance = hit.distance; }
             }
-            // Skeet discs and Void Beasts are triggers: break the nearest one in front of whatever
+            // Skeet discs are triggers: break the nearest one in front of whatever
             // else was hit
             ISnipeTarget disc = null;
             float discDistance = bestDistance;
@@ -214,7 +214,7 @@ namespace VoidFlow
                 end = ray.GetPoint(discDistance);
                 disc.Break();
                 hitMarkerTime = Time.time;
-                hitMarkerColor = disc is VoidBeast ? new Color(1f, 0.35f, 0.35f) : Color.white;
+                hitMarkerColor = Color.white;
                 Play(WeaponSounds.HitTick, 0.7f);
             }
             else if (bestDistance < float.MaxValue)

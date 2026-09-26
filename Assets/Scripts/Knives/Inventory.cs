@@ -5,8 +5,8 @@ using UnityEngine.InputSystem;
 namespace VoidFlow
 {
     // The inventory (I): your loadout (primary sniper, secondary knife, hands) and everything
-    // you've got this session: skins you've unboxed and the Void Cases you've earned (snipe a
-    // Void Beast on the course, or hit 4 of 10 at the skeet range). It lives only in memory,
+    // you've got this session: skins you've unboxed and the Void Cases you've earned (collect
+    // 25 Void Shards on the course, or hit 4 of 10 at the skeet range). It lives only in memory,
     // so reloading the page starts it fresh. Click an item to equip it, a case to open it.
     public class Inventory : MonoBehaviour
     {
@@ -441,11 +441,11 @@ namespace VoidFlow
             if (tab == TabCases && VoidCases == 0)
             {
                 UiArt.Text(new Rect(0f, area.height * 0.35f, area.width, 34f), "No Void Cases yet", 24, new Color(1f, 1f, 1f, 0.9f * fade), TextAnchor.MiddleCenter);
-                UiArt.Text(new Rect(0f, area.height * 0.35f + 36f, area.width, 24f), "snipe a Void Beast out on the course, or hit 4 of 10 at the skeet range",
+                UiArt.Text(new Rect(0f, area.height * 0.35f + 36f, area.width, 24f), "hit 4 of 10 at the skeet range, or collect 25 Void Shards on the course",
                     15, new Color(1f, 0.65f, 0.9f, 0.85f * fade), TextAnchor.MiddleCenter, false);
             }
             else if (items.Count == 0 && VoidCases == 0 && below < area.height - 30f)
-                UiArt.Text(new Rect(0f, below, area.width, 24f), "open cases in the hall, snipe Void Beasts on the course, or hit 4 of 10 at skeet to fill this up",
+                UiArt.Text(new Rect(0f, below, area.width, 24f), "collect Void Shards on the course or hit 4 of 10 at skeet to earn Void Cases",
                     15, new Color(0.8f, 0.7f, 1f, 0.8f * fade), TextAnchor.MiddleLeft, false);
             GUI.EndGroup();
 
