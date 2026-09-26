@@ -153,7 +153,9 @@ namespace VoidFlow.EditorTools
         static BiomeKit[] MakeBiomeKits(Material template, Texture2D grid, Texture2D stripes, Texture2D hazard, Texture2D bricks)
         {
             Directory.CreateDirectory(Root + "/Biomes");
-            Texture2D Tex(Surface s) => s switch
+            var made = new Dictionary<Surface, Texture2D>();
+            Texture2D Tex(Surface s) => made.TryGetValue(s, out var t) ? t : made[s] = MakeTex(s);
+            Texture2D MakeTex(Surface s) => s switch
             {
                 Surface.Stripes => stripes,
                 Surface.Hazard => hazard,
@@ -174,8 +176,32 @@ namespace VoidFlow.EditorTools
                 Surface.Rock => CC0("Rock051"),
                 Surface.Blocks => blocks,
                 Surface.Books => books,
+                Surface.RampCrimson => MakeRampCrimson(),
+                Surface.RampForge => MakeRampForge(),
+                Surface.RampSunset => MakeRampSunset(),
+                Surface.RampGallery => MakeRampGallery(),
+                Surface.RampPalace => MakeRampPalace(),
+                Surface.RampCandy => MakeRampCandy(),
+                Surface.RampNeon => MakeRampNeon(),
+                Surface.RampWire => MakeRampWire(),
+                Surface.RampGrotto => MakeRampGrotto(),
+                Surface.RampLibrary => MakeRampLibrary(),
+                Surface.WallTracery => MakeWallTracery(),
+                Surface.WallGrate => MakeWallGrate(),
+                Surface.WallPanels => MakeWallPanels(),
+                Surface.WallBlocks => MakeWallBlocks(),
+                Surface.WallHexVents => MakeWallHexVents(),
+                Surface.WallWood => MakeWallWood(),
                 _ => grid,
             };
+
+            // The designs cover 8m: ramps map 2m per UV, walls 4m. Ramp designs and the wood
+            // carry their own colors, so they aren't tinted.
+            bool IsDesign(Surface s) => s >= Surface.RampCrimson;
+            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s == Surface.WallWood;
+            Vector2 RampTile(Surface s) => IsDesign(s) ? Vector2.one * 0.25f : Vector2.one;
+            Vector2 WallTile(Surface s) => IsDesign(s) ? Vector2.one * 0.5f : Vector2.one;
+            Material Paint(Color c, Surface s, Vector2 tile) => BiomeKit.Surface(template, Baked(s) ? Color.white : c, Tex(s), tile);
 
             var kits = new BiomeKit[Biome.All.Length];
             for (int i = 0; i < kits.Length; i++)
@@ -189,13 +215,13 @@ namespace VoidFlow.EditorTools
                 }
                 kits[i] = new BiomeKit
                 {
-                    ramp = Save(BiomeKit.Surface(template, b.ramp, Tex(b.rampSurface), Vector2.one), "Ramp"),
-                    slab = Save(BiomeKit.Surface(template, b.slab, Tex(b.rampSurface), Vector2.one), "Slab"),
-                    scenery = Save(BiomeKit.Surface(template, b.scenery, Tex(b.scenerySurface), Vector2.one), "Scenery"),
+                    ramp = Save(Paint(b.ramp, b.rampSurface, RampTile(b.rampSurface)), "Ramp"),
+                    slab = Save(Paint(b.slab, b.slabSurface, WallTile(b.slabSurface)), "Slab"),
+                    scenery = Save(Paint(b.scenery, b.scenerySurface, WallTile(b.scenerySurface)), "Scenery"),
                     glow = Save(BiomeKit.Glow(template, b.glow), "Glow"),
                     glowAlt = Save(BiomeKit.Glow(template, b.glowAlt), "GlowAlt"),
-                    floor = Save(BiomeKit.Surface(template, b.floor.a > 0f ? b.floor : b.slab, Tex(b.floor.a > 0f ? b.floorSurface : b.rampSurface), Vector2.one), "Floor"),
-                    accent = Save(BiomeKit.Surface(template, b.accent.a > 0f ? b.accent : b.slab, Tex(b.accent.a > 0f ? b.accentSurface : b.scenerySurface), Vector2.one), "Accent"),
+                    floor = Save(b.floor.a > 0f ? Paint(b.floor, b.floorSurface, WallTile(b.floorSurface)) : Paint(b.slab, b.slabSurface, WallTile(b.slabSurface)), "Floor"),
+                    accent = Save(b.accent.a > 0f ? Paint(b.accent, b.accentSurface, WallTile(b.accentSurface)) : Paint(b.slab, b.scenerySurface, WallTile(b.scenerySurface)), "Accent"),
                     shaft = Save(LightMaterial(b.shaft.a > 0f ? b.shaft : b.glowAlt, shaftTex, 0.22f, 0.9f), "Shaft"),
                     pool = Save(LightMaterial(b.glow, poolTex, 0.5f, 1.4f), "Pool"),
                     skyPool = Save(LightMaterial(b.shaft.a > 0f ? b.shaft : b.glowAlt, poolTex, 0.45f, 1.2f), "SkyPool"),

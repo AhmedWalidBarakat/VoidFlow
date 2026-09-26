@@ -14,7 +14,10 @@ namespace VoidFlow
     // scenery further out.
     public enum SceneryStyle { Cathedral, Palace, Rings, Grotto, Candy, Forge, Wire, Gallery, Sunset, Library }
 
-    public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice, Hex, Panel, Plaster, Concrete, HexTile, WhiteTile, DarkStone, Plates, Rock, Blocks, Books }
+    public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice, Hex, Panel, Plaster, Concrete, HexTile, WhiteTile, DarkStone, Plates, Rock, Blocks, Books,
+        // Each zone's own ramp design, and wall patterns (8m tiles)
+        RampCrimson, RampForge, RampSunset, RampGallery, RampPalace, RampCandy, RampNeon, RampWire, RampGrotto, RampLibrary,
+        WallTracery, WallGrate, WallPanels, WallBlocks, WallHexVents, WallWood }
 
     public class Biome
     {
@@ -27,6 +30,7 @@ namespace VoidFlow
         public float sunIntensity;
         public Color ramp, slab;          // prism and slab colors
         public Surface rampSurface;
+        public Surface slabSurface = Surface.Concrete; // trims and slabs
         public Color glow, glowAlt;       // trims and scenery lights
         public Color scenery;             // main scenery color
         public Surface scenerySurface;
@@ -45,9 +49,9 @@ namespace VoidFlow
                 fogStart = 50f, fogEnd = 420f,
                 ambientSky = new Color(0.6f, 0.12f, 0.14f), ambientEquator = new Color(0.35f, 0.05f, 0.07f), ambientGround = new Color(0.1f, 0.01f, 0.02f),
                 sunColor = new Color(1f, 0.4f, 0.4f), sunIntensity = 0.75f,
-                ramp = new Color(0.2f, 0.17f, 0.18f), slab = new Color(0.22f, 0.03f, 0.05f), rampSurface = Surface.Concrete,
+                ramp = new Color(0.2f, 0.17f, 0.18f), slab = new Color(0.22f, 0.03f, 0.05f), rampSurface = Surface.RampCrimson,
                 glow = new Color(1f, 0.08f, 0.12f), glowAlt = new Color(0.75f, 0.03f, 0.1f),
-                scenery = new Color(0.62f, 0.14f, 0.16f), scenerySurface = Surface.DarkStone, style = SceneryStyle.Cathedral,
+                scenery = new Color(0.62f, 0.14f, 0.16f), scenerySurface = Surface.WallTracery, style = SceneryStyle.Cathedral,
                 floor = new Color(0.16f, 0.1f, 0.11f),
                 floorSurface = Surface.Concrete,
                 accent = new Color(0.3f, 0.07f, 0.08f),
@@ -60,14 +64,15 @@ namespace VoidFlow
                 fogStart = 70f, fogEnd = 500f,
                 ambientSky = new Color(0.72f, 0.38f, 0.16f), ambientEquator = new Color(0.45f, 0.2f, 0.08f), ambientGround = new Color(0.15f, 0.05f, 0.02f),
                 sunColor = new Color(1f, 0.6f, 0.3f), sunIntensity = 0.9f,
-                ramp = new Color(0.45f, 0.4f, 0.38f), slab = new Color(0.9f, 0.45f, 0.1f), rampSurface = Surface.Plates,
+                ramp = new Color(0.45f, 0.4f, 0.38f), slab = new Color(0.9f, 0.45f, 0.1f), rampSurface = Surface.RampForge,
                 glow = new Color(1f, 0.45f, 0.05f), glowAlt = new Color(1f, 0.85f, 0.3f),
                 scenery = new Color(0.9f, 0.5f, 0.22f), scenerySurface = Surface.Plates, style = SceneryStyle.Forge,
                 floor = new Color(0.2f, 0.12f, 0.08f),
                 floorSurface = Surface.Plates,
                 accent = new Color(0.5f, 0.28f, 0.14f),
-                accentSurface = Surface.Plates,
+                accentSurface = Surface.WallGrate,
                 shaft = new Color(1f, 0.6f, 0.25f),
+                slabSurface = Surface.Plates,
             },
             new Biome
             {
@@ -75,7 +80,7 @@ namespace VoidFlow
                 fogStart = 120f, fogEnd = 700f,
                 ambientSky = new Color(0.95f, 0.72f, 0.66f), ambientEquator = new Color(0.7f, 0.46f, 0.42f), ambientGround = new Color(0.22f, 0.14f, 0.14f),
                 sunColor = new Color(1f, 0.72f, 0.5f), sunIntensity = 1.1f,
-                ramp = new Color(0.52f, 0.5f, 0.52f), slab = new Color(0.2f, 0.17f, 0.2f), rampSurface = Surface.Concrete,
+                ramp = new Color(0.52f, 0.5f, 0.52f), slab = new Color(0.2f, 0.17f, 0.2f), rampSurface = Surface.RampSunset,
                 glow = new Color(1f, 0.5f, 0.18f), glowAlt = new Color(1f, 0.68f, 0.52f),
                 scenery = new Color(0.86f, 0.56f, 0.5f), scenerySurface = Surface.Plaster, style = SceneryStyle.Sunset,
                 floor = new Color(0.12f, 0.11f, 0.13f), floorSurface = Surface.HexTile,
@@ -89,12 +94,12 @@ namespace VoidFlow
                 fogStart = 160f, fogEnd = 800f,
                 ambientSky = new Color(0.95f, 0.97f, 1f), ambientEquator = new Color(0.82f, 0.85f, 0.9f), ambientGround = new Color(0.62f, 0.64f, 0.7f),
                 sunColor = new Color(1f, 0.97f, 0.9f), sunIntensity = 1.25f,
-                ramp = new Color(0.5f, 0.51f, 0.54f), slab = new Color(0.62f, 0.63f, 0.67f), rampSurface = Surface.Concrete,
+                ramp = new Color(0.5f, 0.51f, 0.54f), slab = new Color(0.62f, 0.63f, 0.67f), rampSurface = Surface.RampGallery,
                 glow = new Color(1f, 0.62f, 0.3f), glowAlt = new Color(0.45f, 0.78f, 1f),
                 scenery = new Color(0.94f, 0.94f, 0.95f), scenerySurface = Surface.Plaster, style = SceneryStyle.Gallery,
                 floor = new Color(0.84f, 0.85f, 0.87f), floorSurface = Surface.WhiteTile,
                 accent = new Color(0.97f, 0.97f, 0.98f),
-                accentSurface = Surface.Plaster,
+                accentSurface = Surface.WallPanels,
                 shaft = new Color(0.82f, 0.92f, 1f),
             },
             new Biome
@@ -103,9 +108,10 @@ namespace VoidFlow
                 fogStart = 220f, fogEnd = 950f,
                 ambientSky = new Color(0.95f, 0.97f, 1f), ambientEquator = new Color(0.85f, 0.88f, 0.95f), ambientGround = new Color(0.7f, 0.72f, 0.78f),
                 sunColor = new Color(1f, 1f, 1f), sunIntensity = 1.3f,
-                ramp = new Color(0.11f, 0.11f, 0.15f), slab = new Color(0.92f, 0.92f, 0.95f), rampSurface = Surface.Metal,
+                ramp = new Color(0.11f, 0.11f, 0.15f), slab = new Color(0.92f, 0.92f, 0.95f), rampSurface = Surface.RampPalace,
                 glow = new Color(1f, 0.75f, 0.3f), glowAlt = new Color(0.4f, 0.72f, 1f),
                 scenery = new Color(1f, 1f, 1f), scenerySurface = Surface.Grid, style = SceneryStyle.Palace,
+                slabSurface = Surface.Metal,
             },
             new Biome
             {
@@ -113,12 +119,13 @@ namespace VoidFlow
                 fogStart = 160f, fogEnd = 820f,
                 ambientSky = new Color(0.85f, 0.8f, 0.95f), ambientEquator = new Color(0.62f, 0.58f, 0.72f), ambientGround = new Color(0.3f, 0.25f, 0.4f),
                 sunColor = new Color(1f, 1f, 1f), sunIntensity = 1.2f,
-                ramp = new Color(1f, 0.35f, 0.75f), slab = new Color(0.3f, 0.95f, 1f), rampSurface = Surface.Plaster,
+                ramp = new Color(1f, 0.35f, 0.75f), slab = new Color(0.3f, 0.95f, 1f), rampSurface = Surface.RampCandy,
                 glow = new Color(1f, 0.85f, 0.2f), glowAlt = new Color(0.2f, 1f, 0.95f),
-                scenery = new Color(0.78f, 0.7f, 0.95f), scenerySurface = Surface.Plaster, style = SceneryStyle.Candy,
+                scenery = new Color(0.78f, 0.7f, 0.95f), scenerySurface = Surface.WallBlocks, style = SceneryStyle.Candy,
                 accent = new Color(0.62f, 0.55f, 0.85f),
                 accentSurface = Surface.Plaster,
                 shaft = new Color(0.45f, 1f, 0.95f),
+                slabSurface = Surface.Plaster,
             },
             new Biome
             {
@@ -126,9 +133,10 @@ namespace VoidFlow
                 fogStart = 90f, fogEnd = 560f,
                 ambientSky = new Color(0.4f, 0.22f, 0.55f), ambientEquator = new Color(0.22f, 0.1f, 0.32f), ambientGround = new Color(0.05f, 0.02f, 0.08f),
                 sunColor = new Color(0.9f, 0.7f, 1f), sunIntensity = 0.6f,
-                ramp = new Color(0.3f, 0.24f, 0.4f), slab = new Color(0.2f, 0.06f, 0.28f), rampSurface = Surface.Plates,
+                ramp = new Color(0.3f, 0.24f, 0.4f), slab = new Color(0.2f, 0.06f, 0.28f), rampSurface = Surface.RampNeon,
                 glow = new Color(1f, 0.25f, 0.85f), glowAlt = new Color(0.15f, 0.95f, 1f),
-                scenery = new Color(0.16f, 0.12f, 0.22f), scenerySurface = Surface.Plates, style = SceneryStyle.Rings,
+                scenery = new Color(0.16f, 0.12f, 0.22f), scenerySurface = Surface.WallHexVents, style = SceneryStyle.Rings,
+                slabSurface = Surface.Plates,
             },
             new Biome
             {
@@ -136,7 +144,7 @@ namespace VoidFlow
                 fogStart = 60f, fogEnd = 500f,
                 ambientSky = new Color(0.38f, 0.3f, 0.3f), ambientEquator = new Color(0.2f, 0.15f, 0.15f), ambientGround = new Color(0.04f, 0.03f, 0.03f),
                 sunColor = new Color(1f, 0.5f, 0.4f), sunIntensity = 0.6f,
-                ramp = new Color(0.18f, 0.16f, 0.17f), slab = new Color(0.18f, 0.03f, 0.03f), rampSurface = Surface.Concrete,
+                ramp = new Color(0.18f, 0.16f, 0.17f), slab = new Color(0.18f, 0.03f, 0.03f), rampSurface = Surface.RampWire,
                 glow = new Color(1f, 0.12f, 0.08f), glowAlt = new Color(1f, 0.5f, 0.1f),
                 scenery = new Color(0.03f, 0.03f, 0.035f), scenerySurface = Surface.Metal, style = SceneryStyle.Wire,
             },
@@ -146,12 +154,13 @@ namespace VoidFlow
                 fogStart = 50f, fogEnd = 420f,
                 ambientSky = new Color(0.22f, 0.5f, 0.55f), ambientEquator = new Color(0.1f, 0.26f, 0.3f), ambientGround = new Color(0.02f, 0.08f, 0.1f),
                 sunColor = new Color(0.6f, 0.9f, 1f), sunIntensity = 0.55f,
-                ramp = new Color(0.45f, 0.4f, 0.6f), slab = new Color(0.15f, 0.3f, 0.35f), rampSurface = Surface.Rock,
+                ramp = new Color(0.45f, 0.4f, 0.6f), slab = new Color(0.15f, 0.3f, 0.35f), rampSurface = Surface.RampGrotto,
                 glow = new Color(0.1f, 1f, 0.8f), glowAlt = new Color(0.7f, 0.3f, 1f),
                 scenery = new Color(0.35f, 0.42f, 0.5f), scenerySurface = Surface.Rock, style = SceneryStyle.Grotto,
                 floor = new Color(0.2f, 0.25f, 0.3f),
                 floorSurface = Surface.Rock,
                 shaft = new Color(0.35f, 1f, 0.85f),
+                slabSurface = Surface.Rock,
             },
             new Biome
             {
@@ -159,9 +168,9 @@ namespace VoidFlow
                 fogStart = 90f, fogEnd = 600f,
                 ambientSky = new Color(0.7f, 0.58f, 0.42f), ambientEquator = new Color(0.45f, 0.34f, 0.24f), ambientGround = new Color(0.16f, 0.12f, 0.1f),
                 sunColor = new Color(1f, 0.85f, 0.6f), sunIntensity = 0.9f,
-                ramp = new Color(0.55f, 0.5f, 0.45f), slab = new Color(0.62f, 0.46f, 0.22f), rampSurface = Surface.Concrete,
+                ramp = new Color(0.55f, 0.5f, 0.45f), slab = new Color(0.62f, 0.46f, 0.22f), rampSurface = Surface.RampLibrary,
                 glow = new Color(1f, 0.75f, 0.35f), glowAlt = new Color(0.3f, 0.6f, 1f),
-                scenery = new Color(0.5f, 0.36f, 0.24f), scenerySurface = Surface.Plaster, style = SceneryStyle.Library,
+                scenery = new Color(0.5f, 0.36f, 0.24f), scenerySurface = Surface.WallWood, style = SceneryStyle.Library,
                 floor = new Color(0.42f, 0.36f, 0.3f), floorSurface = Surface.WhiteTile,
                 accent = new Color(1f, 1f, 1f), accentSurface = Surface.Books,
                 shaft = new Color(1f, 0.82f, 0.55f),

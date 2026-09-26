@@ -33,12 +33,12 @@ namespace VoidFlow.EditorTools
         static float Mottle(float u, float v, int seed) =>
             Noise(u * 4f, v * 4f, 4, seed) * 0.6f + Noise(u * 16f, v * 16f, 16, seed + 1) * 0.3f + Noise(u * 64f, v * 64f, 64, seed + 2) * 0.1f;
 
-        static Texture2D Paint(string name, System.Func<float, float, Color> pixel)
+        static Texture2D Paint(string name, System.Func<float, float, Color> pixel, int size = PaintSize)
         {
-            var tex = new Texture2D(PaintSize, PaintSize, TextureFormat.RGBA32, false);
-            for (int y = 0; y < PaintSize; y++)
-            for (int x = 0; x < PaintSize; x++)
-                tex.SetPixel(x, y, pixel((x + 0.5f) / PaintSize, (y + 0.5f) / PaintSize));
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+                tex.SetPixel(x, y, pixel((x + 0.5f) / size, (y + 0.5f) / size));
             return SaveTexture(tex, $"{Root}/{name}.png");
         }
 

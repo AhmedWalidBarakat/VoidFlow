@@ -5,9 +5,11 @@ using UnityEngine.Rendering.Universal;
 
 namespace VoidFlow.EditorTools
 {
-    // The start hall: a dark sci-fi lobby where you spawn before dropping into the course. A
-    // room on the ledge above ramp 1, open at the front onto the course, with:
-    //  - a glossy black floor with glowing seams, panelled walls, a coffered lit ceiling
+    // The start hall: the Void Sanctum, a dark violet-and-gold temple where you spawn before
+    // dropping into the course. A room on the ledge above ramp 1, open at the front onto the
+    // course, with:
+    //  - a black marble floor inlaid with gold and violet-lit seams, walls of gothic arches
+    //    (the same arches as the Crimson Hall you drop into), a coffered gold-lit ceiling
     //  - a runway with speed gates and holographic diamonds down the lane to the drop
     //  - the Void Case gallery: every knife, sniper and glove a Void Case can drop, on lit
     //    ledges along the walls, just to look at
@@ -28,26 +30,28 @@ namespace VoidFlow.EditorTools
             var hall = new GameObject("StartHall").transform;
             hall.SetParent(parent, false);
 
-            // Dark sci-fi lobby: polished black floor with glowing seams, panelled metal walls,
-            // coffered ceiling with light bars. Cold cyan light for the structure; purple and
-            // magenta for the things you use.
-            Material floor = MakeMaterial("HallFloor", new Color(0.05f, 0.05f, 0.065f), MakeHallFloorTexture());
-            floor.SetFloat("_Smoothness", 0.3f);
+            // Void Sanctum: polished black marble with gold inlay and violet-lit seams, violet
+            // stone walls carved with gold-framed gothic arches, a coffered ceiling. Warm gold
+            // light for the structure; purple and magenta for the things you use.
+            Material floor = MakeMaterial("HallFloor", Color.white, MakeSanctumFloor());
+            floor.SetTextureScale("_BaseMap", Vector2.one * 0.25f); // 8m of pattern per tile
+            floor.SetFloat("_Smoothness", 0.6f);
             floor.SetFloat("_Metallic", 0.1f);
-            GlowMap(floor, MakeHallFloorGlowTexture(), new Color(0.25f, 0.75f, 1f) * 0.7f);
-            Material wall = MakeMaterial("HallWall", new Color(0.15f, 0.15f, 0.19f), panel);
-            wall.SetFloat("_Smoothness", 0.35f);
-            wall.SetFloat("_Metallic", 0.45f);
+            GlowMap(floor, MakeSanctumFloorGlow(), new Color(0.55f, 0.22f, 1f) * 0.9f);
+            Material wall = MakeMaterial("HallWall", Color.white, MakeSanctumWall());
+            wall.SetTextureScale("_BaseMap", new Vector2(0.25f, 2f)); // 8m across, 8m of height
+            wall.SetFloat("_Smoothness", 0.3f);
+            wall.SetFloat("_Metallic", 0.15f);
             Material dark = MakeMaterial("HallDark", new Color(0.045f, 0.045f, 0.06f), GrayboxBuilder.metal);
             dark.SetFloat("_Smoothness", 0.55f);
             dark.SetFloat("_Metallic", 0.6f);
-            Material metal = MakeMaterial("HallMetal", new Color(0.11f, 0.11f, 0.14f), GrayboxBuilder.metal);
+            Material metal = MakeMaterial("HallMetal", new Color(0.22f, 0.16f, 0.1f), GrayboxBuilder.metal); // dark bronze
             metal.SetFloat("_Smoothness", 0.6f);
             metal.SetFloat("_Metallic", 0.75f);
             Material purple = MakeGlow("GlowPurple", new Color(0.55f, 0.12f, 1f), 0.9f);
             Material violet = MakeGlow("GlowViolet", new Color(0.7f, 0.3f, 1f), 0.8f);
-            Material cyan = MakeGlow("GlowCyan", new Color(0.2f, 0.8f, 1f), 1.6f);
-            Material cyanSoft = MakeGlow("GlowCyanSoft", new Color(0.15f, 0.55f, 0.85f), 0.8f);
+            Material gold = MakeGlow("GlowGold", new Color(1f, 0.68f, 0.28f), 1.5f);
+            Material goldSoft = MakeGlow("GlowGoldSoft", new Color(0.95f, 0.6f, 0.3f), 0.8f);
             Material magenta = MakeGlow("GlowMagenta", new Color(0.9f, 0.2f, 1f), 1f);
 
             float left = lane - HallHalfWidth, right = lane + HallHalfWidth;
@@ -56,14 +60,14 @@ namespace VoidFlow.EditorTools
             // Shell: floor up to a 1m purple drop edge, walls, a ceiling split by a skylight slot
             Box("HallFloor", new Vector3(lane, -0.5f, midZ - 0.5f), new Vector3(width, 1f, HallDepth - 1f), floor, hall);
             Box("DropEdge", new Vector3(lane, -0.5f, HallFront - 0.5f), new Vector3(width, 1f, 1f), purple, hall);
-            Box("HallWallLeft", new Vector3(left - 0.5f, HallHeight * 0.5f, midZ), new Vector3(1f, HallHeight, HallDepth), wall, hall);
-            Box("HallWallRight", new Vector3(right + 0.5f, HallHeight * 0.5f, midZ), new Vector3(1f, HallHeight, HallDepth), wall, hall);
-            Box("HallWallBack", new Vector3(lane, HallHeight * 0.5f, HallBack - 0.5f), new Vector3(width + 2f, HallHeight, 1f), wall, hall);
+            Box("HallWallLeft", new Vector3(left - 0.5f, HallHeight * 0.5f, midZ), new Vector3(1f, HallHeight, HallDepth), wall, hall, stripes: true);
+            Box("HallWallRight", new Vector3(right + 0.5f, HallHeight * 0.5f, midZ), new Vector3(1f, HallHeight, HallDepth), wall, hall, stripes: true);
+            Box("HallWallBack", new Vector3(lane, HallHeight * 0.5f, HallBack - 0.5f), new Vector3(width + 2f, HallHeight, 1f), wall, hall, stripes: true);
             const float slot = 3f;
             Box("HallCeilingLeft", new Vector3((left + lane - slot) * 0.5f, HallHeight + 0.5f, midZ), new Vector3(lane - slot - left, 1f, HallDepth), dark, hall);
             Box("HallCeilingRight", new Vector3((right + lane + slot) * 0.5f, HallHeight + 0.5f, midZ), new Vector3(right - lane - slot, 1f, HallDepth), dark, hall);
 
-            // Crisp edges: a dark baseboard with a cyan line along every wall, a purple line up top
+            // Crisp edges: a dark baseboard with a gold line along every wall, a purple line up top
             foreach (var (a, b) in new[] { (new Vector3(left, 0f, HallBack), new Vector3(left, 0f, HallFront - 1f)), (new Vector3(right, 0f, HallBack), new Vector3(right, 0f, HallFront - 1f)), (new Vector3(left, 0f, HallBack), new Vector3(right, 0f, HallBack)) })
             {
                 Vector3 mid = (a + b) * 0.5f, dir = (b - a).normalized;
@@ -71,7 +75,7 @@ namespace VoidFlow.EditorTools
                 float len = (b - a).magnitude;
                 Vector3 Size(float along, float h, float depth) => dir.x != 0f ? new Vector3(along, h, depth) : new Vector3(depth, h, along);
                 Deco("Baseboard", hall, mid + inward * 0.1f + Vector3.up * 0.15f, Size(len, 0.3f, 0.2f), Quaternion.identity, dark);
-                Deco("BaseLight", hall, mid + inward * 0.21f + Vector3.up * 0.33f, Size(len, 0.04f, 0.03f), Quaternion.identity, cyan);
+                Deco("BaseLight", hall, mid + inward * 0.21f + Vector3.up * 0.33f, Size(len, 0.04f, 0.03f), Quaternion.identity, gold);
                 Deco("TopLight", hall, mid + inward * 0.06f + Vector3.up * (HallHeight - 1.6f), Size(len, 0.12f, 0.1f), Quaternion.identity, purple);
             }
 
@@ -81,34 +85,34 @@ namespace VoidFlow.EditorTools
                 {
                     float cx = (from + to) * 0.5f, w = to - from;
                     Deco("CeilingBeam", hall, new Vector3(cx, HallHeight - 0.4f, z), new Vector3(w, 0.8f, 0.7f), Quaternion.identity, metal);
-                    Deco("CeilingLight", hall, new Vector3(cx, HallHeight - 0.83f, z), new Vector3(w - 2f, 0.05f, 0.2f), Quaternion.identity, cyanSoft);
+                    Deco("CeilingLight", hall, new Vector3(cx, HallHeight - 0.83f, z), new Vector3(w - 2f, 0.05f, 0.2f), Quaternion.identity, goldSoft);
                 }
 
-            // The opening: a heavy dark frame, cyan inside, purple on its outer face
+            // The opening: a heavy dark frame, gold inside, purple on its outer face
             Box("FrameLeft", new Vector3(left + 0.7f, HallHeight * 0.5f, HallFront - 0.5f), new Vector3(1.4f, HallHeight, 1f), metal, hall);
             Box("FrameRight", new Vector3(right - 0.7f, HallHeight * 0.5f, HallFront - 0.5f), new Vector3(1.4f, HallHeight, 1f), metal, hall);
             Box("FrameTop", new Vector3(lane, HallHeight - 0.7f, HallFront - 0.5f), new Vector3(width, 1.4f, 1f), metal, hall);
-            Deco("FrameEdgeL", hall, new Vector3(left + 1.42f, HallHeight * 0.5f - 0.7f, HallFront - 0.5f), new Vector3(0.05f, HallHeight - 1.4f, 0.4f), Quaternion.identity, cyan);
-            Deco("FrameEdgeR", hall, new Vector3(right - 1.42f, HallHeight * 0.5f - 0.7f, HallFront - 0.5f), new Vector3(0.05f, HallHeight - 1.4f, 0.4f), Quaternion.identity, cyan);
-            Deco("FrameEdgeTop", hall, new Vector3(lane, HallHeight - 1.42f, HallFront - 0.5f), new Vector3(width - 2.8f, 0.05f, 0.4f), Quaternion.identity, cyan);
+            Deco("FrameEdgeL", hall, new Vector3(left + 1.42f, HallHeight * 0.5f - 0.7f, HallFront - 0.5f), new Vector3(0.05f, HallHeight - 1.4f, 0.4f), Quaternion.identity, gold);
+            Deco("FrameEdgeR", hall, new Vector3(right - 1.42f, HallHeight * 0.5f - 0.7f, HallFront - 0.5f), new Vector3(0.05f, HallHeight - 1.4f, 0.4f), Quaternion.identity, gold);
+            Deco("FrameEdgeTop", hall, new Vector3(lane, HallHeight - 1.42f, HallFront - 0.5f), new Vector3(width - 2.8f, 0.05f, 0.4f), Quaternion.identity, gold);
             Deco("FrameGlowL", hall, new Vector3(left + 0.7f, HallHeight * 0.5f, HallFront + 0.02f), new Vector3(0.3f, HallHeight, 0.05f), Quaternion.identity, purple);
             Deco("FrameGlowR", hall, new Vector3(right - 0.7f, HallHeight * 0.5f, HallFront + 0.02f), new Vector3(0.3f, HallHeight, 0.05f), Quaternion.identity, purple);
 
-            // Runway down the lane: a dark inset strip with cyan edges and chevrons
+            // Runway down the lane: a dark inset strip with gold edges and chevrons
             float runFrom = HallBack + 11f, runTo = HallFront - 2f;
             Deco("Runway", hall, new Vector3(lane, 0.006f, (runFrom + runTo) * 0.5f), new Vector3(5f, 0.012f, runTo - runFrom), Quaternion.identity, dark);
             foreach (float sx in new[] { -2.5f, 2.5f })
-                Deco("RunwayEdge", hall, new Vector3(lane + sx, 0.014f, (runFrom + runTo) * 0.5f), new Vector3(0.08f, 0.02f, runTo - runFrom), Quaternion.identity, cyan);
+                Deco("RunwayEdge", hall, new Vector3(lane + sx, 0.014f, (runFrom + runTo) * 0.5f), new Vector3(0.08f, 0.02f, runTo - runFrom), Quaternion.identity, gold);
             for (float z = runFrom + 2f; z < runTo - 4f; z += 4f)
             {
-                Deco("ArrowL", hall, new Vector3(lane - 0.45f, 0.016f, z), new Vector3(0.22f, 0.02f, 1.3f), Quaternion.Euler(0f, 45f, 0f), cyanSoft);
-                Deco("ArrowR", hall, new Vector3(lane + 0.45f, 0.016f, z), new Vector3(0.22f, 0.02f, 1.3f), Quaternion.Euler(0f, -45f, 0f), cyanSoft);
+                Deco("ArrowL", hall, new Vector3(lane - 0.45f, 0.016f, z), new Vector3(0.22f, 0.02f, 1.3f), Quaternion.Euler(0f, 45f, 0f), goldSoft);
+                Deco("ArrowR", hall, new Vector3(lane + 0.45f, 0.016f, z), new Vector3(0.22f, 0.02f, 1.3f), Quaternion.Euler(0f, -45f, 0f), goldSoft);
             }
-            Label("DROP IN", hall, new Vector3(lane, 0.03f, HallFront - 2.6f), 0f, 0.9f, new Color(0.45f, 0.9f, 1f), pitch: 90f);
+            Label("DROP IN", hall, new Vector3(lane, 0.03f, HallFront - 2.6f), 0f, 0.9f, new Color(1f, 0.78f, 0.42f), pitch: 90f);
 
             // Spawn platform: a dark disc on a glowing ring, a violet core
             var spawnPos = new Vector3(lane, 0.02f, HallBack + 8f);
-            Shape(PrimitiveType.Cylinder, "SpawnRing", hall, spawnPos.WithY(0.03f), new Vector3(5f, 0.03f, 5f), cyan);
+            Shape(PrimitiveType.Cylinder, "SpawnRing", hall, spawnPos.WithY(0.03f), new Vector3(5f, 0.03f, 5f), gold);
             Shape(PrimitiveType.Cylinder, "SpawnPad", hall, spawnPos.WithY(0.04f), new Vector3(4.6f, 0.04f, 4.6f), dark);
             Shape(PrimitiveType.Cylinder, "SpawnCore", hall, spawnPos.WithY(0.07f), new Vector3(1.4f, 0.03f, 1.4f), violet);
 
@@ -116,7 +120,7 @@ namespace VoidFlow.EditorTools
             for (int g = 0; g < 4; g++)
             {
                 float z = HallBack + 18f + g * 9f;
-                Material glow = g % 2 == 0 ? cyan : purple;
+                Material glow = g % 2 == 0 ? gold : purple;
                 foreach (float sx in new[] { -1f, 1f })
                 {
                     Box($"Gate{g + 1}Post{(sx < 0 ? "L" : "R")}", new Vector3(lane + sx * 4.5f, 2.7f, z), new Vector3(0.5f, 5.4f, 0.5f), metal, hall);
@@ -127,7 +131,7 @@ namespace VoidFlow.EditorTools
             }
 
             // Over the runway near the opening: two holographic diamonds turning opposite ways
-            foreach (var (size, speed, mat) in new[] { (5.2f, 14f, cyan), (3.6f, -22f, magenta) })
+            foreach (var (size, speed, mat) in new[] { (5.2f, 14f, gold), (3.6f, -22f, magenta) })
             {
                 var diamond = new GameObject("HoloDiamond").transform;
                 diamond.SetParent(hall, false);
@@ -146,7 +150,7 @@ namespace VoidFlow.EditorTools
             // The Void Case gallery: everything a Void Case can drop, to look at (not to take).
             // Knives down the left wall, snipers along the right, gloves on the back wall.
             GalleryWall(hall, "KNIVES", Skins.Knives, ItemSlot.Secondary, new Vector3(left, 0f, HallBack + 6f), Vector3.forward, Vector3.right,
-                tiers: 3, spacing: 1.95f, depth: 1.35f, step: 0.22f, scale: 3.8f, lift: 0.75f, rampMat, metal, dark, cyan);
+                tiers: 3, spacing: 1.95f, depth: 1.35f, step: 0.22f, scale: 3.8f, lift: 0.75f, rampMat, metal, dark, gold);
             GalleryWall(hall, "SNIPERS", Skins.Snipers, ItemSlot.Primary, new Vector3(right, 0f, HallFront - 8f), Vector3.back, Vector3.left,
                 tiers: 4, spacing: 2.7f, depth: 1.7f, step: 0f, scale: 1.1f, lift: 0.5f, rampMat, metal, dark, purple);
             int gloveColumns = Mathf.CeilToInt((Skins.Gloves.Length - 1) / 2f);
@@ -183,7 +187,7 @@ namespace VoidFlow.EditorTools
                 Deco("Leg", sign, new Vector3(0f, -3.5f, 0.06f), new Vector3(0.3f, 2.6f, 0.12f), Quaternion.identity, metal, local: true);
                 Label("VOID CASE", sign, new Vector3(0f, 1.55f, -0.03f), 0f, 0.8f, Color.white, local: true);
                 Label("knives  ·  snipers  ·  gloves   ·   Void 6%", sign, new Vector3(0f, 0.95f, -0.03f), 0f, 0.26f, new Color(1f, 0.6f, 0.9f), local: true);
-                Label("HOW TO EARN ONE", sign, new Vector3(0f, 0.35f, -0.03f), 0f, 0.3f, new Color(0.55f, 0.85f, 1f), local: true);
+                Label("HOW TO EARN ONE", sign, new Vector3(0f, 0.35f, -0.03f), 0f, 0.3f, new Color(1f, 0.8f, 0.5f), local: true);
                 Label("hit 4 of 10 at the skeet range\ncollect 25 Void Shards on the course",
                     sign, new Vector3(0f, -0.65f, -0.03f), 0f, 0.3f, Color.white, local: true);
                 Label("open them from your inventory  ( I )", sign, new Vector3(0f, -1.75f, -0.03f), 0f, 0.24f, new Color(1f, 0.6f, 0.9f), local: true);
@@ -251,9 +255,9 @@ namespace VoidFlow.EditorTools
 
             // Title over the opening, on a dark banner so it reads against the sky
             Deco("TitleBanner", hall, new Vector3(lane, 11.4f, HallFront - 1.1f), new Vector3(26f, 4.6f, 0.2f), Quaternion.identity, dark);
-            Deco("TitleBannerEdge", hall, new Vector3(lane, 9.05f, HallFront - 1.15f), new Vector3(26f, 0.12f, 0.2f), Quaternion.identity, cyan);
+            Deco("TitleBannerEdge", hall, new Vector3(lane, 9.05f, HallFront - 1.15f), new Vector3(26f, 0.12f, 0.2f), Quaternion.identity, gold);
             Label("VOIDFLOW", hall, new Vector3(lane, 12f, HallFront - 1.3f), 0f, 3f, Color.white);
-            Label("surf  /  bhop  /  knives  /  cases", hall, new Vector3(lane, 9.9f, HallFront - 1.3f), 0f, 0.7f, new Color(0.55f, 0.85f, 1f));
+            Label("surf  /  bhop  /  knives  /  cases", hall, new Vector3(lane, 9.9f, HallFront - 1.3f), 0f, 0.7f, new Color(1f, 0.8f, 0.5f));
 
             // Calm floating monoliths high overhead, each with a glowing band
             var rng = new System.Random(20260925);
@@ -267,7 +271,7 @@ namespace VoidFlow.EditorTools
                 shard.SetPositionAndRotation(new Vector3(x, Rand(11f, 14f), Rand(HallBack + 8f, HallFront - 8f)), Quaternion.Euler(Rand(-12f, 12f), Rand(0f, 360f), Rand(-12f, 12f)));
                 float h = Rand(1.2f, 2.6f);
                 Deco("Body", shard, Vector3.zero, new Vector3(0.36f, h, 0.36f), Quaternion.identity, dark, local: true);
-                Deco("Band", shard, new Vector3(0f, h * 0.18f, 0f), new Vector3(0.39f, 0.07f, 0.39f), Quaternion.identity, c % 3 == 0 ? purple : cyan, local: true);
+                Deco("Band", shard, new Vector3(0f, h * 0.18f, 0f), new Vector3(0.39f, 0.07f, 0.39f), Quaternion.identity, c % 3 == 0 ? purple : gold, local: true);
                 var f = shard.gameObject.AddComponent<Floaty>();
                 f.spin = new Vector3(0f, Rand(-20f, 20f), 0f);
                 f.bobHeight = Rand(0.2f, 0.45f);
