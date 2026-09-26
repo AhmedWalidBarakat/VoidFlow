@@ -244,6 +244,29 @@ namespace VoidFlow.EditorTools
             return new Color(shade * 1.05f, shade * 0.72f, shade * 0.45f);
         });
 
+        // Bookshelves: four shelves of book spines in muted leather colours, varying widths and
+        // heights, dark gaps between, a wooden plank under each row
+        static Texture2D MakeBooksTexture() => Paint("Books", (u, v) =>
+        {
+            const int rows = 4;
+            int row = Mathf.FloorToInt(v * rows);
+            float rv = v * rows - row;
+            if (rv < 0.09f) return new Color(0.32f, 0.2f, 0.11f) * (0.8f + 0.2f * Noise(u * 64f, rv * 8f, 64, 3)); // plank
+            // Books: widths from a hash along the row
+            float x = u * 22f + row * 7.3f;
+            int book = Mathf.FloorToInt(x + 0.35f * Mathf.Sin(Mathf.Floor(x) * 12.9898f));
+            float bu = Mathf.Repeat(x, 1f);
+            float h = 0.7f + 0.25f * Mathf.Abs(Mathf.Sin(book * 78.233f));
+            if (rv > 0.09f + h * 0.91f) return new Color(0.05f, 0.035f, 0.03f); // gap above the book
+            if (bu < 0.06f) return new Color(0.06f, 0.04f, 0.03f);               // gap between books
+            var palette = new[] { new Color(0.45f, 0.1f, 0.08f), new Color(0.12f, 0.28f, 0.16f), new Color(0.12f, 0.16f, 0.35f),
+                new Color(0.42f, 0.3f, 0.12f), new Color(0.3f, 0.12f, 0.25f), new Color(0.5f, 0.42f, 0.3f) };
+            var c = palette[Mathf.Abs(book * 7 + row * 3) % palette.Length];
+            float band = Mathf.Abs(rv - 0.5f) < 0.02f || Mathf.Abs(rv - 0.25f) < 0.015f ? 1.6f : 1f; // gold bands on the spine
+            float shade = 0.75f + 0.35f * Mathf.Sin(bu * Mathf.PI);
+            return c * shade * band;
+        });
+
         static Color Grey(float v) => new(v, v, v, 1f);
     }
 }

@@ -41,6 +41,7 @@ namespace VoidFlow.EditorTools
             shaftTex = MakeShaftTexture();
             poolTex = MakePoolTexture();
             blocks = MakeTumblingBlocksTexture();
+            books = MakeBooksTexture();
             Material rampMat = MakeMaterial("Ramp", new Color(0.9f, 0.89f, 0.93f), grid);
             var sky = new Material(Shader.Find("VoidFlow/GradientSky"));
             AssetDatabase.CreateAsset(sky, $"{Root}/Sky.mat");
@@ -128,7 +129,7 @@ namespace VoidFlow.EditorTools
         }
 
         // Painted textures, made at the start of Build and used by the hall and biomes
-        static Texture2D tiles, stone, metal, wood, ice, hex, panel, plaster, shaftTex, poolTex, blocks;
+        static Texture2D tiles, stone, metal, wood, ice, hex, panel, plaster, shaftTex, poolTex, blocks, books;
 
         // A see-through glowing material for light itself: shafts through windows, pools on the
         // floor and halos round lamps. Soft-edged by its texture's alpha.
@@ -172,6 +173,7 @@ namespace VoidFlow.EditorTools
                 Surface.Plates => CC0("MetalPlates006"),
                 Surface.Rock => CC0("Rock051"),
                 Surface.Blocks => blocks,
+                Surface.Books => books,
                 _ => grid,
             };
 

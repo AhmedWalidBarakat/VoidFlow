@@ -12,9 +12,9 @@ namespace VoidFlow
     // sky, candy, neon, wire red, grotto teal and round again). Each sets the sky, fog and
     // light, the ramp colors, the building the ramps run through (Architecture) and the
     // scenery further out.
-    public enum SceneryStyle { Cathedral, Palace, Rings, Grotto, Candy, Forge, Wire, Gallery, Sunset }
+    public enum SceneryStyle { Cathedral, Palace, Rings, Grotto, Candy, Forge, Wire, Gallery, Sunset, Library }
 
-    public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice, Hex, Panel, Plaster, Concrete, HexTile, WhiteTile, DarkStone, Plates, Rock, Blocks }
+    public enum Surface { Grid, Stripes, Hazard, Bricks, Tiles, Stone, Metal, Wood, Ice, Hex, Panel, Plaster, Concrete, HexTile, WhiteTile, DarkStone, Plates, Rock, Blocks, Books }
 
     public class Biome
     {
@@ -152,6 +152,19 @@ namespace VoidFlow
                 floor = new Color(0.2f, 0.25f, 0.3f),
                 floorSurface = Surface.Rock,
                 shaft = new Color(0.35f, 1f, 0.85f),
+            },
+            new Biome
+            {
+                name = "LIBRARY", sky = new Color(0.1f, 0.08f, 0.16f), skyTop = new Color(0.02f, 0.02f, 0.06f), skyBottom = new Color(0.06f, 0.04f, 0.08f),
+                fogStart = 90f, fogEnd = 600f,
+                ambientSky = new Color(0.7f, 0.58f, 0.42f), ambientEquator = new Color(0.45f, 0.34f, 0.24f), ambientGround = new Color(0.16f, 0.12f, 0.1f),
+                sunColor = new Color(1f, 0.85f, 0.6f), sunIntensity = 0.9f,
+                ramp = new Color(0.55f, 0.5f, 0.45f), slab = new Color(0.62f, 0.46f, 0.22f), rampSurface = Surface.Concrete,
+                glow = new Color(1f, 0.75f, 0.35f), glowAlt = new Color(0.3f, 0.6f, 1f),
+                scenery = new Color(0.5f, 0.36f, 0.24f), scenerySurface = Surface.Plaster, style = SceneryStyle.Library,
+                floor = new Color(0.42f, 0.36f, 0.3f), floorSurface = Surface.WhiteTile,
+                accent = new Color(1f, 1f, 1f), accentSurface = Surface.Books,
+                shaft = new Color(1f, 0.82f, 0.55f),
             },
         };
     }

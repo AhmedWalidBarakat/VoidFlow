@@ -322,6 +322,8 @@ namespace VoidFlow
                 size = 0.12f, rate = 30f, glowRate = 5f, drift = new Vector3(0.1f, 0.12f, 0f), life = 7f },
             "SUNSET ROOMS" => new Look { mat = mote, glowMat = star, a = new Color(1f, 0.7f, 0.5f), b = new Color(1f, 0.5f, 0.35f), glow = new Color(1f, 0.6f, 0.3f),
                 size = 0.12f, rate = 30f, glowRate = 6f, drift = new Vector3(0.15f, 0.12f, 0f), life = 7f },
+            "LIBRARY" => new Look { mat = mote, glowMat = star, a = new Color(1f, 0.85f, 0.5f), b = new Color(0.45f, 0.7f, 1f), glow = new Color(1f, 0.8f, 0.4f),
+                size = 0.12f, rate = 34f, glowRate = 8f, gravity = -0.01f, drift = new Vector3(0.1f, 0.15f, 0f), life = 8f },
             "WIREFRAME" => new Look { mat = spark, glowMat = mote, a = new Color(1f, 0.2f, 0.1f), b = new Color(1f, 0.55f, 0.15f), glow = new Color(1f, 0.25f, 0.1f),
                 size = 0.12f, rate = 30f, glowRate = 8f, gravity = -0.02f, drift = new Vector3(0f, 0.3f, 0f), life = 6f },
             _ => new Look { mat = magic, glowMat = star, a = new Color(0.85f, 0.85f, 0.95f), b = new Color(0.5f, 0.4f, 0.8f), glow = Color.white,
