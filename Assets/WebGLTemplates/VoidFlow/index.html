@@ -52,8 +52,9 @@
       productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
       productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
       autoSyncPersistentDataPath: true,
-      // Sharp on high-DPI screens without drawing 4x the pixels on a 4K or Retina display
-      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+      // Render at the page's own pixels, not the screen's (a laptop at 150% scaling would
+      // otherwise draw over twice the pixels); the game sharpens and softens itself to keep smooth
+      devicePixelRatio: 1,
       showBanner: function (msg, type) { if (type === "error") showError(msg); },
     };
     var script = document.createElement("script");
