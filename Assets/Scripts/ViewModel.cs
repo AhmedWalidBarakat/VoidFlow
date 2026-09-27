@@ -502,7 +502,7 @@ namespace VoidFlow
             var root = new GameObject("Knife Rig").transform;
             root.SetParent(anchor, false);
             rightHand = BuildBlockArm(root, "Right Arm");
-            leftHand = BuildBlockArm(root, "Left Arm");
+            leftHand = BuildBlockArm(root, "Left Arm", Relaxed);
             SetupArmFade();
             hand = rightHand.root;
             leftHand.root.SetLocalPositionAndRotation(LeftIdle, LeftIdleRotation);

@@ -26,6 +26,7 @@ namespace VoidFlow.EditorTools
             if (!Application.isBatchMode && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
 
             Directory.CreateDirectory(Root + "/Meshes");
+            BakeArms(); // the view model's hands (Resources/Arms)
             Texture2D grid = MakeGridTexture();
             Texture2D stripes = MakeStripeTexture();
             Texture2D hazard = MakeHazardTexture();

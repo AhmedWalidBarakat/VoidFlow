@@ -588,15 +588,15 @@ namespace VoidFlow
             }
             flash.gameObject.SetActive(false);
 
-            // Block arms: the right glove on the pistol grip, the left one under the forend,
-            // sleeves running back to the bottom corners
-            var right = BuildBlockArm(t, "Right Arm");
+            // Arms: the right hand on the grip with a finger on the trigger, the left cupped under
+            // the forend, sleeves running back to the bottom corners
+            var right = BuildBlockArm(t, "Right Arm", Trigger);
             rightFist = right.root;
             // Each glove sits just behind what it holds, so the weapon rests on its front edge
             fistRestRotation = FingersBack(new Vector3(-0.3f, 0.35f, 1f), new Vector3(1f, 0f, 0.3f));
             fistRest = new Vector3(0f, -0.05f, -0.06f) - fistRestRotation * GripFront;
             rightFist.SetLocalPositionAndRotation(fistRest, fistRestRotation);
-            var left = BuildBlockArm(t, "Left Arm");
+            var left = BuildBlockArm(t, "Left Arm", Support);
             Quaternion leftRotation = FingersBack(new Vector3(0.25f, 0.75f, 0.6f), new Vector3(-1f, 0f, 0.3f));
             left.root.SetLocalPositionAndRotation(new Vector3(0f, -0.028f, 0.34f) - leftRotation * GripFront, leftRotation);
             return root;
