@@ -5,9 +5,10 @@ using UnityEngine.InputSystem;
 namespace VoidFlow
 {
     // The inventory (I): your loadout (primary sniper, secondary knife, hands) and everything
-    // you've got this session: skins you've unboxed and the Void Cases you've earned (collect
-    // 25 Void Shards on the course, or hit 4 of 10 at the skeet range). It lives only in memory,
-    // so reloading the page starts it fresh. Click an item to equip it, a case to open it.
+    // you've earned: skins you've unboxed and the Void Cases you've got (collect 25 Void
+    // Shards on the course, or hit 4 of 10 at the skeet range). It's saved on every change
+    // (PlayerPrefs: the browser's storage on the web build), so it survives refreshes and
+    // restarts. Click an item to equip it, a case to open it.
     public class Inventory : MonoBehaviour
     {
         public ViewModel viewModel;
@@ -26,6 +27,7 @@ namespace VoidFlow
         {
             items.Clear();
             VoidCases = order = freshCases = 0;
+            loaded = false;
             IsOpen = false;
             caseToastTime = -99f;
             if (!GiveEverything) return;
@@ -39,37 +41,72 @@ namespace VoidFlow
             VoidCases = 10;
         }
 
+        // Saved as "slot:index:count;..." plus the number of unopened cases
+        const string ItemsKey = "VoidFlow.inventory", CasesKey = "VoidFlow.voidCases";
+        static bool loaded;
+
+        static void EnsureLoaded()
+        {
+            if (loaded) return;
+            loaded = true;
+            foreach (var entry in PlayerPrefs.GetString(ItemsKey, "").Split(';'))
+            {
+                var bits = entry.Split(':');
+                if (bits.Length != 3 || !int.TryParse(bits[0], out int slot) || !int.TryParse(bits[1], out int index) || !int.TryParse(bits[2], out int count)) continue;
+                if (slot < 0 || slot > 2 || index <= 0 || index >= Skins.Pool((ItemSlot)slot).Length || count <= 0) continue;
+                var item = items.Find(i => i.slot == (ItemSlot)slot && i.index == index);
+                if (item == null) items.Add(item = new Item { slot = (ItemSlot)slot, index = index, order = ++order });
+                item.count = Mathf.Max(item.count, count);
+            }
+            VoidCases = Mathf.Max(VoidCases, PlayerPrefs.GetInt(CasesKey, 0));
+        }
+
+        static void Save()
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var it in items) sb.Append((int)it.slot).Append(':').Append(it.index).Append(':').Append(it.count).Append(';');
+            PlayerPrefs.SetString(ItemsKey, sb.ToString());
+            PlayerPrefs.SetInt(CasesKey, VoidCases);
+            PlayerPrefs.Save();
+        }
+
         // For testing: start every session owning everything (true), or empty as players do
         const bool GiveEverything = true;
 
         // Finishing the whole course: every item in the game, straight into the inventory
         public static void GrantEverything()
         {
+            EnsureLoaded();
             for (int slot = 0; slot < 3; slot++)
             {
                 var pool = Skins.Pool((ItemSlot)slot);
                 for (int i = 1; i < pool.Length; i++)
                     if (!items.Exists(it => it.slot == (ItemSlot)slot && it.index == i)) Add((ItemSlot)slot, i);
             }
+            Save();
         }
 
         // An unboxed skin
         public static void Add(ItemSlot slot, int index)
         {
+            EnsureLoaded();
             var item = items.Find(i => i.slot == slot && i.index == index);
             if (item == null) items.Add(item = new Item { slot = slot, index = index });
             item.count++;
             item.fresh = true;
             item.order = ++order;
+            Save();
         }
 
         // A Void Case, straight into the inventory, with a pop-up saying where it came from
         public static void AddCase(string why)
         {
+            EnsureLoaded();
             VoidCases++;
             freshCases++;
             caseToastTime = Time.unscaledTime;
             caseToastWhy = why;
+            Save();
         }
 
         const int TabAll = 0, TabCases = 4, CaseId = -2;
@@ -97,6 +134,7 @@ namespace VoidFlow
         void Start()
         {
             if (!viewModel) viewModel = FindAnyObjectByType<ViewModel>();
+            EnsureLoaded();
             ItemIcons.Warm();
         }
 
@@ -201,6 +239,7 @@ namespace VoidFlow
             }
             VoidCases--;
             freshCases = 0;
+            Save();
             Close();
             voidCaseOpener.OpenNow();
         }

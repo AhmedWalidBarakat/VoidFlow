@@ -217,7 +217,28 @@ namespace VoidFlow
         void Update() => Step(Time.deltaTime);
 
         // Builds a fresh course from the start hall
-        public void ResetCourse()
+        public void ResetCourse() => Rebuild(0, 0f);
+
+        // Carries on from a checkpoint reached before (after a refresh, or a restart): a new
+        // course whose first ramp drops in just before that checkpoint ramp, in the same zone
+        // and at the same difficulty, with the player put on the checkpoint's platform
+        public bool ResumeAt(int ramp, float progress, PlayerMovement p)
+        {
+            ramp = Mathf.Clamp(ramp / checkpointEvery * checkpointEvery, checkpointEvery, FinalRamp - 1);
+            Rebuild(ramp - 1, progress);
+            checkpoint = ramp;
+            if (!RespawnAtCheckpoint(p)) return false;
+            envFrom = envTo = Biome.All[BiomeOf(current)];
+            envBlend = 1f;
+            ApplyEnvironment(envTo, envTo, 1f);
+            BiomeEntered?.Invoke(envTo);
+            return true;
+        }
+
+        public int LastCheckpoint => checkpoint;
+        public Biome BiomeAt(int ramp) => Biome.All[BiomeOf(Mathf.Clamp(ramp, 0, FinalRamp - 1))];
+
+        void Rebuild(int from, float progress)
         {
             foreach (var seg in segments) DestroySegment(seg);
             segments.Clear();
@@ -229,8 +250,8 @@ namespace VoidFlow
             hallOffset = Vector3.zero;
 
             rng = new System.Random(seed != 0 ? seed : Environment.TickCount);
-            nextIndex = 0;
-            current = 0;
+            nextIndex = from;
+            current = from;
             checkpoint = 0;
             Finished = false;
             padInUse = null;
@@ -238,8 +259,8 @@ namespace VoidFlow
             lastFrame = null;
             afterLaunch = afterTwin = false;
             lastHoleWall = -99;
-            nextProgress = 0f;
-            Progress = 0f;
+            nextProgress = progress;
+            Progress = progress;
             stageThemes.Clear();
             stageTurn.Clear();
             RebuiltRamps = 0;
@@ -254,9 +275,9 @@ namespace VoidFlow
 
             // The start terrace has its own sky, over the first two ramps too; the first zone's
             // blends in as you reach its building
-            envFrom = envTo = Biome.Terrace;
+            envFrom = envTo = from < 2 ? Biome.Terrace : Biome.All[BiomeOf(from)];
             envBlend = 1f;
-            inTerrace = true;
+            inTerrace = from < 2;
             ApplyEnvironment(envTo, envTo, 1f);
             Stream(all: true);
         }

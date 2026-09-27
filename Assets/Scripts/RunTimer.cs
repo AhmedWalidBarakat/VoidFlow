@@ -19,6 +19,9 @@ namespace VoidFlow
         public float startZoneSpeedCap = 350f;
 
         const string BestKey = "VoidFlow.bestDistance";
+        // The last checkpoint reached, to carry on from (after a refresh too)
+        const string SaveRamp = "VoidFlow.checkpointRamp", SaveProgress = "VoidFlow.checkpointProgress", SaveTime = "VoidFlow.checkpointTime", SaveFalls = "VoidFlow.checkpointFalls";
+        static bool HasSave => PlayerPrefs.GetInt(SaveRamp, 0) > 0;
         const float BannerSeconds = 3f;
 
         bool running;
@@ -35,7 +38,16 @@ namespace VoidFlow
         void Start()
         {
             best = PlayerPrefs.GetFloat(BestKey, 0f);
-            course.CheckpointReached += () => Note("CHECKPOINT");
+            course.CheckpointReached += () =>
+            {
+                Note("CHECKPOINT  ·  saved");
+                if (!running) return;
+                PlayerPrefs.SetInt(SaveRamp, course.LastCheckpoint);
+                PlayerPrefs.SetFloat(SaveProgress, course.Progress);
+                PlayerPrefs.SetFloat(SaveTime, Time.time - startTime);
+                PlayerPrefs.SetInt(SaveFalls, falls);
+                PlayerPrefs.Save();
+            };
             course.CourseFinished += Finish;
             course.BiomeEntered += b => { banner = $"{b.name}\nSTAGE {course.CurrentStage + 1}  ·  {course.CurrentTierName}  ·  {course.CurrentStageName}"; bannerTime = Time.time; };
             Restart();
@@ -52,6 +64,17 @@ namespace VoidFlow
 
         void Note(string text) { note = text; noteTime = Time.time; }
 
+        // From the hall: carry on from the saved checkpoint, clock and falls as they were
+        void Continue()
+        {
+            if (!course.ResumeAt(PlayerPrefs.GetInt(SaveRamp, 0), PlayerPrefs.GetFloat(SaveProgress, 0f), player)) return;
+            running = true;
+            startTime = Time.time - PlayerPrefs.GetFloat(SaveTime, 0f);
+            falls = PlayerPrefs.GetInt(SaveFalls, 0);
+            finishTime = -99f;
+            Note("CONTINUING FROM YOUR LAST CHECKPOINT");
+        }
+
         // The end of the course: the time stops, the congratulations go up, and every item in
         // the game is yours
         float finishTime = -99f, finalTime;
@@ -59,6 +82,9 @@ namespace VoidFlow
         {
             finalTime = Time.time - startTime;
             finishTime = Time.time;
+            // The course is beaten: nothing left to carry on from
+            PlayerPrefs.DeleteKey(SaveRamp);
+            PlayerPrefs.Save();
             Inventory.GrantEverything();
         }
         bool FinishedRun => course.Finished && finishTime > 0f;
@@ -69,6 +95,11 @@ namespace VoidFlow
             if (kb != null && kb.rKey.wasPressedThisFrame && !ViewModel.InputBlocked) { Restart(); return; }
 
             Vector3 p = player.Position;
+            if (!running && HasSave && kb != null && kb.cKey.wasPressedThisFrame && !ViewModel.InputBlocked)
+            {
+                Continue();
+                return;
+            }
             if (!running)
             {
                 if (startZone.bounds.Contains(p + Vector3.up * 0.9f))
@@ -140,7 +171,12 @@ namespace VoidFlow
             }
             else
             {
-                GUI.Label(new Rect(0, 20, w, 40), "Drop in to start", bigStyle);
+                GUI.Label(new Rect(0, 20, w, 40), "Drop in to start from the beginning", bigStyle);
+                if (HasSave)
+                {
+                    int ramp = PlayerPrefs.GetInt(SaveRamp, 0);
+                    GUI.Label(new Rect(0, 58, w, 30), $"or press C to continue from your last checkpoint  ·  ramp {ramp + 1}  ·  {course.BiomeAt(ramp).name}  ·  {Format(PlayerPrefs.GetFloat(SaveTime, 0f))}", bigStyle);
+                }
             }
 
             float age = Time.time - bannerTime;
