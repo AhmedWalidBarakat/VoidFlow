@@ -188,6 +188,57 @@ namespace VoidFlow
             QualitySettings.shadowDistance = 150f;
             if (rng == null) ResetCourse(); // unless the run timer already started it
             if (Application.isEditor) LogRenderSetup();
+            else StartCoroutine(WarmUp());
+        }
+
+        // Every zone's materials drawn once, out of sight, while you stand in the start area:
+        // browsers prepare each material's shader the first time it's drawn, and without this
+        // that happened mid-run, the moment a new zone or wall came into view (a hitch as you
+        // turned). A hidden camera with the view's settings draws a tile of each.
+        const int WarmLayer = 29;
+        System.Collections.IEnumerator WarmUp()
+        {
+            yield return null;
+            if (!view) yield break;
+            var mats = new HashSet<Material>();
+            void Add(Material m) { if (m) mats.Add(m); }
+            foreach (var k in kits)
+            {
+                if (k == null) continue;
+                Add(k.ramp); Add(k.slab); Add(k.scenery); Add(k.glow); Add(k.glowAlt); Add(k.floor); Add(k.accent); Add(k.shaft); Add(k.pool); Add(k.skyPool);
+                if (k.rampHues != null) foreach (var m in k.rampHues) Add(m);
+                if (k.glowHues != null) foreach (var m in k.glowHues) Add(m);
+            }
+            Add(shardMaterial);
+            var vm = FindAnyObjectByType<ViewModel>();
+            if (vm && vm.keepVariants != null) foreach (var m in vm.keepVariants) Add(m);
+            if (vm) Add(vm.template);
+
+            var rt = new RenderTexture(256, 256, 24);
+            var cam = new GameObject("WarmUp").AddComponent<Camera>();
+            cam.CopyFrom(view);
+            cam.cullingMask = 1 << WarmLayer;
+            cam.targetTexture = rt;
+            cam.enabled = false;
+            var tiles = new List<GameObject>();
+            int n = Mathf.CeilToInt(Mathf.Sqrt(mats.Count)), i = 0;
+            foreach (var m in mats)
+            {
+                var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                Kill(q.GetComponent<Collider>());
+                q.layer = WarmLayer;
+                q.transform.SetParent(cam.transform, false);
+                q.transform.localPosition = new Vector3((i % n - n * 0.5f) * 0.2f, (i / n - n * 0.5f) * 0.2f, 4f);
+                q.transform.localScale = Vector3.one * 0.18f;
+                q.GetComponent<MeshRenderer>().sharedMaterial = m;
+                tiles.Add(q);
+                i++;
+            }
+            cam.Render();
+            foreach (var t in tiles) Kill(t);
+            Kill(cam.gameObject);
+            rt.Release();
+            Kill(rt);
         }
 
         // Editor-only diagnostic: what the renderer is actually using when you press Play

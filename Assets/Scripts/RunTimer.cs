@@ -83,6 +83,9 @@ namespace VoidFlow
         // the game is yours
         float finishTime = -99f, finalTime;
         int runStage; // the stage this run is on, for the free Void Case every 10 stages
+        float hudAt;
+        int hudSpeedValue = -1;
+        string hudDistance = "", hudLine = "", hudSpeed = "0 u/s", hudBest, hudLast;
         // Noclip used this run: it's practice from then on (nothing saved or rewarded)
         public bool Practice { get; private set; }
         void Finish()
@@ -184,12 +187,23 @@ namespace VoidFlow
             }
             float w = Screen.width, h = Screen.height;
 
+            // The readouts are rebuilt ten times a second, not on every GUI pass (making new
+            // strings every frame fed the garbage collector, whose pauses were hitches)
+            if (Time.unscaledTime >= hudAt)
+            {
+                hudAt = Time.unscaledTime + 0.1f;
+                hudDistance = Distance(course.Progress);
+                hudLine = $"stage {course.CurrentStage + 1}: {course.CurrentTierName} {course.CurrentStageName}   ·   ramp {course.CurrentRamp + 1}   ·   {course.CurrentBiome.name}   ·   {Format(FinishedRun ? finalTime : Time.time - startTime)}" + (falls > 0 ? $"   ·   {falls} fall{(falls == 1 ? "" : "s")}" : "");
+                int speedNow = Mathf.RoundToInt(player.HorizontalSpeed / PlayerMovement.SourceUnit);
+                if (speedNow != hudSpeedValue) { hudSpeedValue = speedNow; hudSpeed = $"{speedNow} u/s"; }
+                hudBest = best > 0f ? "Best  " + Distance(best) : null;
+                hudLast = lastRun > 0f ? "Last  " + Distance(lastRun) : null;
+            }
+
             if (running)
             {
-                GUI.Label(new Rect(0, 16, w, 40), Distance(course.Progress), bigStyle);
-                GUI.Label(new Rect(0, 52, w, 24),
-                    $"stage {course.CurrentStage + 1}: {course.CurrentTierName} {course.CurrentStageName}   ·   ramp {course.CurrentRamp + 1}   ·   {course.CurrentBiome.name}   ·   {Format(FinishedRun ? finalTime : Time.time - startTime)}" + (falls > 0 ? $"   ·   {falls} fall{(falls == 1 ? "" : "s")}" : ""),
-                    centeredStyle);
+                GUI.Label(new Rect(0, 16, w, 40), hudDistance, bigStyle);
+                GUI.Label(new Rect(0, 52, w, 24), hudLine, centeredStyle);
             }
             else
             {
@@ -235,11 +249,10 @@ namespace VoidFlow
                 GUI.color = old;
             }
 
-            float speed = player.HorizontalSpeed / PlayerMovement.SourceUnit;
-            GUI.Label(new Rect(0, h - 90, w, 40), $"{speed:0} u/s", bigStyle);
+            GUI.Label(new Rect(0, h - 90, w, 40), hudSpeed, bigStyle);
 
-            if (best > 0f) GUI.Label(new Rect(w - 200, 20, 190, 24), "Best  " + Distance(best), smallStyle);
-            if (lastRun > 0f) GUI.Label(new Rect(w - 200, 40, 190, 24), "Last  " + Distance(lastRun), smallStyle);
+            if (hudBest != null) GUI.Label(new Rect(w - 200, 20, 190, 24), hudBest, smallStyle);
+            if (hudLast != null) GUI.Label(new Rect(w - 200, 40, 190, 24), hudLast, smallStyle);
 
             if (player.Flying)
                 GUI.Label(new Rect(0, 84, w, 24), "NOCLIP   ·   WASD fly · Space up · Ctrl down · Shift fast · double tap Space to land", centeredStyle);

@@ -4,25 +4,25 @@ using UnityEngine.Rendering.Universal;
 
 namespace VoidFlow
 {
-    // Keeps the web build smooth on any machine: watches the frame rate and, when it sags,
-    // steps the picture down a notch at a time (less anti-aliasing, a slightly lower render
-    // resolution, hard shadows, then no shadows and no bloom), and steps back up when there's
-    // room again. Only in the web player: the editor and desktop builds keep full quality
-    // (and changing the pipeline asset in the editor would save the change into the project).
+    // Keeps the web build smooth on any machine. It starts from a web baseline (2x
+    // anti-aliasing, hard shadows: nearly the same look for much less work), then, only if the
+    // frame rate stays low for a while, lowers the render resolution a little, a notch at a
+    // time, at most three notches, and never switches back and forth: every change rebuilds
+    // the render buffers, which is a hitch of its own. Web player only; the editor and desktop
+    // builds keep full quality (and changing the pipeline asset in the editor would save it).
     public class AutoQuality : MonoBehaviour
     {
-        const float Low = 50f, High = 58f;     // frames per second that step down / allow a step up
-        const float Window = 1.5f;             // seconds of frames judged at a time
-        const float UpAfter = 8f;              // seconds of headroom before stepping back up
+        const float Low = 48f;      // frames per second that count as struggling
+        const float Window = 3f;    // seconds of frames judged at a time
+        const float Cooldown = 8f;  // seconds between notches
+        static readonly float[] Scales = { 1f, 0.9f, 0.8f, 0.7f };
 
         UniversalRenderPipelineAsset urp;
-        Light sun;
-        Volume[] volumes;
-        int level;
-        float frames, time, headroom;
+        int notch;
+        float frames, time, sinceChange;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Start()
+        static void Begin()
         {
             if (Application.platform != RuntimePlatform.WebGLPlayer) return;
             var go = new GameObject("AutoQuality");
@@ -33,38 +33,29 @@ namespace VoidFlow
         void Awake()
         {
             urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+            if (urp)
+            {
+                urp.msaaSampleCount = 2;
+                urp.renderScale = Scales[0];
+            }
             foreach (var l in FindObjectsByType<Light>())
-                if (l.type == LightType.Directional) sun = l;
-            volumes = FindObjectsByType<Volume>();
-            Apply();
+                if (l.type == LightType.Directional && l.shadows == LightShadows.Soft) l.shadows = LightShadows.Hard;
         }
 
         void Update()
         {
             frames++;
             time += Time.unscaledDeltaTime;
+            sinceChange += Time.unscaledDeltaTime;
             if (time < Window) return;
             float fps = frames / time;
             frames = time = 0f;
-            if (fps < Low && level < 5) { level++; headroom = 0f; Apply(); }
-            else if (fps > High && level > 0)
+            if (fps < Low && sinceChange > Cooldown && notch < Scales.Length - 1 && urp)
             {
-                headroom += Window;
-                if (headroom >= UpAfter) { level--; headroom = 0f; Apply(); }
+                notch++;
+                sinceChange = 0f;
+                urp.renderScale = Scales[notch];
             }
-            else headroom = 0f;
-        }
-
-        void Apply()
-        {
-            if (urp)
-            {
-                urp.msaaSampleCount = level == 0 ? 4 : level == 1 ? 2 : 1;
-                urp.renderScale = level < 2 ? 1f : level < 4 ? 0.85f : 0.72f;
-                urp.shadowDistance = level < 4 ? 50f : 30f;
-            }
-            if (sun) sun.shadows = level < 3 ? LightShadows.Soft : level < 5 ? LightShadows.Hard : LightShadows.None;
-            foreach (var v in volumes) if (v) v.enabled = level < 5;
         }
     }
 }
