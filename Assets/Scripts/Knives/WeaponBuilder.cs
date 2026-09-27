@@ -244,7 +244,7 @@ namespace VoidFlow
                 Aura(parts, skin.finish);
                 // Flames along the blade, from its base to its point
                 var at = new List<Vector3>();
-                Vector3 from = parts.model == KnifeModel.Talon ? new Vector3(-0.02f, -0.14f, 0f) : new Vector3(0f, 0.03f, 0f);
+                Vector3 from = parts.model == KnifeModel.Talon ? new Vector3(-0.02f, -0.11f, 0f) : new Vector3(0f, 0.03f, 0f);
                 Vector3 to = parts.tip ? parts.root.InverseTransformPoint(parts.tip.position) : new Vector3(0f, 0.22f, 0f);
                 if (parts.model == KnifeModel.Reaper) from = new Vector3(0f, 0.14f, 0f);
                 for (int k = 0; k < 5; k++) at.Add(Vector3.Lerp(from, to, (k + 0.5f) / 5f));
@@ -265,22 +265,22 @@ namespace VoidFlow
             Material brass = Mat(new Color(0.9f, 0.66f, 0.28f), 0.88f, 0.9f);
             Material hole = Mat(new Color(0.01f, 0.01f, 0.012f), 0.2f, 0f);
             // Grip slab, rounded at the ends, with finger grooves along the edge side
-            Part(t, PrimitiveType.Cube, grip, new Vector3(0.002f, -0.054f, 0f), new Vector3(0.028f, 0.1f, 0.017f));
-            Part(t, PrimitiveType.Capsule, grip, new Vector3(0.002f, -0.054f, 0f), new Vector3(0.03f, 0.056f, 0.017f));
+            Part(t, PrimitiveType.Cube, grip, new Vector3(0.002f, -0.04f, 0f), new Vector3(0.026f, 0.072f, 0.016f));
+            Part(t, PrimitiveType.Capsule, grip, new Vector3(0.002f, -0.04f, 0f), new Vector3(0.028f, 0.041f, 0.016f));
             for (int k = 0; k < 3; k++)
-                Part(t, PrimitiveType.Cylinder, hole, new Vector3(-0.0135f, -0.028f - k * 0.024f, 0f), new Vector3(0.012f, 0.0092f, 0.012f), Quaternion.Euler(90f, 0f, 0f));
-            foreach (float y in new[] { -0.042f, -0.072f })
-                Part(t, PrimitiveType.Cylinder, hole, new Vector3(0.006f, y, 0f), new Vector3(0.009f, 0.0093f, 0.009f), Quaternion.Euler(90f, 0f, 0f));
-            foreach (float y in new[] { -0.02f, -0.092f })
-                Part(t, PrimitiveType.Cylinder, brass, new Vector3(0.006f, y, 0f), new Vector3(0.006f, 0.0095f, 0.006f), Quaternion.Euler(90f, 0f, 0f));
-            Part(t, PrimitiveType.Cube, brass, new Vector3(0f, -0.113f, 0f), new Vector3(0.036f, 0.009f, 0.021f));
+                Part(t, PrimitiveType.Cylinder, hole, new Vector3(-0.0125f, -0.02f - k * 0.0175f, 0f), new Vector3(0.0105f, 0.0087f, 0.0105f), Quaternion.Euler(90f, 0f, 0f));
+            foreach (float y in new[] { -0.031f, -0.053f })
+                Part(t, PrimitiveType.Cylinder, hole, new Vector3(0.006f, y, 0f), new Vector3(0.0075f, 0.0088f, 0.0075f), Quaternion.Euler(90f, 0f, 0f));
+            foreach (float y in new[] { -0.015f, -0.067f })
+                Part(t, PrimitiveType.Cylinder, brass, new Vector3(0.006f, y, 0f), new Vector3(0.005f, 0.009f, 0.005f), Quaternion.Euler(90f, 0f, 0f));
+            Part(t, PrimitiveType.Cube, brass, new Vector3(0f, -0.081f, 0f), new Vector3(0.032f, 0.007f, 0.019f));
             Part(t, PrimitiveType.Cube, brass, new Vector3(0f, 0.004f, 0f), new Vector3(0.032f, 0.006f, 0.02f));
             parts.ringCenter = new Vector3(0.002f, 0.024f, 0f);
             MeshPart(t, brass, Torus(0.019f, 0.0055f, 28, 10), parts.ringCenter, Quaternion.identity);
 
             // Blade: a deep hook, spine outside the curve, edge inside
             const int n = 24;
-            const float radius = 0.095f, sweep = 105f * Mathf.Deg2Rad, top = -0.118f;
+            const float radius = 0.1f, sweep = 105f * Mathf.Deg2Rad, top = -0.085f;
             var spine = new Vector2[n + 1];
             var edge = new Vector2[n + 1];
             for (int i = 0; i <= n; i++)

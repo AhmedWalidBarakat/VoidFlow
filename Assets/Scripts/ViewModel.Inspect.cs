@@ -73,6 +73,7 @@ namespace VoidFlow
             public Vector3 spin;           // knife turned about its own axes (degrees, around its pivot)
             public float orbit;            // knife carried around the right arm (degrees)
             public float flips;            // butterfly knife flips done
+            public float fan;              // butterfly: the loose handle swung open this far (degrees)
             public float slide;            // sword pulled this far out of the sheath
             public float across;           // sheath at the hip (0) or laid across the view (1)
             public bool rightOnHilt, leftOnSheath;
@@ -111,23 +112,22 @@ namespace VoidFlow
         // Held F keeps it whirling on the finger.
         static Routine TalonRoutine()
         {
+            var show = new Vector3(0.1f, -0.075f, 0.3f);
+            Quaternion showA = FB(-0.87f, 0.5f, 0.05f, 0f, 0f, 1f), showB = FB(-0.75f, 0.65f, 0.1f, 0.15f, 0.05f, 1f);
             var ks = new List<Key>();
             var k = IdleKey(true); ks.Add(k);
             k = k.At(0.2f); k.rp = TalonIdlePos + new Vector3(0.005f, 0.02f, 0f); k.rq = FB(-0.35f, 0.9f, 0.25f, -0.3f, -0.2f, 0.93f);
             k.rOpen = 0.85f; k.rKeep = true; ks.Add(k);
-            k = k.At(0.65f); k.spin = new(0f, 0f, -360f); ks.Add(k);
-            k = k.At(0.82f); k.rOpen = 0f; ks.Add(k);
-            k = k.At(1.25f); k.rKeep = false; k.rp = new(0.06f, -0.1f, 0.3f); k.rq = FB(-0.7f, 0.6f, 0.4f, 0.3f, 0.3f, -0.9f);
-            k.lp = new(-0.075f, -0.12f, 0.29f); k.lq = FB(0.6f, 0.7f, 0.4f, -0.3f, 0.2f, -0.9f); k.lOpen = 0.3f; ks.Add(k);
-            k = k.At(1.85f); k.rq = FB(-0.75f, 0.55f, 0.4f, 0.4f, 0.2f, -0.9f); k.lOpen = 0.45f; ks.Add(k);
-            k = k.At(2.35f); k.rp = new(0.1f, -0.065f, 0.3f); k.rq = FB(-0.2f, 0.95f, 0.2f, 0.1f, 0.2f, 0.97f);
-            k.lp = LeftIdle; k.lq = LeftIdleRotation; k.lOpen = 0f; ks.Add(k);
-            k = k.At(2.95f); k.rq = FB(-0.1f, 0.95f, 0.3f, 0.5f, 0.1f, 0.85f); ks.Add(k);
-            k = k.At(3.5f); k.rp = TalonIdlePos; k.rq = TalonIdle; ks.Add(k);
+            k = k.At(0.6f); k.spin = new(0f, 0f, -360f); k.rp = TalonIdlePos + new Vector3(-0.03f, 0.01f, 0f); ks.Add(k);
+            k = k.At(1.05f); k.spin = new(0f, 0f, -720f); k.rp = show; k.rq = showA; ks.Add(k);
+            k = k.At(1.25f); k.rOpen = 0f; k.rKeep = false; ks.Add(k);
+            k = k.At(1.95f); k.rq = showB; ks.Add(k);
+            k = k.At(2.6f); k.rq = showA; k.rp = show + new Vector3(0.005f, 0.005f, 0f); ks.Add(k);
+            k = k.At(3.2f); k.rp = TalonIdlePos; k.rq = TalonIdle; ks.Add(k);
             return new Routine
             {
                 keys = ks.ToArray(), sustainAt = 0.45f, sustainAxis = 1, sustainSpeed = -1080f,
-                sounds = new[] { (0.3f, WeaponSounds.Slash, 0.3f), (0.8f, WeaponSounds.Tick, 0.35f), (2.3f, WeaponSounds.Slash, 0.2f) },
+                sounds = new[] { (0.3f, WeaponSounds.Slash, 0.3f), (0.8f, WeaponSounds.Slash, 0.25f), (1.2f, WeaponSounds.Tick, 0.4f) },
             };
         }
 
@@ -140,29 +140,30 @@ namespace VoidFlow
         static Routine ButterflyRoutine()
         {
             var up = new Vector3(0.1f, -0.085f, 0.3f);
+            var show = new Vector3(0.08f, -0.07f, 0.3f);
             Quaternion R1 = FB(-0.55f, 0.45f, 0.7f, 0.7f, 0f, 0.55f), R2 = FB(-0.85f, 0.4f, 0.3f, 0.35f, 0f, 0.95f), R3 = FB(-0.2f, 0.45f, 0.9f, 1f, 0f, 0.2f);
+            Quaternion showA = Quaternion.Euler(0f, 0f, -28f) * FB(-0.5f, 0.3f, 0.8f, 0.71f, -0.31f, 0.56f), showB = Quaternion.Euler(0f, 0f, -16f) * FB(-0.6f, 0.2f, 0.75f, 0.73f, -0.13f, 0.62f);
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
-            k = k.At(0.25f); k.rp = up; k.rq = R1; k.flips = 1f; k.rOpen = 0.25f; ks.Add(k);
-            k = k.At(0.55f); k.rq = R2; k.flips = 3f; ks.Add(k);
-            k = k.At(0.85f); k.rq = R3; k.flips = 5f; ks.Add(k);
-            // Popped up out of the fingers, somersaulting, and snatched back
-            k = k.At(1.02f); k.hold = Hold.Air; k.ap = up + new Vector3(-0.01f, 0.08f, -0.02f); k.aq = Quaternion.identity; k.rq = R1; k.rp = up + new Vector3(0f, 0.01f, 0f); ks.Add(k);
-            k = k.At(1.28f); k.ap = up + new Vector3(-0.015f, 0.14f, -0.02f); k.spin = new(540f, 0f, 0f); ks.Add(k);
-            k = k.At(1.5f); k.hold = Hold.Right; k.rp = up; k.spin = new(720f, 0f, 0f); k.flips = 6f; ks.Add(k);
-            // Rolled right round the fist, flipping all the way
-            k = k.At(1.95f); k.orbit = 360f; k.flips = 8f; k.rq = R2; ks.Add(k);
-            // Fanned open, blade up, turned to show it
-            k = k.At(2.3f); k.flips = 8.5f; k.rq = R3; k.rOpen = 0.15f; ks.Add(k);
-            k = k.At(2.6f); k.rq = R1; ks.Add(k);
-            // A rapid burst of flips, snapped shut, home
-            k = k.At(3.0f); k.flips = 12f; k.rq = R2; k.rOpen = 0.3f; ks.Add(k);
-            k = k.At(3.35f); k.rp = RightIdle; k.rq = ForwardIdle; k.rOpen = 0f; ks.Add(k);
+            k = k.At(0.3f); k.rp = up; k.rq = R1; k.flips = 2f; k.rOpen = 0.25f; ks.Add(k);
+            k = k.At(0.6f); k.rq = R2; k.flips = 3f; ks.Add(k);
+            k = k.At(0.85f); k.rq = R3; k.flips = 4f; ks.Add(k);
+            // Tossed: it tumbles end over end over the hand...
+            k = k.At(1.05f); k.hold = Hold.Air; k.ap = up + new Vector3(-0.01f, 0.07f, 0.01f); k.aq = Quaternion.identity; k.spin = new(360f, 0f, 0f);
+            k.rp = up + new Vector3(0f, -0.01f, 0f); k.rq = R1; ks.Add(k);
+            // ...and is caught into the show, the loose handle swinging wide open
+            k = k.At(1.3f); k.hold = Hold.Right; k.rp = show; k.rq = showA; k.spin = new(720f, 0f, 0f); k.rOpen = 0.1f; ks.Add(k);
+            k = k.At(1.55f); k.fan = -45f; ks.Add(k);
+            k = k.At(2.2f); k.rq = showB; ks.Add(k);
+            k = k.At(2.8f); k.rq = showA; ks.Add(k);
+            // Flipped shut and home
+            k = k.At(3.05f); k.fan = 0f; k.flips = 6f; k.rq = R2; k.rp = up; ks.Add(k);
+            k = k.At(3.4f); k.rp = RightIdle; k.rq = ForwardIdle; k.rOpen = 0f; ks.Add(k);
             return new Routine
             {
-                keys = ks.ToArray(), sustainAt = 0.7f, sustainAxis = 3, sustainSpeed = 900f,
-                sounds = new[] { (0.3f, WeaponSounds.Tick, 0.3f), (0.6f, WeaponSounds.Tick, 0.3f), (0.9f, WeaponSounds.Tick, 0.3f), (1.1f, WeaponSounds.Slash, 0.3f),
-                    (1.5f, WeaponSounds.Tick, 0.4f), (1.9f, WeaponSounds.Tick, 0.3f), (2.75f, WeaponSounds.Tick, 0.3f), (2.9f, WeaponSounds.Tick, 0.3f), (3.05f, WeaponSounds.Tick, 0.4f) },
+                keys = ks.ToArray(), sustainAt = 2.2f,
+                sounds = new[] { (0.3f, WeaponSounds.Tick, 0.3f), (0.6f, WeaponSounds.Tick, 0.3f), (0.85f, WeaponSounds.Tick, 0.3f), (1.0f, WeaponSounds.Slash, 0.3f),
+                    (1.3f, WeaponSounds.Tick, 0.45f), (1.55f, WeaponSounds.Tick, 0.35f), (2.95f, WeaponSounds.Tick, 0.3f), (3.1f, WeaponSounds.Tick, 0.4f) },
             };
         }
 
@@ -174,8 +175,8 @@ namespace VoidFlow
         // skeleton knife spins on a finger through its ring (held F keeps that one spinning)
         static Routine FixedBladeRoutine(KnifeModel model)
         {
-            Quaternion showA = FB(-0.7f, 0.7f, 0.15f, 0f, 0.05f, 1f), showB = FB(-0.55f, 0.8f, 0.25f, 0.15f, 0f, 1f);
-            var up = new Vector3(0.03f, -0.1f, 0.3f);
+            Quaternion showA = FB(-0.7f, 0.3f, 0.6f, 0.594f, -0.06f, 0.723f), showB = FB(-0.7f, 0.1f, 0.7f, 0.679f, 0.175f, 0.654f);
+            var up = new Vector3(0.06f, -0.115f, 0.3f);
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
             k = k.At(0.4f); k.rp = up; k.rq = showA; k.rOpen = 0.1f; ks.Add(k);
@@ -644,7 +645,7 @@ namespace VoidFlow
             {
                 float flips = Curve(before.flips, a.flips, b.flips, after.flips) + (routine.sustainAxis == 3 ? sustainExtra / 360f * 2f : 0f);
                 float frac = flips - Mathf.Floor(flips);
-                knife.swingHandle.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(frac * Mathf.PI) * 150f);
+                knife.swingHandle.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(frac * Mathf.PI) * 150f + Curve(before.fan, a.fan, b.fan, after.fan));
                 knife.blade.localRotation = Quaternion.Euler(0f, 0f, flips * 180f);
             }
 
