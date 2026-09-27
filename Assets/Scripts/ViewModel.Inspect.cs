@@ -22,13 +22,17 @@ namespace VoidFlow
         // Resting poses in camera space: two block arms coming in from the bottom corners, the
         // left glove empty, the right one holding the knife (a talon knife comes out the far
         // side and curls up to the right)
-        static readonly Vector3 RightIdle = new(0.11f, -0.1f, 0.3f);
-        static readonly Vector3 LeftIdle = new(-0.125f, -0.105f, 0.31f);
+        static readonly Vector3 RightIdle = new(0.12f, -0.1f, 0.3f);
+        // As in the classic shooters, only the knife hand shows at rest: the left waits out of
+        // view below the bottom left corner and comes in for the tricks
+        static readonly Vector3 LeftIdle = new(-0.2f, -0.3f, 0.26f);
         static readonly Quaternion ReverseIdle = FingersBack(new Vector3(-0.3f, 0.5f, 1f), new Vector3(0.1f, 0.6f, -0.7f));
         // Talon knife at rest: low on the right, the ring out to the right of the glove and the
         // hooked blade sweeping left and curling down, flat side toward you
-        static readonly Vector3 TalonIdlePos = new(0.14f, -0.095f, 0.31f);
-        static readonly Quaternion TalonIdle = FingersBack(new Vector3(-0.05f, 0.85f, 0.5f), new Vector3(0f, -0.5f, 0.85f));
+        // (the reverse-grip hold from the classic shooters: fist tilted in from the bottom right
+        // corner, ring up by the index finger, the hooked blade curling down out of the fist)
+        static readonly Vector3 TalonIdlePos = new(0.14f, -0.09f, 0.3f);
+        static readonly Quaternion TalonIdle = FingersBack(new Vector3(-0.45f, 0.85f, 0.3f), new Vector3(-0.3f, -0.1f, 0.95f));
         // Talon inspect: the knife hangs from the finger ring in front of the raised glove, flat
         // side on, and spins round the finger there
         static readonly Vector3 TalonShowPos = TalonIdlePos; // the arm stays put: only the hand turns
@@ -74,6 +78,8 @@ namespace VoidFlow
             public bool rightOnHilt, leftOnSheath;
             public bool fromAbove;         // on the hilt, the arm reaches in from the top right
             public float show;             // talon: hanging from the ring in front of the glove (0..1)
+            public float rOpen, lOpen;     // fingers loosened (0 gripping .. 1 open)
+            public bool rKeep;             // ...all but the index finger (a knife spinning in its ring)
             public Key At(float time) { var k = (Key)MemberwiseClone(); k.t = time; return k; }
         }
 
@@ -98,33 +104,30 @@ namespace VoidFlow
         static readonly Vector3 RightWide = new(0.175f, -0.03f, 0.3f), LeftWide = new(-0.175f, -0.035f, 0.31f);
         static readonly Quaternion RightUp = FB(-0.3f, 0.8f, 0.6f, 0.3f, 0.3f, -1f), LeftUp = FB(0.3f, 0.8f, 0.6f, -0.3f, 0.3f, -1f);
 
-        // Talon knife: the old routine (spun on the ring, tossed across to the left hand, spun
-        // there, tossed back and caught by the right, spun off the hand, home) but kept low in
-        // the bottom corners so the middle of the screen stays clear for the run
+        // Talon knife, after the classic karambit inspect: a flick that whirls the knife once
+        // round the index finger in its ring (the other fingers open to let it go round), then
+        // both hands meet low in the middle with the blade laid out to the right, then the hand
+        // turns upright, palm to you, the whole curve of the blade on show, and back to the hold.
+        // Held F keeps it whirling on the finger.
         static Routine TalonRoutine()
         {
-            var lowRight = new Vector3(0.17f, -0.1f, 0.31f);
-            var lowLeft = new Vector3(-0.17f, -0.1f, 0.32f);
             var ks = new List<Key>();
             var k = IdleKey(true); ks.Add(k);
-            k = k.At(0.3f); k.rq = TalonShowArm; k.spin = new(0f, 0f, -180f); ks.Add(k);
-            k = k.At(0.75f); k.spin = new(0f, 0f, -1080f); ks.Add(k);
-            k = k.At(1.0f); k.hold = Hold.Air; k.ap = new(0f, -0.1f, 0.36f); k.aq = Quaternion.Euler(0f, 0f, 200f); k.spin = new(-360f, 0f, -1260f);
-            k.rp = lowRight; k.lp = lowLeft; ks.Add(k);
-            k = k.At(1.25f); k.hold = Hold.Left; k.lp = new(-0.13f, -0.095f, 0.32f); k.spin = new(-720f, 0f, -1440f); ks.Add(k);
-            k = k.At(1.55f); k.lq = FB(0.3f, 0.9f, 0.4f, -0.1f, 0.2f, -1f); k.spin = new(-720f, 0f, -2160f); ks.Add(k);
-            k = k.At(1.85f); k.hold = Hold.Air; k.ap = new(-0.01f, -0.095f, 0.37f); k.aq = Quaternion.Euler(0f, 0f, 210f); k.spin = new(-1260f, 0f, -2160f);
-            k.lp = lowLeft; k.lq = LeftIdleRotation; ks.Add(k);
-            k = k.At(2.1f); k.ap = new(0.07f, -0.12f, 0.36f); k.spin = new(-1620f, 0f, -2160f); ks.Add(k);
-            k = k.At(2.3f); k.hold = Hold.Right; k.rp = TalonIdlePos; k.rq = TalonShowArm; k.spin = new(-1800f, 0f, -2160f);
-            k.lp = LeftIdle; ks.Add(k);
-            k = k.At(2.75f); k.spin = new(-1800f, 0f, -2880f); ks.Add(k);
-            k = k.At(3.15f); k.spin = new(-1800f, 0f, -3240f); ks.Add(k);
-            k = k.At(3.55f); k.rp = TalonIdlePos; k.rq = TalonIdle; ks.Add(k);
+            k = k.At(0.2f); k.rp = TalonIdlePos + new Vector3(0.005f, 0.02f, 0f); k.rq = FB(-0.35f, 0.9f, 0.25f, -0.3f, -0.2f, 0.93f);
+            k.rOpen = 0.85f; k.rKeep = true; ks.Add(k);
+            k = k.At(0.65f); k.spin = new(0f, 0f, -360f); ks.Add(k);
+            k = k.At(0.82f); k.rOpen = 0f; ks.Add(k);
+            k = k.At(1.25f); k.rKeep = false; k.rp = new(0.06f, -0.1f, 0.3f); k.rq = FB(-0.7f, 0.6f, 0.4f, 0.3f, 0.3f, -0.9f);
+            k.lp = new(-0.075f, -0.12f, 0.29f); k.lq = FB(0.6f, 0.7f, 0.4f, -0.3f, 0.2f, -0.9f); k.lOpen = 0.3f; ks.Add(k);
+            k = k.At(1.85f); k.rq = FB(-0.75f, 0.55f, 0.4f, 0.4f, 0.2f, -0.9f); k.lOpen = 0.45f; ks.Add(k);
+            k = k.At(2.35f); k.rp = new(0.1f, -0.065f, 0.3f); k.rq = FB(-0.2f, 0.95f, 0.2f, 0.1f, 0.2f, 0.97f);
+            k.lp = LeftIdle; k.lq = LeftIdleRotation; k.lOpen = 0f; ks.Add(k);
+            k = k.At(2.95f); k.rq = FB(-0.1f, 0.95f, 0.3f, 0.5f, 0.1f, 0.85f); ks.Add(k);
+            k = k.At(3.5f); k.rp = TalonIdlePos; k.rq = TalonIdle; ks.Add(k);
             return new Routine
             {
-                keys = ks.ToArray(), sustainAt = 0.55f, sustainAxis = 1, sustainSpeed = -1080f,
-                sounds = new[] { (0.85f, WeaponSounds.Slash, 0.35f), (1.75f, WeaponSounds.Slash, 0.35f), (2.5f, WeaponSounds.Slash, 0.35f) },
+                keys = ks.ToArray(), sustainAt = 0.45f, sustainAxis = 1, sustainSpeed = -1080f,
+                sounds = new[] { (0.3f, WeaponSounds.Slash, 0.3f), (0.8f, WeaponSounds.Tick, 0.35f), (2.3f, WeaponSounds.Slash, 0.2f) },
             };
         }
 
@@ -408,6 +411,9 @@ namespace VoidFlow
                 knife.Animate(time, -1f);
                 return;
             }
+            rightHand.open = 0f; rightHand.keepIndex = false;
+            leftHand.open = 0f;
+            SetHandGrip(leftHand, Relaxed);
             hand.localPosition = (talon ? TalonIdlePos : RightIdle) + pos;
             hand.localRotation = Quaternion.Euler(rot) * (talon ? TalonIdle : ForwardIdle);
             SetArmAlpha(1f);
@@ -531,6 +537,17 @@ namespace VoidFlow
                 knifePose.q = around * knifePose.q;
             }
 
+            // Fingers: the hand holding the knife grips it, loosened as the routine says (a knife
+            // in the air leaves the hands open); an empty left hand stays relaxed
+            float Lerp(float x, float y) => Mathf.Lerp(x, y, s);
+            float rOpen = Lerp(a.rOpen, b.rOpen);
+            float rFree = Lerp(a.hold == Hold.Right ? 0f : 1f, b.hold == Hold.Right ? 0f : 1f);
+            rightHand.open = Mathf.Max(rOpen, 0.55f * rFree);
+            rightHand.keepIndex = (a.rKeep || b.rKeep) && rFree < 0.5f;
+            bool leftHolds = a.hold == Hold.Left || b.hold == Hold.Left;
+            SetHandGrip(leftHand, leftHolds ? Fist : Relaxed);
+            leftHand.open = Lerp(a.lOpen, b.lOpen);
+
             hand.SetLocalPositionAndRotation(right.p, right.q);
             leftHand.root.gameObject.SetActive(true);
             leftHand.root.SetLocalPositionAndRotation(left.p, left.q);
@@ -590,7 +607,7 @@ namespace VoidFlow
                     float d = Vector2.Distance(P, new Vector2(q.x / q.z, q.y / q.z));
                     if (d < best) { best = d; depth = q.z; }
                 }
-                if (p.z < depth - 0.03f) continue; // the knife is in front of the arm
+                if (p.z < depth + 0.05f) continue; // in front of the arm, or in the hand: only fade for a knife well behind it
                 alpha = Mathf.Min(alpha, Mathf.Lerp(0.3f, 1f, Ease(best, 0.12f, 0.3f)));
             }
             return alpha;
@@ -736,7 +753,7 @@ namespace VoidFlow
 
         class ArmPart
         {
-            public MeshRenderer renderer;
+            public Renderer renderer;
             public Material solid, clear;
         }
 
@@ -751,7 +768,7 @@ namespace VoidFlow
 
             void Setup(BlockArm arm, List<ArmPart> parts)
             {
-                foreach (var r in arm.root.GetComponentsInChildren<MeshRenderer>(true))
+                foreach (var r in arm.root.GetComponentsInChildren<Renderer>(true))
                 {
                     var solid = new Material(r.sharedMaterial);
                     materials.Add(solid);

@@ -466,13 +466,16 @@ namespace VoidFlow
             (3.25f, Vector3.zero, Vector3.zero),
         };
 
+        // After the classic sniper inspect: the muzzle tips up, then the rifle swings round to
+        // point left and turns side-on so its whole profile faces you, holds there turning
+        // slowly, and swings back to the shoulder
         static readonly (float t, Vector3 pos, Vector3 rot)[] SniperInspectKeys =
         {
             (0f, Vector3.zero, Vector3.zero),
-            (0.5f, new Vector3(-0.03f, 0.03f, 0.02f), new Vector3(0f, 15f, -35f)),
-            (1.4f, new Vector3(-0.03f, 0.035f, 0.02f), new Vector3(-8f, 18f, -38f)),
-            (1.9f, new Vector3(-0.02f, 0.05f, 0.05f), new Vector3(-18f, -10f, 20f)),
-            (2.7f, new Vector3(-0.02f, 0.05f, 0.05f), new Vector3(-20f, -12f, 22f)),
+            (0.45f, new Vector3(-0.02f, 0.035f, 0.02f), new Vector3(-16f, 6f, -8f)),
+            (1.1f, new Vector3(-0.09f, 0.02f, 0.09f), new Vector3(-6f, -62f, -6f)),
+            (2.2f, new Vector3(-0.09f, 0.025f, 0.09f), new Vector3(-3f, -68f, -4f)),
+            (2.75f, new Vector3(-0.02f, 0.03f, 0.02f), new Vector3(-12f, -6f, 6f)),
             (3.2f, Vector3.zero, Vector3.zero),
         };
 

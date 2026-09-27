@@ -4,7 +4,7 @@ using UnityEngine;
 namespace VoidFlow
 {
     // Glove skins: the equipped gloves go on every arm (the knife arms and the sniper arms).
-    // Mythic gloves wear a finish on the glove block; Void gloves also get their own add-ons
+    // Mythic gloves wear a finish on the glove; Void gloves also get their own add-ons
     // (armour, claws, runes, scales...) and flames, and a glowing knuckle plate.
     public partial class ViewModel
     {
@@ -12,14 +12,11 @@ namespace VoidFlow
         readonly List<BlockArm> arms = new();
         readonly List<WeaponParts> gloveKits = new();
         readonly List<Material> gloveMaterials = new();
-        readonly List<(Transform t, Vector3 scale)> gloveBlocks = new();
-
-        // The glove tightening on the grip (0..1), on the weapon in hand
+        // The fingers tightening on the grip (0..1), on the weapon in hand
         void SqueezeGloves(Weapon w, float amount)
         {
-            foreach (var (t, scale) in gloveBlocks)
-                if (t && t.IsChildOf(w.root))
-                    t.localScale = new Vector3(scale.x * (1f - 0.08f * amount), scale.y * (1f + 0.03f * amount), scale.z * (1f - 0.08f * amount));
+            foreach (var arm in arms)
+                if (arm.root && arm.root.IsChildOf(w.root)) arm.squeeze = amount;
         }
 
         public void EquipGloveSkin(int index)
@@ -54,21 +51,21 @@ namespace VoidFlow
             foreach (var arm in arms)
             {
                 if (!arm.root) continue;
-                foreach (var r in arm.root.GetComponentsInChildren<MeshRenderer>(true))
+                foreach (var r in arm.root.GetComponentsInChildren<Renderer>(true))
                 {
-                    if (r.name == "GloveBlock")
+                    if (r.name == "GloveBlock") SetArmMaterial(r, body);
+                    else if (r.name == "GlovePlate")
                     {
-                        SetArmMaterial(r, body);
-                        if (!gloveBlocks.Exists(g => g.t == r.transform)) gloveBlocks.Add((r.transform, r.transform.localScale));
+                        SetArmMaterial(r, plate);
+                        r.gameObject.SetActive(skin.rarity == SkinRarity.Void);
                     }
-                    else if (r.name == "GlovePlate") SetArmMaterial(r, plate);
                 }
                 if (skin.rarity == SkinRarity.Void) gloveKits.Add(builder.GloveKit(skin, arm.root));
             }
         }
 
         // Swaps a glove part's material, keeping the see-through copy the arm fades to in step
-        void SetArmMaterial(MeshRenderer r, Material solid)
+        void SetArmMaterial(Renderer r, Material solid)
         {
             foreach (var (list, alpha) in new[] { (armParts, armAlpha), (leftArmParts, leftAlpha) })
                 foreach (var part in list)
@@ -94,6 +91,7 @@ namespace VoidFlow
         {
             float inspect = current == KnifeSlot ? inspectTime : -1f;
             foreach (var kit in gloveKits) kit.Animate(Application.isPlaying ? Time.time : 0f, inspect);
+            UpdateFingers(Application.isPlaying ? Time.deltaTime : 1f);
         }
     }
 }

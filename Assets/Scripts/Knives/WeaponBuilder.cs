@@ -1091,7 +1091,7 @@ namespace VoidFlow
             bool rail = skin.model == KnifeModel.Railgun, hell = skin.model == KnifeModel.Hellfire, lance = skin.model == KnifeModel.Lance;
             Material metal = Mat(new Color(0.1f, 0.1f, 0.11f), 0.5f, 0.6f);
             Material metalLight = Mat(new Color(0.28f, 0.28f, 0.3f), 0.45f, 0.6f);
-            Material chassis = skin.finish == KnifeFinish.Polished ? Mat(new Color(0.24f, 0.25f, 0.21f), 0.2f, 0.1f) : FinishMaterial(skin.finish, parts);
+            Material chassis = skin.finish == KnifeFinish.Polished ? Mat(new Color(0.3f, 0.33f, 0.2f), 0.25f, 0.05f) : FinishMaterial(skin.finish, parts);
             Material rubber = Mat(new Color(0.04f, 0.04f, 0.04f), 0.15f, 0f);
             Material lens = Mat(new Color(0.06f, 0.1f, 0.2f), 0.95f, 0.4f);
             Material red = Mat(new Color(0.85f, 0.1f, 0.06f), 0.4f, 0.1f);
@@ -1101,26 +1101,39 @@ namespace VoidFlow
             // long scope with a big objective bell. The skin's finish goes on the stock, receiver
             // shell, forend and scope.
             //
-            // Stock: an open frame around the thumbhole
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, 0.034f, -0.2f), new Vector3(0.038f, 0.026f, 0.32f));                                   // comb (top)
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.075f, -0.25f), new Vector3(0.038f, 0.026f, 0.22f), Quaternion.Euler(-9f, 0f, 0f)); // belly (bottom)
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.018f, -0.37f), new Vector3(0.04f, 0.13f, 0.045f));                                   // butt
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.018f, -0.397f), new Vector3(0.044f, 0.136f, 0.012f));                                 // butt pad
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.052f, -0.26f), new Vector3(0.034f, 0.012f, 0.14f));                                    // cheek riser
-            // Pistol grip through the thumbhole, and the trigger guard
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.045f, -0.06f), new Vector3(0.034f, 0.1f, 0.036f), Quaternion.Euler(18f, 0f, 0f));
+            // Stock: one moulded piece cut from its side outline, the classic thumbhole sniper
+            // stock: a pistol grip standing in the thumbhole, a skeleton butt with an open window
+            // under the cheek rest, a trigger-guard opening, and a long flat forend
+            var stockOutline = new Vector2[]
+            {
+                new(0.49f, -0.028f), new(0.5f, -0.01f), new(0.49f, 0.008f), new(0.2f, 0.01f), new(-0.1f, 0.01f),
+                new(-0.13f, 0.03f), new(-0.16f, 0.052f), new(-0.2f, 0.06f), new(-0.36f, 0.06f), new(-0.395f, 0.055f),
+                new(-0.405f, 0.03f), new(-0.405f, -0.075f), new(-0.395f, -0.1f), new(-0.36f, -0.105f), new(-0.25f, -0.1f),
+                new(-0.14f, -0.11f), new(-0.1f, -0.118f), new(-0.07f, -0.118f), new(-0.055f, -0.1f), new(-0.042f, -0.045f),
+                new(-0.036f, -0.012f), new(0.03f, -0.012f), new(0.036f, -0.03f), new(0.12f, -0.035f), new(0.3f, -0.04f), new(0.45f, -0.036f),
+            };
+            var thumbhole = new Vector2[]
+            {
+                new(-0.095f, -0.02f), new(-0.1f, -0.07f), new(-0.115f, -0.085f), new(-0.2f, -0.08f), new(-0.22f, -0.06f),
+                new(-0.215f, 0f), new(-0.19f, 0.03f), new(-0.14f, 0.02f), new(-0.105f, 0.005f),
+            };
+            var buttWindow = new Vector2[]
+            {
+                new(-0.37f, -0.07f), new(-0.372f, 0.02f), new(-0.35f, 0.032f), new(-0.3f, 0.032f), new(-0.262f, 0.02f), new(-0.255f, -0.06f), new(-0.27f, -0.075f),
+            };
+            MeshPart(t, chassis, ProfileMesh.Extrude(stockOutline, new[] { thumbhole, buttWindow }, 0.022f, 0.005f, "Stock"), Vector3.zero, Quaternion.identity);
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.022f, -0.41f), new Vector3(0.046f, 0.16f, 0.012f));                                   // butt pad
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, 0.064f, -0.28f), new Vector3(0.034f, 0.01f, 0.14f));                                     // cheek rest
+            // Trigger guard
             Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.036f, 0.01f), new Vector3(0.008f, 0.006f, 0.07f));
             Part(t, PrimitiveType.Cube, metal, new Vector3(0f, -0.022f, 0.043f), new Vector3(0.008f, 0.03f, 0.006f));
             Part(t, PrimitiveType.Cube, metalLight, new Vector3(0f, -0.02f, 0.005f), new Vector3(0.006f, 0.02f, 0.006f), Quaternion.Euler(15f, 0f, 0f));
-            // Receiver: a squared shell on a darker core, with an ejection port
-            Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.02f, 0.06f), new Vector3(0.042f, 0.05f, 0.3f));
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.007f, 0.07f), new Vector3(0.048f, 0.03f, 0.3f));
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0.022f, 0.028f, 0.03f), new Vector3(0.004f, 0.02f, 0.08f));
+            // Receiver: a round steel action sitting in the stock, with an ejection port and the
+            // scope rail on top
+            Rod(t, metal, new Vector3(0f, 0.027f, -0.1f), new Vector3(0f, 0.027f, 0.21f), 0.04f);
+            Part(t, PrimitiveType.Sphere, metal, new Vector3(0f, 0.027f, -0.1f), new Vector3(0.04f, 0.04f, 0.03f));
+            Part(t, PrimitiveType.Cube, rubber, new Vector3(0.019f, 0.03f, 0.03f), new Vector3(0.004f, 0.018f, 0.08f));
             Part(t, PrimitiveType.Cube, metal, new Vector3(0f, 0.05f, 0.07f), new Vector3(0.024f, 0.01f, 0.34f));                                       // scope rail
-            // Forend, slimmer than the receiver, tapering toward the muzzle
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.004f, 0.33f), new Vector3(0.044f, 0.04f, 0.24f));
-            Part(t, PrimitiveType.Cube, chassis, new Vector3(0f, -0.004f, 0.47f), new Vector3(0.038f, 0.034f, 0.05f));
-            Part(t, PrimitiveType.Cube, rubber, new Vector3(0f, -0.026f, 0.33f), new Vector3(0.046f, 0.006f, 0.2f));
             var burn = new List<Vector3>();
             if (lance)
             {
