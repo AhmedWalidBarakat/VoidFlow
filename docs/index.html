@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no">
+  <title>VoidFlow</title>
+  <meta name="description" content="VoidFlow: a CS-style surf game I made for fun.">
+  <style>
+    html, body { margin: 0; height: 100%; background: #07060b; overflow: hidden; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #eae6f5; }
+    #game { position: fixed; inset: 0; }
+    #unity-canvas { width: 100%; height: 100%; display: block; background: #07060b; outline: none; }
+    #loader {
+      position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      background: radial-gradient(ellipse at 50% 40%, #241640 0%, #0c0914 55%, #07060b 100%);
+      transition: opacity 0.6s ease;
+    }
+    #loader.done { opacity: 0; pointer-events: none; }
+    h1 { margin: 0; font-size: clamp(40px, 8vw, 88px); letter-spacing: 0.18em; font-weight: 800;
+      background: linear-gradient(90deg, #f3d38a, #ff6fb5 45%, #9a6bff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .tag { margin: 0; font-size: 15px; letter-spacing: 0.3em; color: #a99fc4; text-transform: uppercase; }
+    #bar { width: min(420px, 70vw); height: 6px; border-radius: 3px; background: #1e1830; overflow: hidden; margin-top: 10px; }
+    #fill { width: 0%; height: 100%; background: linear-gradient(90deg, #9a6bff, #ff6fb5); transition: width 0.2s ease; }
+    #status { font-size: 13px; color: #8d84a8; min-height: 1em; }
+    .hint { font-size: 13px; color: #6f6689; text-align: center; line-height: 1.6; padding: 0 16px; }
+    #error { display: none; max-width: 520px; padding: 14px 18px; border-radius: 8px; background: #3a1020; color: #ffd0da; font-size: 14px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div id="game"><canvas id="unity-canvas" tabindex="-1"></canvas></div>
+  <div id="loader">
+    <h1>VOIDFLOW</h1>
+    <p class="tag">surf the void</p>
+    <div id="bar"><div id="fill"></div></div>
+    <div id="status">Loading...</div>
+    <div id="error"></div>
+    <p class="hint">Best on a desktop or laptop with a keyboard and mouse.<br>Click the game to lock the mouse, press Esc to release it.</p>
+  </div>
+  <script>
+    var fill = document.getElementById("fill"), status = document.getElementById("status"), error = document.getElementById("error");
+    function showError(message) { error.style.display = "block"; error.textContent = message; status.textContent = ""; }
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
+      status.textContent = "VoidFlow needs a keyboard and mouse: it's made for desktop browsers.";
+    var buildUrl = "Build";
+    var config = {
+      arguments: [],
+      dataUrl: buildUrl + "/vf-release.data.unityweb",
+      frameworkUrl: buildUrl + "/vf-release.framework.js.unityweb",
+      codeUrl: buildUrl + "/vf-release.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "Ahmed Barakat",
+      productName: "VoidFlow",
+      productVersion: "0.1.0",
+      autoSyncPersistentDataPath: true,
+      // Sharp on high-DPI screens without drawing 4x the pixels on a 4K or Retina display
+      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+      showBanner: function (msg, type) { if (type === "error") showError(msg); },
+    };
+    var script = document.createElement("script");
+    script.src = buildUrl + "/vf-release.loader.js";
+    script.onload = function () {
+      createUnityInstance(document.querySelector("#unity-canvas"), config, function (progress) {
+        var p = Math.round(progress * 100);
+        fill.style.width = p + "%";
+        status.textContent = p < 90 ? "Loading... " + p + "%" : "Starting up...";
+      }).then(function () {
+        document.getElementById("loader").classList.add("done");
+        document.querySelector("#unity-canvas").focus();
+      }).catch(function (message) {
+        showError("VoidFlow couldn't start in this browser: " + message);
+      });
+    };
+    script.onerror = function () { showError("Couldn't load the game files. Check your connection and refresh."); };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
