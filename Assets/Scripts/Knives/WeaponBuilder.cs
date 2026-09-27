@@ -44,6 +44,7 @@ namespace VoidFlow
         {
             KnifeModel.Talon => 2.4f,
             KnifeModel.Butterfly => 2.8f,
+            KnifeModel.Bayonet or KnifeModel.Skeleton or KnifeModel.KukriKnife => 3.3f,
             KnifeModel.Reaper or KnifeModel.Saber or KnifeModel.Shardfang or KnifeModel.Kukri or KnifeModel.Claws
                 or KnifeModel.Axe or KnifeModel.Sai or KnifeModel.Spear or KnifeModel.Kris => 3.2f,
             _ => 2.9f,
@@ -221,6 +222,9 @@ namespace VoidFlow
             switch (skin.model)
             {
                 case KnifeModel.Butterfly: Butterfly(parts, finish); break;
+                case KnifeModel.Bayonet: Bayonet(parts, finish); break;
+                case KnifeModel.Skeleton: Skeleton(parts, finish); break;
+                case KnifeModel.KukriKnife: KukriKnife(parts, finish); break;
                 case KnifeModel.HollowMoon: HollowMoon(parts, finish); break;
                 case KnifeModel.Tidebreaker: Tidebreaker(parts, finish); break;
                 case KnifeModel.Colossus: Colossus(parts, finish); break;
@@ -345,6 +349,183 @@ namespace VoidFlow
             MeshPart(parts.blade, finish, RailBlade(spine, edge, 0.0024f, 0.0003f), Vector3.zero, Quaternion.identity);
             parts.tip = Tip(parts.blade, spine[^1]);
         }
+
+        // A flat part cut from its side outline in the knife's own plane (x across the blade,
+        // y along it), `half` thick either side of the middle
+        Transform Flat(Transform t, Material mat, Vector2[] outline, Vector2[][] holes, float half, float bevel, string name) =>
+            MeshPart(t, mat, ProfileMesh.Extrude(outline, holes, half, bevel, name), Vector3.zero, Quaternion.Euler(0f, 90f, 0f));
+
+        static Vector2[] Circle(Vector2 c, float r, int n = 20)
+        {
+            var pts = new Vector2[n];
+            for (int i = 0; i < n; i++)
+            {
+                float a = i * Mathf.PI * 2f / n;
+                pts[i] = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
+            }
+            return pts;
+        }
+
+        // An M9-style bayonet: a long clip-point blade with a sawback along the spine and the
+        // wire-cutter slot at its base, a steel crossguard with the muzzle ring over the spine,
+        // a ribbed oval grip and a steel pommel with its release latch
+        void Bayonet(WeaponParts parts, Material finish)
+        {
+            var t = parts.root;
+            Material steel = Mat(new Color(0.55f, 0.56f, 0.58f), 0.8f, 0.95f);
+            Material grip = Mat(new Color(0.045f, 0.045f, 0.05f), 0.25f, 0f);
+            Material rib = Mat(new Color(0.015f, 0.015f, 0.018f), 0.15f, 0f);
+            Material hole = Mat(new Color(0.01f, 0.01f, 0.012f), 0.2f, 0f);
+
+            const int n = 64;
+            var spine = new Vector2[n + 1];
+            var edge = new Vector2[n + 1];
+            for (int i = 0; i <= n; i++)
+            {
+                float y = 0.006f + 0.182f * i / n;
+                float sx = 0.012f;
+                if (y > 0.035f && y < 0.1f && i % 2 == 0) sx = 0.0155f; // saw teeth
+                if (y > 0.132f) sx = Mathf.Lerp(0.012f, -0.003f, Mathf.Pow((y - 0.132f) / 0.056f, 0.85f)); // clip
+                float k = Mathf.Clamp01((y - 0.125f) / 0.063f);
+                spine[i] = new Vector2(sx, y);
+                edge[i] = new Vector2(Mathf.Lerp(-0.0195f, -0.003f, Mathf.SmoothStep(0f, 1f, k)), y);
+            }
+            edge[n] = spine[n];
+            MeshPart(t, finish, RailBlade(spine, edge, 0.0027f, 0.0003f), Vector3.zero, Quaternion.identity);
+            parts.tip = Tip(t, spine[^1]);
+            // Wire-cutter slot through the blade near its base
+            foreach (float y in new[] { 0.024f, 0.036f })
+                Part(t, PrimitiveType.Cylinder, hole, new Vector3(-0.002f, y, 0f), new Vector3(0.0085f, 0.0034f, 0.0085f), Quaternion.Euler(90f, 0f, 0f));
+            Part(t, PrimitiveType.Cube, hole, new Vector3(-0.002f, 0.03f, 0f), new Vector3(0.0085f, 0.012f, 0.0068f));
+            // Fuller: a dark groove down both flats
+            foreach (float side in new[] { 1f, -1f })
+                Part(t, PrimitiveType.Cube, rib, new Vector3(0.006f, 0.085f, side * 0.0024f), new Vector3(0.0022f, 0.07f, 0.0006f));
+
+            // Crossguard, with the muzzle ring standing over the spine
+            Flat(t, steel, new Vector2[]
+            {
+                new(-0.029f, 0.006f), new(0.018f, 0.006f), new(0.021f, 0.002f), new(0.018f, -0.006f), new(-0.02f, -0.006f), new(-0.03f, -0.002f),
+            }, null, 0.0085f, 0.0025f, "Crossguard");
+            MeshPart(t, steel, Torus(0.0105f, 0.0032f, 24, 10), new Vector3(0.031f, 0f, 0f), Quaternion.Euler(90f, 0f, 0f));
+
+            // Grip: an oval section, swelling a little in the middle, ribbed across
+            Flat(t, grip, new Vector2[]
+            {
+                new(0.011f, -0.006f), new(0.0125f, -0.04f), new(0.012f, -0.075f), new(0.011f, -0.104f),
+                new(-0.012f, -0.104f), new(-0.0145f, -0.075f), new(-0.0135f, -0.04f), new(-0.012f, -0.006f),
+            }, null, 0.0115f, 0.0055f, "Grip");
+            for (int r = 0; r < 9; r++)
+            {
+                float y = -0.016f - r * 0.0098f;
+                Part(t, PrimitiveType.Cube, rib, new Vector3(-0.0005f, y, 0f), new Vector3(0.0265f, 0.0022f, 0.0215f));
+            }
+            // Pommel: steel cap, release latch on the spine side, the lug slot underneath
+            Flat(t, steel, new Vector2[]
+            {
+                new(0.012f, -0.103f), new(0.014f, -0.112f), new(0.01f, -0.121f), new(-0.013f, -0.121f), new(-0.016f, -0.112f), new(-0.013f, -0.103f),
+            }, null, 0.0105f, 0.003f, "Pommel");
+            Part(t, PrimitiveType.Cube, steel, new Vector3(0.016f, -0.106f, 0f), new Vector3(0.006f, 0.012f, 0.008f), Quaternion.Euler(0f, 0f, -12f));
+            Part(t, PrimitiveType.Cube, hole, new Vector3(-0.0005f, -0.1215f, 0f), new Vector3(0.016f, 0.0015f, 0.004f));
+        }
+
+        // A skeleton knife: a wide drop-point blade whose steel runs on into an open-frame handle
+        // (the finish covers all of it) ending in a finger ring, the frame wrapped in cord
+        void Skeleton(WeaponParts parts, Material finish)
+        {
+            var t = parts.root;
+            Material cord = Mat(new Color(0.06f, 0.06f, 0.055f), 0.2f, 0f);
+            Material cord2 = Mat(new Color(0.1f, 0.095f, 0.085f), 0.2f, 0f);
+            Material hole = Mat(new Color(0.01f, 0.01f, 0.012f), 0.2f, 0f);
+
+            const int n = 30;
+            var spine = new Vector2[n + 1];
+            var edge = new Vector2[n + 1];
+            for (int i = 0; i <= n; i++)
+            {
+                float s = (float)i / n, y = 0.002f + 0.158f * s;
+                float drop = Mathf.Clamp01((s - 0.62f) / 0.38f);
+                float sx = Mathf.Lerp(0.0135f, 0.001f, drop * drop);
+                float belly = Mathf.Clamp01((s - 0.55f) / 0.45f);
+                float ex = Mathf.Lerp(-0.0215f, 0.001f, Mathf.Pow(belly, 1.7f));
+                spine[i] = new Vector2(sx, y);
+                edge[i] = new Vector2(ex, y);
+            }
+            MeshPart(t, finish, RailBlade(spine, edge, 0.0026f, 0.0003f), Vector3.zero, Quaternion.identity);
+            parts.tip = Tip(t, spine[^1]);
+            // Jimping along the spine at the thumb
+            for (int k = 0; k < 6; k++)
+                Part(t, PrimitiveType.Cube, hole, new Vector3(0.0135f, 0.012f + k * 0.0045f, 0f), new Vector3(0.0028f, 0.0018f, 0.0056f));
+
+            // The frame: spine side down to the ring, round the ring, and up the edge side past a
+            // finger choil to the heel of the blade
+            var c = new Vector2(0f, -0.128f);
+            const float R = 0.0195f;
+            var frame = new List<Vector2> { new(-0.0215f, 0.006f), new(0.0135f, 0.006f), new(0.0125f, -0.02f), new(0.0118f, -0.07f), new(0.011f, -0.105f) };
+            float a0 = Mathf.Acos(0.011f / R), a1 = Mathf.PI - a0 - Mathf.PI * 2f;
+            for (int i = 0; i <= 20; i++)
+            {
+                float a = Mathf.Lerp(a0, a1, i / 20f);
+                frame.Add(c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * R);
+            }
+            frame.AddRange(new Vector2[] { new(-0.0115f, -0.098f), new(-0.013f, -0.08f), new(-0.0115f, -0.058f), new(-0.013f, -0.038f), new(-0.019f, -0.014f), new(-0.0215f, -0.004f) });
+            var slot = new Vector2[] { new(0.004f, -0.014f), new(0.0045f, -0.092f), new(-0.004f, -0.096f), new(-0.0055f, -0.014f) };
+            Flat(t, finish, frame.ToArray(), new[] { slot, Circle(c, 0.0118f) }, 0.0024f, 0.0011f, "Frame");
+            parts.ringCenter = new Vector3(c.x, c.y, 0f);
+
+            // Cord wraps round the middle of the frame, leaving the slot showing at either end
+            for (int w = 0; w < 11; w++)
+            {
+                float y = -0.026f - w * 0.0055f;
+                Part(t, PrimitiveType.Cube, w % 2 == 0 ? cord : cord2, new Vector3(0f, y, 0f), new Vector3(0.0265f, 0.0048f, 0.0075f), Quaternion.Euler(0f, 0f, w % 2 == 0 ? 10f : -10f));
+            }
+        }
+
+        // A kukri: the heavy blade bends forward toward its edge and swells into a wide belly
+        // before the point, with the little notch at the base of the edge; a steel bolster, a
+        // ringed grip, and the flared hooked pommel
+        void KukriKnife(WeaponParts parts, Material finish)
+        {
+            var t = parts.root;
+            Material steel = Mat(new Color(0.5f, 0.5f, 0.52f), 0.75f, 0.95f);
+            Material grip = Mat(new Color(0.05f, 0.045f, 0.045f), 0.3f, 0f);
+            Material hole = Mat(new Color(0.01f, 0.01f, 0.012f), 0.2f, 0f);
+
+            const int n = 40;
+            var spine = new Vector2[n + 1];
+            var edge = new Vector2[n + 1];
+            for (int i = 0; i <= n; i++)
+            {
+                float s = (float)i / n, y = 0.008f + 0.19f * s;
+                float bend = -0.06f * Mathf.Pow(s, 1.6f);
+                float w = 0.02f + 0.036f * Mathf.Sin(Mathf.Min(s / 0.7f, 1f) * Mathf.PI * 0.5f);
+                float tip = Mathf.Clamp01((s - 0.8f) / 0.2f);
+                float sx = bend + 0.009f - tip * tip * 0.02f;
+                float ex = bend + 0.009f - w;
+                ex = Mathf.Lerp(ex, sx - 0.001f, Mathf.Pow(tip, 0.9f));
+                // The notch at the base of the edge
+                float notch = Mathf.Clamp01(1f - Mathf.Abs(y - 0.024f) / 0.007f);
+                ex += notch * 0.007f;
+                spine[i] = new Vector2(sx, y + tip * tip * 0.004f);
+                edge[i] = new Vector2(ex, y - 0.012f * s);
+            }
+            MeshPart(t, finish, RailBlade(spine, edge, 0.0036f, 0.0004f), Vector3.zero, Quaternion.identity);
+            parts.tip = Tip(t, spine[^1]);
+
+            // Bolster
+            Flat(t, steel, new Vector2[] { new(0.013f, 0.009f), new(0.014f, -0.004f), new(-0.016f, -0.004f), new(-0.013f, 0.009f) }, null, 0.0105f, 0.003f, "Bolster");
+            // Grip: swelling in the middle, then flaring out and hooking down to the pommel
+            Flat(t, grip, new Vector2[]
+            {
+                new(0.0115f, -0.004f), new(0.0135f, -0.04f), new(0.012f, -0.08f), new(0.013f, -0.1f), new(0.017f, -0.112f), new(0.015f, -0.12f),
+                new(0.004f, -0.121f), new(-0.012f, -0.117f), new(-0.021f, -0.121f), new(-0.019f, -0.11f), new(-0.013f, -0.098f), new(-0.0115f, -0.08f),
+                new(-0.0145f, -0.045f), new(-0.013f, -0.004f),
+            }, null, 0.0112f, 0.005f, "Grip");
+            foreach (float y in new[] { -0.018f, -0.024f })
+                Part(t, PrimitiveType.Cube, steel, new Vector3(-0.0008f, y, 0f), new Vector3(0.0275f, 0.0025f, 0.0225f));
+            Part(t, PrimitiveType.Cube, steel, new Vector3(-0.001f, -0.1215f, 0f), new Vector3(0.028f, 0.003f, 0.018f));
+            Part(t, PrimitiveType.Cylinder, hole, new Vector3(0.001f, -0.1105f, 0f), new Vector3(0.0045f, 0.0115f, 0.0045f), Quaternion.Euler(90f, 0f, 0f));
+        }
+
 
         // A curved katana blade: spine on +X, gentle curve toward the spine, rounded tip
         static (Vector2[], Vector2[]) Katana(float length, float width, float curve, float tipLength, float start)

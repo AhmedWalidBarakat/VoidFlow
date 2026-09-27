@@ -4,6 +4,7 @@ namespace VoidFlow
 {
     public enum KnifeModel { Talon, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle, Reaper, Saber, Shardfang, Railgun, Hellfire, Kukri, Claws, Axe, Sai, Spear, Kris, Prism, Bone, Lance, Seraph,
         Crescent, Leviathan, Storm, Clockwork, Orbit, Serpent, ScytheRifle, BlackHole, Glitch,
+        Bayonet, Skeleton, KukriKnife,
         Glove, GloveArmor, GloveClaws, GloveRunes, GloveScales, GloveKnuckles, GloveBone, GloveCrystal, GloveWings, GloveStorm, GloveWraps }
 
     // Finishes. Most are painted in code (our own takes on the classic flashy knife finishes,
@@ -65,6 +66,9 @@ namespace VoidFlow
             var m when IsGlove(m) => m == KnifeModel.Glove ? "GLOVES" : "VOID GLOVES",
             KnifeModel.Talon => "TALON KNIFE",
             KnifeModel.Butterfly => "BUTTERFLY",
+            KnifeModel.Bayonet => "M9 BAYONET",
+            KnifeModel.Skeleton => "SKELETON KNIFE",
+            KnifeModel.KukriKnife => "KUKRI KNIFE",
             KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus => "SWORD",
             KnifeModel.Rifle => "LONGREACH",
             KnifeModel.Reaper => "VOID SCYTHE",
@@ -206,6 +210,24 @@ namespace VoidFlow
             new("Butterfly | Antique Gold", KnifeModel.Butterfly, KnifeFinish.AntiqueGold, SkinRarity.Mythic),
             new("Talon Knife | Holographic", KnifeModel.Talon, KnifeFinish.Holographic, SkinRarity.Mythic),
             new("Butterfly | Holographic", KnifeModel.Butterfly, KnifeFinish.Holographic, SkinRarity.Mythic),
+            // Classic fixed blades: our own takes on the real kukri, M9 bayonet and skeleton knife
+            new("Kukri Knife | Sunset Fade", KnifeModel.KukriKnife, KnifeFinish.SunsetFade, SkinRarity.Mythic),
+            new("Kukri Knife | Red Web", KnifeModel.KukriKnife, KnifeFinish.RedWeb, SkinRarity.Mythic),
+            new("Kukri Knife | Nebula", KnifeModel.KukriKnife, KnifeFinish.Nebula, SkinRarity.Mythic),
+            new("Kukri Knife | Emerald Nebula", KnifeModel.KukriKnife, KnifeFinish.EmeraldNebula, SkinRarity.Mythic),
+            new("Kukri Knife | Carbon", KnifeModel.KukriKnife, KnifeFinish.Carbon, SkinRarity.Mythic),
+            new("M9 Bayonet | Sunset Fade", KnifeModel.Bayonet, KnifeFinish.SunsetFade, SkinRarity.Mythic),
+            new("M9 Bayonet | Nebula", KnifeModel.Bayonet, KnifeFinish.Nebula, SkinRarity.Mythic),
+            new("M9 Bayonet | Sapphire", KnifeModel.Bayonet, KnifeFinish.Sapphire, SkinRarity.Mythic),
+            new("M9 Bayonet | Ruby", KnifeModel.Bayonet, KnifeFinish.Ruby, SkinRarity.Mythic),
+            new("M9 Bayonet | Red Web", KnifeModel.Bayonet, KnifeFinish.RedWeb, SkinRarity.Mythic),
+            new("M9 Bayonet | Amber Stripe", KnifeModel.Bayonet, KnifeFinish.AmberStripe, SkinRarity.Mythic),
+            new("Skeleton Knife | Sunset Fade", KnifeModel.Skeleton, KnifeFinish.SunsetFade, SkinRarity.Mythic),
+            new("Skeleton Knife | Red Web", KnifeModel.Skeleton, KnifeFinish.RedWeb, SkinRarity.Mythic),
+            new("Skeleton Knife | Nebula", KnifeModel.Skeleton, KnifeFinish.Nebula, SkinRarity.Mythic),
+            new("Skeleton Knife | Emerald Nebula", KnifeModel.Skeleton, KnifeFinish.EmeraldNebula, SkinRarity.Mythic),
+            new("Skeleton Knife | Black Marble", KnifeModel.Skeleton, KnifeFinish.BlackMarble, SkinRarity.Mythic),
+            new("Skeleton Knife | 24K Gold", KnifeModel.Skeleton, KnifeFinish.Gold, SkinRarity.Mythic),
         };
 
         public static readonly Skin[] Snipers =

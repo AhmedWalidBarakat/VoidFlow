@@ -166,6 +166,55 @@ namespace VoidFlow
             };
         }
 
+        // The fixed blades (kukri, M9 bayonet, skeleton knife), after the classic shooters'
+        // inspects: the hand brings the knife up and turns palm-to-you so the whole flat of the
+        // blade shows, tilts it to catch the light, rolls it over in the fingers to show the
+        // other side, then each does its own trick before going back to the hold: the bayonet
+        // whirls once round in the hand, the kukri is tossed up tumbling and caught, and the
+        // skeleton knife spins on a finger through its ring (held F keeps that one spinning)
+        static Routine FixedBladeRoutine(KnifeModel model)
+        {
+            Quaternion showA = FB(-0.7f, 0.7f, 0.15f, 0f, 0.05f, 1f), showB = FB(-0.55f, 0.8f, 0.25f, 0.15f, 0f, 1f);
+            var up = new Vector3(0.03f, -0.1f, 0.3f);
+            var ks = new List<Key>();
+            var k = IdleKey(false); ks.Add(k);
+            k = k.At(0.4f); k.rp = up; k.rq = showA; k.rOpen = 0.1f; ks.Add(k);
+            k = k.At(0.95f); k.rq = showB; ks.Add(k);
+            k = k.At(1.2f); k.rOpen = 0.35f; k.spin = new(0f, 90f, 0f); ks.Add(k);
+            k = k.At(1.45f); k.rOpen = 0f; k.spin = new(0f, 180f, 0f); ks.Add(k);
+            k = k.At(1.9f); k.rq = showA; ks.Add(k);
+            float sustain = 0.95f;
+            int axis = 0;
+            float speed = 0f;
+            (float, AudioClip, float)[] sounds;
+            switch (model)
+            {
+                case KnifeModel.KukriKnife:
+                    k = k.At(2.2f); k.hold = Hold.Air; k.ap = up + new Vector3(-0.02f, 0.1f, 0.03f); k.aq = Quaternion.identity;
+                    k.spin = new(360f, 180f, 0f); k.rp = up + new Vector3(0f, -0.01f, 0f); k.rOpen = 0.6f; ks.Add(k);
+                    k = k.At(2.55f); k.hold = Hold.Right; k.rp = up; k.spin = new(720f, 180f, 0f); k.rOpen = 0f; ks.Add(k);
+                    k = k.At(3.3f); k.rp = RightIdle; k.rq = ForwardIdle; k.spin = new(720f, 360f, 0f); ks.Add(k);
+                    sounds = new[] { (0.3f, WeaponSounds.Slash, 0.25f), (1.3f, WeaponSounds.Tick, 0.35f), (2.1f, WeaponSounds.Slash, 0.4f), (2.55f, WeaponSounds.Tick, 0.5f) };
+                    break;
+                case KnifeModel.Skeleton:
+                    k = k.At(2.05f); k.rOpen = 0.85f; k.rKeep = true; ks.Add(k);
+                    k = k.At(2.65f); k.spin = new(0f, 180f, -720f); ks.Add(k);
+                    k = k.At(2.8f); k.rOpen = 0f; k.rKeep = false; ks.Add(k);
+                    k = k.At(3.4f); k.rp = RightIdle; k.rq = ForwardIdle; k.spin = new(0f, 360f, -720f); ks.Add(k);
+                    sustain = 2.35f; axis = 1; speed = -1080f;
+                    sounds = new[] { (0.3f, WeaponSounds.Slash, 0.25f), (1.3f, WeaponSounds.Tick, 0.35f), (2.2f, WeaponSounds.Slash, 0.3f), (2.8f, WeaponSounds.Tick, 0.4f) };
+                    break;
+                default:
+                    k = k.At(2.15f); k.rOpen = 0.75f; k.rKeep = true; ks.Add(k);
+                    k = k.At(2.5f); k.spin = new(0f, 180f, -360f); ks.Add(k);
+                    k = k.At(2.65f); k.rOpen = 0f; k.rKeep = false; ks.Add(k);
+                    k = k.At(3.3f); k.rp = RightIdle; k.rq = ForwardIdle; k.spin = new(0f, 360f, -360f); ks.Add(k);
+                    sounds = new[] { (0.3f, WeaponSounds.Slash, 0.25f), (1.3f, WeaponSounds.Tick, 0.35f), (2.3f, WeaponSounds.Slash, 0.35f), (2.6f, WeaponSounds.Tick, 0.45f) };
+                    break;
+            }
+            return new Routine { keys = ks.ToArray(), sustainAt = sustain, sustainAxis = axis, sustainSpeed = speed, sounds = sounds };
+        }
+
         // Sword: slid into the sheath at the left hip, then the right arm reaches down from the
         // top right to the hilt and eases the blade just a little way out of the sheath, and
         // holds it there, ready, for as long as F is held; then it's drawn back out
@@ -195,6 +244,7 @@ namespace VoidFlow
         {
             KnifeModel.Talon => TalonRoutine(),
             KnifeModel.Butterfly => ButterflyRoutine(),
+            KnifeModel.Bayonet or KnifeModel.Skeleton or KnifeModel.KukriKnife => FixedBladeRoutine(parts.model),
             KnifeModel.Reaper => ReaperRoutine(),
             KnifeModel.Saber => SaberRoutine(),
             KnifeModel.Shardfang or KnifeModel.Sai or KnifeModel.Kris => ShardRoutine(),
@@ -448,6 +498,7 @@ namespace VoidFlow
         {
             KnifeModel.Talon => knife.ringCenter,
             KnifeModel.Butterfly => Vector3.zero,
+            KnifeModel.Skeleton => knife.ringCenter,
             KnifeModel.Reaper => new Vector3(0f, -0.03f, 0f),
             KnifeModel.Saber => new Vector3(0f, 0.02f, 0f),
             KnifeModel.Axe or KnifeModel.Spear => new Vector3(0f, 0.06f, 0f),
@@ -506,6 +557,29 @@ namespace VoidFlow
             }
             var right = Pose.Blend(RightArm(a), RightArm(b), s);
             var left = Pose.Blend(LeftArm(a), LeftArm(b), s);
+            // Motion flows through the keys: positions, spins and flips follow a curve through
+            // the keys either side, and turns only slow to a stop where they change direction
+            float u = Mathf.InverseLerp(a.t, b.t, t);
+            Key before = i >= 2 ? keys[i - 2] : a, after = i + 1 < keys.Length ? keys[i + 1] : b;
+            float Curve(float v0, float v1, float v2, float v3)
+            {
+                float m1 = Slope(v0, v1, v2, before.t, a.t, b.t), m2 = Slope(v1, v2, v3, a.t, b.t, after.t), dt = b.t - a.t;
+                float u2 = u * u, u3 = u2 * u;
+                return (2f * u3 - 3f * u2 + 1f) * v1 + (u3 - 2f * u2 + u) * m1 * dt + (3f * u2 - 2f * u3) * v2 + (u3 - u2) * m2 * dt;
+            }
+            Vector3 CurveV(System.Func<Key, Vector3> f)
+            {
+                Vector3 v0 = f(before), v1 = f(a), v2 = f(b), v3 = f(after);
+                return new(Curve(v0.x, v1.x, v2.x, v3.x), Curve(v0.y, v1.y, v2.y, v3.y), Curve(v0.z, v1.z, v2.z, v3.z));
+            }
+            float TurnEase(System.Func<Key, Quaternion> f)
+            {
+                float m1 = Carries(f(before), f(a), f(b)) ? 0.8f : 0f, m2 = Carries(f(a), f(b), f(after)) ? 0.8f : 0f;
+                float u2 = u * u, u3 = u2 * u;
+                return (u3 - 2f * u2 + u) * m1 + (3f * u2 - 2f * u3) + (u3 - u2) * m2;
+            }
+            right = new Pose(CurveV(k => RightArm(k).p), Quaternion.Slerp(RightArm(a).q, RightArm(b).q, TurnEase(k => RightArm(k).q)));
+            left = new Pose(CurveV(k => LeftArm(k).p), Quaternion.Slerp(LeftArm(a).q, LeftArm(b).q, TurnEase(k => LeftArm(k).q)));
             // Knife tricks stay low on the screen so you can still see the run: anything above
             // the resting height is pulled down (the swords' sheath moves are low already)
             bool keepLow = !knife.IsSword && knife.model != KnifeModel.Butterfly; // (the butterfly pops up for its somersault)
@@ -531,8 +605,8 @@ namespace VoidFlow
             knife.root.localScale = Vector3.one * size;
 
             // Spins about the knife's pivot, and orbits around the right arm
-            Vector3 spin = Vector3.Lerp(a.spin, b.spin, s);
-            float orbit = Mathf.Lerp(a.orbit, b.orbit, s);
+            Vector3 spin = CurveV(k => k.spin);
+            float orbit = Curve(before.orbit, a.orbit, b.orbit, after.orbit);
             if (routine.sustainAxis == 1) spin.z += Mathf.Sign(routine.sustainSpeed) * sustainExtra;
             if (routine.sustainAxis == 2) orbit += sustainExtra;
             Vector3 pivotAt = knifePose.p + knifePose.q * pivot;
@@ -568,7 +642,7 @@ namespace VoidFlow
             // Butterfly handles and blade flip as the routine says
             if (knife.model == KnifeModel.Butterfly && knife.blade && knife.swingHandle)
             {
-                float flips = Mathf.Lerp(a.flips, b.flips, s) + (routine.sustainAxis == 3 ? sustainExtra / 360f * 2f : 0f);
+                float flips = Curve(before.flips, a.flips, b.flips, after.flips) + (routine.sustainAxis == 3 ? sustainExtra / 360f * 2f : 0f);
                 float frac = flips - Mathf.Floor(flips);
                 knife.swingHandle.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(frac * Mathf.PI) * 150f);
                 knife.blade.localRotation = Quaternion.Euler(0f, 0f, flips * 180f);
@@ -587,6 +661,26 @@ namespace VoidFlow
 
             // Dark flames wreathe the hilt while it's held at the sheath
             UpdateFlames(knifePose.p + knifePose.q * new Vector3(0f, -0.055f, 0f), knifePose.q, onHilt, time);
+        }
+
+        // The slope a curve passes a key with: none where the value stops or turns back there
+        // (so holds stay still and nothing overshoots), otherwise carried through smoothly
+        static float Slope(float p0, float p1, float p2, float t0, float t1, float t2)
+        {
+            float d0 = (p1 - p0) / Mathf.Max(t1 - t0, 1e-4f), d1 = (p2 - p1) / Mathf.Max(t2 - t1, 1e-4f);
+            if (d0 * d1 <= 0f) return 0f;
+            float m = (p2 - p0) / Mathf.Max(t2 - t0, 1e-4f);
+            return Mathf.Sign(m) * Mathf.Min(Mathf.Abs(m), 3f * Mathf.Min(Mathf.Abs(d0), Mathf.Abs(d1)));
+        }
+
+        // Whether a turn keeps going the same way through the middle rotation
+        static bool Carries(Quaternion q0, Quaternion q1, Quaternion q2)
+        {
+            (q1 * Quaternion.Inverse(q0)).ToAngleAxis(out float a0, out Vector3 x0);
+            (q2 * Quaternion.Inverse(q1)).ToAngleAxis(out float a1, out Vector3 x1);
+            if (a0 > 180f) { a0 = 360f - a0; x0 = -x0; }
+            if (a1 > 180f) { a1 = 360f - a1; x1 = -x1; }
+            return a0 > 2f && a1 > 2f && Vector3.Dot(x0, x1) > 0.5f;
         }
 
         // A knife scaled about its handle: its root moves toward the handle

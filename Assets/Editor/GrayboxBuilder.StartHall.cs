@@ -164,7 +164,7 @@ namespace VoidFlow.EditorTools
             // The Void Case gallery: everything a Void Case can drop, to look at (not to take).
             // Knives down the left wall, snipers along the right, gloves on the back wall.
             GalleryWall(hall, "KNIVES", Skins.Knives, ItemSlot.Secondary, new Vector3(left, 0f, HallBack + 6f), Vector3.forward, Vector3.right,
-                tiers: 3, spacing: 1.95f, depth: 1.35f, step: 0.22f, scale: 3.8f, lift: 0.75f, rampMat, metal, ivory, gold);
+                tiers: 4, spacing: 1.95f, depth: 1.35f, step: 0.22f, scale: 3.8f, lift: 0.75f, rampMat, metal, ivory, gold);
             GalleryWall(hall, "SNIPERS", Skins.Snipers, ItemSlot.Primary, new Vector3(right, 0f, HallFront - 8f), Vector3.back, Vector3.left,
                 tiers: 4, spacing: 2.7f, depth: 1.7f, step: 0f, scale: 1.1f, lift: 0.5f, rampMat, metal, ivory, purple);
             int gloveColumns = Mathf.CeilToInt((Skins.Gloves.Length - 1) / 2f);
