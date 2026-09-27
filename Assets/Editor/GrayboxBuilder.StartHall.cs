@@ -130,18 +130,31 @@ namespace VoidFlow.EditorTools
             Shape(PrimitiveType.Cylinder, "SpawnPad", hall, spawnPos.WithY(0.04f), new Vector3(4.6f, 0.04f, 4.6f), dark);
             Shape(PrimitiveType.Cylinder, "SpawnCore", hall, spawnPos.WithY(0.07f), new Vector3(1.4f, 0.03f, 1.4f), violet);
 
-            // Speed gates down the runway: dark posts with lit inner edges, a glowing underside
+            // White marble columns lining the runway in pairs: a gold plinth and marble step, a
+            // round white shaft with gold bands and lit gold inlays, a white capital under a gold
+            // cap, and a glowing orb on top (gold and sky blue in turn)
             for (int g = 0; g < 4; g++)
             {
                 float z = HallBack + 18f + g * 9f;
-                Material glow = g % 2 == 0 ? gold : purple;
+                Material orb = g % 2 == 0 ? gold : purple;
                 foreach (float sx in new[] { -1f, 1f })
                 {
-                    Box($"Gate{g + 1}Post{(sx < 0 ? "L" : "R")}", new Vector3(lane + sx * 4.5f, 2.7f, z), new Vector3(0.5f, 5.4f, 0.5f), metal, hall);
-                    Deco("GateEdge", hall, new Vector3(lane + sx * 4.23f, 2.6f, z), new Vector3(0.04f, 4.8f, 0.22f), Quaternion.identity, glow);
+                    var foot = new Vector3(lane + sx * 4.5f, 0f, z);
+                    Deco("ColumnPlinth", hall, foot + Vector3.up * 0.175f, new Vector3(1.1f, 0.35f, 1.1f), Quaternion.identity, metal);
+                    Deco("ColumnStep", hall, foot + Vector3.up * 0.425f, new Vector3(0.95f, 0.15f, 0.95f), Quaternion.identity, ivory);
+                    var shaft = Shape(PrimitiveType.Cylinder, $"Column{g + 1}{(sx < 0 ? "L" : "R")}", hall, foot + Vector3.up * 2.6f, new Vector3(0.7f, 2.1f, 0.7f), ivory);
+                    shaft.AddComponent<CapsuleCollider>();
+                    foreach (float y in new[] { 0.6f, 4.6f })
+                        Shape(PrimitiveType.Cylinder, "ColumnBand", hall, foot + Vector3.up * y, new Vector3(0.76f, 0.04f, 0.76f), metal);
+                    for (int k = 0; k < 4; k++)
+                    {
+                        float ang = (k * 90f + 45f) * Mathf.Deg2Rad;
+                        Deco("ColumnInlay", hall, foot + new Vector3(Mathf.Cos(ang) * 0.35f, 2.6f, Mathf.Sin(ang) * 0.35f), new Vector3(0.03f, 3.7f, 0.03f), Quaternion.identity, gold);
+                    }
+                    Deco("ColumnCapital", hall, foot + Vector3.up * 4.85f, new Vector3(1f, 0.3f, 1f), Quaternion.identity, ivory);
+                    Deco("ColumnCap", hall, foot + Vector3.up * 5.04f, new Vector3(1.1f, 0.08f, 1.1f), Quaternion.identity, metal);
+                    Shape(PrimitiveType.Sphere, "ColumnOrb", hall, foot + Vector3.up * 5.35f, Vector3.one * 0.45f, orb);
                 }
-                Box($"Gate{g + 1}Beam", new Vector3(lane, 5.45f, z), new Vector3(9.5f, 0.5f, 0.5f), metal, hall);
-                Deco("GateGlow", hall, new Vector3(lane, 5.18f, z), new Vector3(8.3f, 0.04f, 0.22f), Quaternion.identity, glow);
             }
 
             // Over the runway near the opening: two holographic diamonds turning opposite ways
@@ -212,7 +225,10 @@ namespace VoidFlow.EditorTools
             {
                 var sign = new GameObject("InventorySign").transform;
                 sign.SetParent(hall, false);
-                sign.SetPositionAndRotation(new Vector3(lane, 7.6f, HallBack + 23f), Quaternion.identity);
+                // Stands beside the runway on the right, turned toward you as you spawn (it used to
+                // hang over the runway, right in the way of the view)
+                sign.SetPositionAndRotation(new Vector3(lane + 7f, 3.4f, HallBack + 16f), Quaternion.Euler(0f, 35f, 0f));
+                sign.localScale = Vector3.one * 0.7f;
                 Material hot = MakeGlow("GlowInventory", new Color(1f, 0.3f, 0.75f), 1.8f);
                 Material cap = MakeGlow("GlowKeycap", new Color(0.85f, 0.78f, 1f), 0.7f);
                 Material capTop = MakeGlow("GlowKeycapTop", new Color(0.95f, 0.9f, 1f), 1.2f);
@@ -230,10 +246,9 @@ namespace VoidFlow.EditorTools
                 Deco("KeycapBase", key, Vector3.zero, new Vector3(1.7f, 1.7f, 0.4f), Quaternion.identity, cap, local: true);
                 Deco("KeycapTop", key, new Vector3(0f, 0.04f, -0.22f), new Vector3(1.4f, 1.4f, 0.06f), Quaternion.identity, capTop, local: true);
                 Label("I", key, new Vector3(0f, 0.06f, -0.28f), 0f, 1.25f, new Color(0.18f, 0.06f, 0.3f), local: true);
-                var drift = sign.gameObject.AddComponent<Floaty>();
-                drift.spin = Vector3.zero;
-                drift.bobHeight = 0.18f;
-                drift.bobSpeed = 0.45f;
+                // Its stand: a slim gold post on a round foot
+                Deco("SignPost", sign, new Vector3(0f, -3.4f, 0.1f), new Vector3(0.22f, 4.2f, 0.22f), Quaternion.identity, metal, local: true);
+                Deco("SignFoot", sign, new Vector3(0f, -4.8f, 0.1f), new Vector3(1.6f, 0.12f, 1.6f), Quaternion.identity, dark, local: true);
                 var bob = key.gameObject.AddComponent<Floaty>();
                 bob.spin = Vector3.zero;
                 bob.bobHeight = 0.07f;
@@ -380,10 +395,12 @@ namespace VoidFlow.EditorTools
             }
         }
 
-        // A gallery wall: lit ledges stepped up the wall, each item spinning over a small pad
-        // glowing in its rarity color, its name on the ledge's edge. Mythics fill the lower
-        // ledges and the Voids burn along the top. `start` is where the first column meets the
-        // wall, `along` runs down the wall and `outward` points into the hall.
+        // A gallery wall, a modern display case: a dark lacquered wall of lit niches, one per
+        // item, each backlit in its rarity's color and parted from the next by a slim gold fin;
+        // slim dark shelves with a glowing front edge and a soft light under them; every item
+        // turning over a small lit pedestal, its name on a plaque on the shelf's edge. Mythics
+        // fill the lower shelves and the Voids glow along the top. `start` is where the first
+        // column meets the wall, `along` runs down the wall and `outward` points into the hall.
         static void GalleryWall(Transform hall, string title, Skins.Skin[] pool, ItemSlot slot, Vector3 start, Vector3 along, Vector3 outward,
             int tiers, float spacing, float depth, float step, float scale, float lift, Material rampMat, Material metal, Material dark, Material edge)
         {
@@ -397,29 +414,62 @@ namespace VoidFlow.EditorTools
             float yaw = Mathf.Atan2(-outward.x, -outward.z) * Mathf.Rad2Deg; // labels face into the hall
             Vector3 Size(float alongLen, float h, float outLen) => along.x != 0f ? new Vector3(alongLen, h, outLen) : new Vector3(outLen, h, alongLen);
             const float tierHeight = 1.4f, firstLedge = 0.9f;
-            float top = firstLedge + tiers * tierHeight;
+            float top = firstLedge + tiers * tierHeight, wide = length + spacing;
 
-            // Backboard with a lit header line, and the section title above it
-            Deco($"{title}Backboard", hall, center + outward * 0.04f + Vector3.up * (top * 0.5f + 0.3f), Size(length + spacing + 1f, top + 0.6f, 0.06f), Quaternion.identity, dark);
-            Deco($"{title}HeaderLine", hall, center + outward * 0.09f + Vector3.up * (top + 0.65f), Size(length + spacing + 1f, 0.06f, 0.04f), Quaternion.identity, edge);
-            Label(title, hall, center + outward * 0.1f + Vector3.up * (top + 1.35f), yaw, 1.1f, Color.white);
-            Label($"in the Void Case   ·   {mythics} Mythic   ·   {items.Count - mythics} Void", hall, center + outward * 0.1f + Vector3.up * (top + 0.95f), yaw, 0.3f, new Color(0.8f, 0.7f, 1f));
+            Material lacquer = MakeMaterial($"Gallery{title}Wall", new Color(0.035f, 0.04f, 0.06f), GrayboxBuilder.metal);
+            lacquer.SetFloat("_Smoothness", 0.85f);
+            lacquer.SetFloat("_Metallic", 0.4f);
+            Material shelf = MakeMaterial($"Gallery{title}Shelf", new Color(0.08f, 0.085f, 0.11f), GrayboxBuilder.metal);
+            shelf.SetFloat("_Smoothness", 0.9f);
+            shelf.SetFloat("_Metallic", 0.7f);
+            Material shelfEdge = MakeGlow($"Gallery{title}Edge", new Color(1f, 0.88f, 0.7f), 1.6f);
+            Material under = MakeGlow($"Gallery{title}Under", new Color(1f, 0.85f, 0.65f), 0.5f);
+            var nicheGlow = new System.Collections.Generic.Dictionary<SkinRarity, Material>();
+            var padGlow = new System.Collections.Generic.Dictionary<SkinRarity, Material>();
+            Color RarityColor(SkinRarity r) => r == SkinRarity.Void ? new Color(0.6f, 0.25f, 1f) : Skins.RarityColor(r);
 
+            // The lacquered wall, a gold frame round it, and the title over it on a lit band
+            Deco($"{title}Wall", hall, center + outward * 0.05f + Vector3.up * (top * 0.5f + 0.35f), Size(wide + 0.6f, top + 0.7f, 0.1f), Quaternion.identity, lacquer);
+            foreach (float h in new[] { 0.02f, top + 0.7f })
+                Deco($"{title}FrameH", hall, center + outward * 0.1f + Vector3.up * h, Size(wide + 0.7f, 0.07f, 0.06f), Quaternion.identity, metal);
+            foreach (float side in new[] { -1f, 1f })
+                Deco($"{title}FrameV", hall, center + along * (side * (wide * 0.5f + 0.32f)) + outward * 0.1f + Vector3.up * (top * 0.5f + 0.35f), Size(0.07f, top + 0.72f, 0.06f), Quaternion.identity, metal);
+            Deco($"{title}TitleBand", hall, center + outward * 0.08f + Vector3.up * (top + 1.35f), Size(wide * 0.55f, 1.1f, 0.06f), Quaternion.identity, lacquer);
+            Deco($"{title}TitleLine", hall, center + outward * 0.12f + Vector3.up * (top + 0.84f), Size(wide * 0.55f, 0.035f, 0.03f), Quaternion.identity, edge);
+            Label(title, hall, center + outward * 0.13f + Vector3.up * (top + 1.5f), yaw, 0.95f, Color.white);
+            Label($"{mythics} MYTHIC   ·   {items.Count - mythics} VOID   ·   from the Void Case", hall, center + outward * 0.13f + Vector3.up * (top + 1.03f), yaw, 0.24f, new Color(1f, 0.82f, 0.55f));
+
+            // Shelves: slim and dark, a glowing front edge, a soft light underneath
             for (int t = 0; t < tiers; t++)
             {
                 float y = firstLedge + t * tierHeight, d = depth - t * step;
-                Box($"{title}Ledge{t + 1}", center + outward * (d * 0.5f) + Vector3.up * y, Size(length + spacing, 0.12f, d), metal, hall);
-                Deco($"{title}LedgeEdge", hall, center + outward * (d + 0.01f) + Vector3.up * y, Size(length + spacing, 0.04f, 0.03f), Quaternion.identity, edge);
+                Box($"{title}Shelf{t + 1}", center + outward * (d * 0.5f) + Vector3.up * y, Size(wide, 0.05f, d), shelf, hall);
+                Deco($"{title}ShelfEdge", hall, center + outward * (d + 0.005f) + Vector3.up * (y + 0.005f), Size(wide, 0.02f, 0.012f), Quaternion.identity, shelfEdge);
+                Deco($"{title}ShelfUnder", hall, center + outward * (d * 0.55f) + Vector3.up * (y - 0.028f), Size(wide - 0.1f, 0.005f, d * 0.7f), Quaternion.identity, under);
             }
             for (int n = 0; n < items.Count; n++)
             {
                 int t = n / columns, c = n % columns, index = items[n];
                 var skin = pool[index];
                 float y = firstLedge + t * tierHeight, d = depth - t * step;
-                Vector3 at = start + along * (c * spacing) + outward * (d * 0.55f);
-                Color color = skin.rarity == SkinRarity.Void ? new Color(0.6f, 0.25f, 1f) : Skins.RarityColor(skin.rarity);
-                Material glow = MakeGlow($"Glow{Skins.RarityName(skin.rarity)}", color, 0.8f);
-                Deco("Pad", hall, at + Vector3.up * (y + 0.075f), new Vector3(0.36f, 0.02f, 0.36f), Quaternion.identity, glow);
+                Color color = RarityColor(skin.rarity);
+                if (!nicheGlow.TryGetValue(skin.rarity, out var niche))
+                {
+                    nicheGlow[skin.rarity] = niche = MakeGlow($"Gallery{title}Niche{skin.rarity}", color, 0.18f);
+                    padGlow[skin.rarity] = MakeGlow($"Gallery{title}Pad{skin.rarity}", color, 1.3f);
+                }
+                Vector3 column = start + along * (c * spacing);
+                // The niche: outlined in thin light of its rarity's color
+                float nw = spacing * 0.86f, nh = tierHeight * 0.8f, ny = y + tierHeight * 0.48f;
+                Vector3 back = column + outward * 0.115f;
+                Deco("NicheTop", hall, back + Vector3.up * (ny + nh * 0.5f), Size(nw, 0.018f, 0.015f), Quaternion.identity, padGlow[skin.rarity]);
+                foreach (float sd in new[] { -0.5f, 0.5f })
+                    Deco("NicheSide", hall, back + along * (sd * nw) + Vector3.up * ny, Size(0.018f, nh, 0.015f), Quaternion.identity, padGlow[skin.rarity]);
+
+                // The pedestal: a dark disc on a thin glowing ring
+                Vector3 at = column + outward * (d * 0.55f);
+                Shape(PrimitiveType.Cylinder, "PadRing", hall, at + Vector3.up * (y + 0.03f), new Vector3(0.4f, 0.006f, 0.4f), padGlow[skin.rarity]);
+                Shape(PrimitiveType.Cylinder, "Pad", hall, at + Vector3.up * (y + 0.04f), new Vector3(0.36f, 0.012f, 0.36f), shelf);
 
                 var display = new GameObject($"Display {skin.name}").AddComponent<SkinDisplay>();
                 display.transform.SetParent(hall, false);
@@ -434,8 +484,11 @@ namespace VoidFlow.EditorTools
                 display.skinIndex = index;
                 display.template = rampMat;
 
-                string name = UiArtName(skin.name);
-                Label($"{name}\n{Skins.RarityName(skin.rarity).ToUpper()}", hall, start + along * (c * spacing) + outward * (d + 0.04f) + Vector3.up * (y - 0.17f), yaw, 0.075f, color); // on the ledge edge, under the item
+                // Its name on a plaque on the shelf's front edge
+                Vector3 plaque = column + outward * (d + 0.02f) + Vector3.up * (y - 0.12f);
+                Deco("Plaque", hall, plaque - outward * 0.012f, Size(spacing * 0.7f, 0.16f, 0.015f), Quaternion.identity, lacquer);
+                Label(UiArtName(skin.name).ToUpper(), hall, plaque + Vector3.up * 0.028f, yaw, 0.062f, Color.white);
+                Label(Skins.RarityName(skin.rarity).ToUpper(), hall, plaque - Vector3.up * 0.042f, yaw, 0.045f, color);
             }
         }
 
