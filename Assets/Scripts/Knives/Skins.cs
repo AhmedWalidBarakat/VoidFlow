@@ -19,6 +19,7 @@ namespace VoidFlow
         SerpentFang, DragonClaw, DoomAxe, StormSai, Starlance, WraithKris, InfernoReaper, VoidSaber, SolarSaber, EmeraldShard, EventHorizon, TempestRail, Inferno, AbyssalFire, PrismRifle, AmethystPrism, Deathwhisper, PlasmaLance, CrimsonLance, Seraph,
         InfernoGauntlet, FrostTalons, VoidRunes, Dragonscale, PlasmaKnuckles, Bonehand, CrystalGauntlet, SeraphWraps, StormGauntlet, ReaperWraps,
         Vanilla,
+        AbyssTalon, InfernoButterfly, FrostBayonet, PhantomSkeleton, BloodmoonKukri,
     }
 
     public enum SkinRarity { Default, Mythic, Void }
@@ -235,6 +236,12 @@ namespace VoidFlow
             new("Skeleton Knife | Emerald Nebula", KnifeModel.Skeleton, KnifeFinish.EmeraldNebula, SkinRarity.Mythic),
             new("Skeleton Knife | Black Marble", KnifeModel.Skeleton, KnifeFinish.BlackMarble, SkinRarity.Mythic),
             new("Skeleton Knife | 24K Gold", KnifeModel.Skeleton, KnifeFinish.Gold, SkinRarity.Mythic),
+            // Void versions of the classics: damascus steel burning at the edge, an aura and flames
+            new("Abyss Talon", KnifeModel.Talon, KnifeFinish.AbyssTalon, SkinRarity.Void),
+            new("Inferno Butterfly", KnifeModel.Butterfly, KnifeFinish.InfernoButterfly, SkinRarity.Void),
+            new("Frost Bayonet", KnifeModel.Bayonet, KnifeFinish.FrostBayonet, SkinRarity.Void),
+            new("Phantom Skeleton", KnifeModel.Skeleton, KnifeFinish.PhantomSkeleton, SkinRarity.Void),
+            new("Bloodmoon Kukri", KnifeModel.KukriKnife, KnifeFinish.BloodmoonKukri, SkinRarity.Void),
         };
 
         public static readonly Skin[] Snipers =

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace VoidFlow
@@ -40,7 +41,13 @@ namespace VoidFlow
         {
             gloveRubber ??= Make(new Color(0.03f, 0.03f, 0.035f), 0.7f, 0f);
             gloveTrim ??= Make(new Color(0.3f, 0.3f, 0.33f), 0.5f, 0.2f);
-            armSkin ??= Make(new Color(0.66f, 0.47f, 0.35f), 0.32f, 0f); // tanned forearm
+            if (!armSkin)
+            {
+                // A black jacket sleeve over the forearm (goes with every glove)
+                armSkin = Make(Color.white, 0.32f, 0f);
+                armSkin.SetTexture("_BaseMap", JacketTexture());
+                armSkin.SetTextureScale("_BaseMap", new Vector2(3f, 3f));
+            }
 
             var arm = new BlockArm { root = new GameObject(name).transform };
             arm.root.SetParent(parent, false);
@@ -62,7 +69,17 @@ namespace VoidFlow
                 arm.bones[i] = b;
             }
             // Forearm, glove and strap on the same bones
-            Skinned(t, "ArmSkin", rig.skin, armSkin, arm);
+            Skinned(t, "ArmSkin", Jacket(rig), armSkin, arm);
+            // The sleeve's rolled elastic cuff, closing the gap between it and the glove
+            var (cuffAt, crx, crz) = SleeveEnd(rig.skin);
+            var ring = new GameObject("JacketCuff");
+            ring.layer = Layer;
+            ring.transform.SetParent(t, false);
+            ring.transform.localPosition = cuffAt;
+            ring.AddComponent<MeshFilter>().sharedMesh = HandFit.Loop(crx + 0.0055f, crz + 0.0055f, 0.0068f, 1.2f);
+            var cr = ring.AddComponent<MeshRenderer>();
+            cr.sharedMaterial = armSkin;
+            cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             Skinned(t, "GloveBlock", rig.glove, glove, arm);
             Skinned(t, "GloveStrap", rig.strap, cuff, arm);
 
@@ -79,6 +96,65 @@ namespace VoidFlow
             arm.grip = new GameObject("Grip").transform;
             arm.grip.SetParent(arm.root, false);
             return arm;
+        }
+
+        // The forearm made into a jacket sleeve: puffed out a little all round, and more at the
+        // cuff where it meets the glove, so the glove disappears into it
+        static readonly Dictionary<ArmRig, Mesh> jackets = new();
+        static Mesh Jacket(ArmRig rig)
+        {
+            if (jackets.TryGetValue(rig, out var mesh) && mesh) return mesh;
+            mesh = Object.Instantiate(rig.skin);
+            mesh.name = "Jacket";
+            var v = mesh.vertices;
+            var n = mesh.normals;
+            float top = float.MinValue;
+            foreach (var p in v) top = Mathf.Max(top, p.y);
+            for (int i = 0; i < v.Length; i++)
+            {
+                float cuff = Mathf.Clamp01(1f - (top - v[i].y) / 0.03f);
+                v[i] += n[i] * (0.006f + 0.005f * cuff);
+            }
+            mesh.vertices = v;
+            mesh.RecalculateBounds();
+            return jackets[rig] = mesh;
+        }
+
+        // Where the bare forearm ends at the glove: the middle of that opening and its half-widths
+        static (Vector3 at, float rx, float rz) SleeveEnd(Mesh skin)
+        {
+            var v = skin.vertices;
+            float top = float.MinValue;
+            foreach (var p in v) top = Mathf.Max(top, p.y);
+            float x0 = float.MaxValue, x1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
+            foreach (var p in v)
+            {
+                if (p.y < top - 0.004f) continue;
+                x0 = Mathf.Min(x0, p.x); x1 = Mathf.Max(x1, p.x);
+                z0 = Mathf.Min(z0, p.z); z1 = Mathf.Max(z1, p.z);
+            }
+            return (new Vector3((x0 + x1) * 0.5f, top - 0.002f, (z0 + z1) * 0.5f), (x1 - x0) * 0.5f, (z1 - z0) * 0.5f);
+        }
+
+        // Black ripstop jacket fabric: a fine grid of heavier threads, soft creases, a faint sheen
+        static Texture2D jacketTexture;
+        static Texture2D JacketTexture()
+        {
+            if (jacketTexture) return jacketTexture;
+            const int size = 256;
+            jacketTexture = new Texture2D(size, size, TextureFormat.RGBA32, true) { name = "Jacket", wrapMode = TextureWrapMode.Repeat, anisoLevel = 4 };
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float u = (float)x / size, w = (float)y / size;
+                float crease = Mathf.PerlinNoise(u * 4f + 3.1f, w * 12f) * 0.5f + Mathf.PerlinNoise(u * 16f, w * 16f) * 0.2f;
+                bool rip = x % 16 == 0 || y % 16 == 0;
+                float weave = (x + y) % 2 == 0 ? 0.01f : 0f;
+                float g = 0.055f + crease * 0.045f + weave + (rip ? 0.03f : 0f);
+                jacketTexture.SetPixel(x, y, new Color(g, g, g * 1.08f));
+            }
+            jacketTexture.Apply();
+            return jacketTexture;
         }
 
         void Skinned(Transform parent, string name, Mesh mesh, Material mat, BlockArm arm)

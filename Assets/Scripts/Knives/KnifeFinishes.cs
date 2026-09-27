@@ -21,7 +21,8 @@ namespace VoidFlow
 
         public static Look Get(KnifeFinish finish)
         {
-            if (cache.TryGetValue(finish, out var look) && (look.albedo || finish == KnifeFinish.Polished)) return look;
+            // (a texture unloaded behind the cache's back means painting the finish again)
+            if (cache.TryGetValue(finish, out var look) && (look.albedo || finish == KnifeFinish.Polished) && ((object)look.emission == null || look.emission)) return look;
             look = Make(finish);
             cache[finish] = look;
             return look;
@@ -127,6 +128,11 @@ namespace VoidFlow
             KnifeFinish.AntiqueGold => Photo("Metal007", 1f, 0.95f),
             KnifeFinish.Holographic => Holo("FoilHolo"),
             KnifeFinish.Tempered => new Look { albedo = Paint(f, Tempered), tint = Color.white, metallic = 0.85f, smoothness = 0.93f },
+            KnifeFinish.AbyssTalon => VoidEdge(f, new Color(0.6f, 0.2f, 1f), 0.08f),
+            KnifeFinish.InfernoButterfly => VoidEdge(f, new Color(1f, 0.45f, 0.08f), 0.08f),
+            KnifeFinish.FrostBayonet => VoidEdge(f, new Color(0.35f, 0.85f, 1f), 0.1f),
+            KnifeFinish.PhantomSkeleton => VoidEdge(f, new Color(0.3f, 1f, 0.55f), 0.08f),
+            KnifeFinish.BloodmoonKukri => VoidEdge(f, new Color(1f, 0.08f, 0.12f), 0.07f),
             KnifeFinish.Vanilla => new Look { albedo = Paint(f, Satin), tint = Color.white, metallic = 0.75f, smoothness = 0.78f },
             // Mirror polished steel
             _ => new Look { tint = new Color(0.93f, 0.94f, 0.97f), metallic = 0.8f, smoothness = 0.95f },
@@ -141,7 +147,7 @@ namespace VoidFlow
             {
                 if (glitter) return glitter;
                 const int size = 256;
-                glitter = new Texture2D(size, size, TextureFormat.RGBA32, true) { name = "Glitter", wrapMode = TextureWrapMode.Repeat };
+                glitter = new Texture2D(size, size, TextureFormat.RGBA32, true) { name = "Glitter", wrapMode = TextureWrapMode.Repeat, hideFlags = HideFlags.DontUnloadUnusedAsset };
                 var px = new Color[size * size];
                 var random = new System.Random(7);
                 for (int k = 0; k < 550; k++)
@@ -223,7 +229,7 @@ namespace VoidFlow
 
         static Texture2D Paint(KnifeFinish f, System.Func<float, float, Color> pixel)
         {
-            var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, true) { name = f.ToString(), wrapMode = TextureWrapMode.Clamp, anisoLevel = 8 };
+            var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, true) { name = f.ToString(), wrapMode = TextureWrapMode.Clamp, anisoLevel = 8, hideFlags = HideFlags.DontUnloadUnusedAsset };
             var px = new Color[Size * Size];
             for (int j = 0; j < Size; j++)
             for (int i = 0; i < Size; i++)
@@ -367,7 +373,7 @@ namespace VoidFlow
             get
             {
                 if (gloveVeins) return gloveVeins;
-                gloveVeins = new Texture2D(Size, Size, TextureFormat.RGBA32, true) { name = "GloveVeins", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8 };
+                gloveVeins = new Texture2D(Size, Size, TextureFormat.RGBA32, true) { name = "GloveVeins", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8, hideFlags = HideFlags.DontUnloadUnusedAsset };
                 var px = new Color[Size * Size];
                 for (int j = 0; j < Size; j++)
                 for (int i = 0; i < Size; i++)

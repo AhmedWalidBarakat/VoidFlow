@@ -78,6 +78,7 @@ namespace VoidFlow
             public bool rightOnHilt, leftOnSheath;
             public bool fromAbove;         // on the hilt, the arm reaches in from the top right
             public float show;             // talon: hanging from the ring in front of the glove (0..1)
+            public float onFinger;         // ring knives: hung by the ring on the index finger, to spin on it (0..1)
             public float rOpen, lOpen;     // fingers loosened (0 gripping .. 1 open)
             public bool rKeep;             // ...all but the index finger (a knife spinning in its ring)
             public Key At(float time) { var k = (Key)MemberwiseClone(); k.t = time; return k; }
@@ -190,20 +191,38 @@ namespace VoidFlow
             switch (model)
             {
                 case KnifeModel.KukriKnife:
-                    k = k.At(2.2f); k.hold = Hold.Air; k.ap = up + new Vector3(-0.02f, 0.1f, 0.03f); k.aq = Quaternion.identity;
-                    k.spin = new(360f, 180f, 0f); k.rp = up + new Vector3(0f, -0.01f, 0f); k.rOpen = 0.6f; ks.Add(k);
-                    k = k.At(2.55f); k.hold = Hold.Right; k.rp = up; k.spin = new(720f, 180f, 0f); k.rOpen = 0f; ks.Add(k);
-                    k = k.At(3.3f); k.rp = RightIdle; k.rq = ForwardIdle; k.spin = new(720f, 360f, 0f); ks.Add(k);
-                    sounds = new[] { (0.3f, WeaponSounds.Slash, 0.25f), (1.3f, WeaponSounds.Tick, 0.35f), (2.1f, WeaponSounds.Slash, 0.4f), (2.55f, WeaponSounds.Tick, 0.5f) };
+                    // After the CS2 kukri: no tricks, just the heavy blade turned in the fist
+                    ks.RemoveRange(1, ks.Count - 1);
+                    Quaternion diag = Quaternion.Euler(0f, 0f, 28f) * showA, low = Quaternion.Euler(0f, 0f, 68f) * showA;
+                    k = IdleKey(false);
+                    k = k.At(0.4f); k.rp = up; k.rq = diag; k.rOpen = 0.1f; ks.Add(k);
+                    k = k.At(1.05f); k.rq = Quaternion.Euler(0f, 0f, 20f) * showB; ks.Add(k);
+                    k = k.At(1.5f); k.rq = showA; k.spin = new(0f, 90f, 0f); ks.Add(k);
+                    k = k.At(1.95f); k.spin = new(0f, 180f, 0f); ks.Add(k);
+                    k = k.At(2.45f); k.rq = low; k.rp = up + new Vector3(0.01f, 0.005f, 0f); ks.Add(k);
+                    k = k.At(2.9f); k.rq = diag; k.rp = up; ks.Add(k);
+                    k = k.At(3.4f); k.rp = RightIdle; k.rq = ForwardIdle; k.spin = new(0f, 360f, 0f); k.rOpen = 0f; ks.Add(k);
+                    sustain = 1.05f;
+                    sounds = new[] { (0.3f, WeaponSounds.Slash, 0.25f), (1.5f, WeaponSounds.Tick, 0.35f), (2.4f, WeaponSounds.Tick, 0.3f) };
                     break;
                 case KnifeModel.Skeleton:
-                    k = k.At(2.05f); k.rOpen = 0.85f; k.rKeep = true; ks.Add(k);
-                    k = k.At(2.65f); k.spin = new(0f, 180f, -720f); ks.Add(k);
-                    k = k.At(2.8f); k.rOpen = 0f; k.rKeep = false; ks.Add(k);
-                    k = k.At(3.4f); k.rp = RightIdle; k.rq = ForwardIdle; k.spin = new(0f, 360f, -720f); ks.Add(k);
-                    sustain = 2.35f; axis = 1; speed = -1080f;
-                    sounds = new[] { (0.3f, WeaponSounds.Slash, 0.25f), (1.3f, WeaponSounds.Tick, 0.35f), (2.2f, WeaponSounds.Slash, 0.3f), (2.8f, WeaponSounds.Tick, 0.4f) };
+                {
+                    // After the CS2 skeleton: the hand opens and the knife whirls twice round the
+                    // index finger through its ring, is caught standing up in the fist, shown, and put away
+                    ks.RemoveRange(1, ks.Count - 1);
+                    Quaternion spinHand = FB(-0.5f, 0.15f, 0.85f, 0.1f, 1f, 0.2f);
+                    var spinAt = new Vector3(0.085f, -0.105f, 0.3f);
+                    k = IdleKey(false);
+                    k = k.At(0.3f); k.rp = spinAt; k.rq = spinHand; k.onFinger = 1f; k.rOpen = 0.9f; ks.Add(k);
+                    k = k.At(1.3f); k.spin = new(0f, 0f, -720f); ks.Add(k);
+                    k = k.At(1.5f); k.onFinger = 0f; k.rOpen = 0f; k.rp = up; k.rq = showA; ks.Add(k);
+                    k = k.At(2.1f); k.rq = showB; ks.Add(k);
+                    k = k.At(2.7f); k.rq = showA; ks.Add(k);
+                    k = k.At(3.2f); k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
+                    sustain = 0.8f; axis = 1; speed = -1080f;
+                    sounds = new[] { (0.35f, WeaponSounds.Slash, 0.3f), (0.85f, WeaponSounds.Slash, 0.25f), (1.45f, WeaponSounds.Tick, 0.45f) };
                     break;
+                }
                 default:
                     k = k.At(2.15f); k.rOpen = 0.75f; k.rKeep = true; ks.Add(k);
                     k = k.At(2.5f); k.spin = new(0f, 180f, -360f); ks.Add(k);
@@ -616,6 +635,15 @@ namespace VoidFlow
                 Vector3 ringAt = right.p + right.q * GripFront + new Vector3(-0.035f, 0.035f, -0.035f); // on the glove's top corner, spinning low right, clear of the middle
                 knifePose = Pose.Blend(knifePose, new Pose(ringAt - TalonShow * pivot, TalonShow), show);
             }
+            // On the finger: the knife's ring goes onto the index finger (the ring's hole along
+            // the finger), blade up past the back of the hand, so a spin turns it round the finger
+            float onFinger = Mathf.Lerp(a.onFinger, b.onFinger, s);
+            if (onFinger > 0f && IndexFinger(rightHand) is Transform finger)
+            {
+                Vector3 at = right.p + right.q * hand.InverseTransformPoint(finger.position);
+                Quaternion q = right.q * Quaternion.LookRotation(Vector3.up, Vector3.forward);
+                knifePose = Pose.Blend(knifePose, new Pose(at - q * pivot, q), onFinger);
+            }
             knife.root.localScale = Vector3.one * size;
 
             // Spins about the knife's pivot, and orbits around the right arm
@@ -695,6 +723,14 @@ namespace VoidFlow
             if (a0 > 180f) { a0 = 360f - a0; x0 = -x0; }
             if (a1 > 180f) { a1 = 360f - a1; x1 = -x1; }
             return a0 > 2f && a1 > 2f && Vector3.Dot(x0, x1) > 0.5f;
+        }
+
+        // The index finger's middle joint, which ring knives spin on
+        static Transform IndexFinger(BlockArm arm)
+        {
+            for (int i = 0; i < arm.bones.Length; i++)
+                if (arm.rig.boneNames[i].StartsWith("index_02")) return arm.bones[i];
+            return null;
         }
 
         // A knife scaled about its handle: its root moves toward the handle
