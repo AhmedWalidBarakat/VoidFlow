@@ -110,7 +110,7 @@ namespace VoidFlow
         System.Random rng;
         int nextIndex, current, checkpoint;
         bool inTerrace; // still under the start terrace's sky
-        const float CheckpointReach = 12f; // metres from the riding line that count as on the ramp
+        const float CheckpointReach = 45f; // metres from the riding line that count as reaching the ramp
         float nextProgress;
         RampShapes.RampPath last;
         Mesh cube;
@@ -560,18 +560,8 @@ namespace VoidFlow
                 AddPart(seg, "Twin", twin.ridge[0], RampShapes.BuildMesh(twin, $"Twin {i}"), kit.ramp, solid: true);
                 AddPart(seg, "TwinTrim", twin.ridge[0], RampShapes.TrimMesh(twin, $"TwinTrim {i}"), kit.trim, solid: false);
             }
-            if (stageStart)
-            {
-                // A gate over the start of the landing hill, marking the new stage
-                Vector3 foot = seg.line[0] + Vector3.down * 3f;
-                AddPart(seg, "StageGate", foot, RampShapes.GateMesh(foot, path.forward[0], GateWidth(path), 26f, $"Gate {i}"), kit.glow, solid: false);
-            }
-            else if (i > 0 && i % checkpointEvery == 0)
-            {
-                // A checkpoint: a lighter gate over the start of the landing hill
-                Vector3 foot = seg.line[0] + Vector3.down * 3f;
-                AddPart(seg, "CheckpointGate", foot, RampShapes.GateMesh(foot, path.forward[0], GateWidth(path) - 6f, 22f, $"Checkpoint {i}"), kit.glowAlt, solid: false);
-            }
+            // (Checkpoints and new stages have no gates to see: you just get the notice as you
+            // reach the ramp)
             if (i > 0 && i % checkpointEvery == 0) BuildPad(seg, path, landingEnd, kit);
             if (ringCenter is Vector3 ring)
             {
@@ -989,8 +979,10 @@ namespace VoidFlow
             {
                 float off = DistanceToLine(seg, p, out int nearest);
                 Progress = seg.startProgress + seg.path.distance[nearest];
-                // A checkpoint counts once you're riding its ramp, not falling past under it
-                if (current % checkpointEvery == 0 && current > checkpoint && off < CheckpointReach)
+                // A checkpoint counts anywhere on or over its ramp (there's no gate to hit or miss),
+                // but not while falling past far below it
+                bool reached = off < CheckpointReach || p.y > transform.TransformPoint(seg.line[nearest]).y - 4f;
+                if (current % checkpointEvery == 0 && current > checkpoint && reached)
                 {
                     checkpoint = current;
                     CheckpointReached?.Invoke();
@@ -1040,8 +1032,6 @@ namespace VoidFlow
         // sent down the ramp at the speed it was built for.
         const float PadHeight = 6f, PadWidth = 7f, PadLength = 9f;
 
-        // Gates stand well clear of the ramp on both sides, so their posts are never in the way
-        static float GateWidth(RampShapes.RampPath path) => 2f * path.width + 36f;
 
         void BuildPad(Segment seg, RampShapes.RampPath path, float landingEnd, BiomeKit kit)
         {
