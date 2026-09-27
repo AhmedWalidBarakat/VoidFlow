@@ -109,7 +109,7 @@ namespace VoidFlow
                     p = Vector3.Lerp(from.p, to.p, u).WithY(level), f = f, right = right,
                     A = Vector3.Lerp(from.A, to.A, u), B = Vector3.Lerp(from.B, to.B, u),
                     level = level,
-                    top = Mathf.Max(Mathf.Lerp(from.top, to.top, u), level + 48f),
+                    top = Mathf.Max(Mathf.Lerp(from.top, to.top, u), level + 80f), // (fast runs fly well over the designed arc)
                     bottom = Mathf.Min(Mathf.Lerp(from.bottom, to.bottom, u), level - 22f),
                 });
             }

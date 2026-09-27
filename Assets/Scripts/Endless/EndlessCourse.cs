@@ -90,6 +90,7 @@ namespace VoidFlow
         public float designSpeed = 2300f;
 
         const float BiomeBlendSeconds = 5f; // zones melt into each other
+        const float CourseView = 700f;      // view distance on the course (metres)
         const int MaxRebuilds = 6;
         const float FallMargin = 40f;
 
@@ -314,19 +315,24 @@ namespace VoidFlow
         void Stream(bool all)
         {
             if (all) { while (pending.Count > 0) pending.Dequeue()(); }
-            else if (pending.Count > 0)
-            {
-                pending.Dequeue()();
-                return;
-            }
-            while (nextIndex <= current + rampsAhead && nextIndex < FinalRamp)
+            // A frame does one piece of put-off building, or makes one new ramp; either way the
+            // ramps behind are still tidied away below every frame
+            bool busy = !all && pending.Count > 0;
+            if (busy) pending.Dequeue()();
+            while (!busy && nextIndex <= current + rampsAhead && nextIndex < FinalRamp)
             {
                 Generate();
                 if (!all) break; // at most one new ramp per frame, so there are no hitches
+                // Building everything at once (a new course, carrying on from a checkpoint): each
+                // ramp's building goes up before the next ramp, as the buildings chain together
+                while (pending.Count > 0) pending.Dequeue()();
             }
             if (all) { while (pending.Count > 0) pending.Dequeue()(); }
             // Ramps behind you vanish. Those since the last checkpoint are only hidden, so a fall
-            // can bring them back; older ones go for good.
+            // can bring them back; older ones go for good. (Any building still waiting is put up
+            // first: each building joins onto the one before it, so none may be skipped.)
+            if (pending.Count > 0 && segments.Count > 0 && segments[0].index < Mathf.Min(checkpoint, current - rampsBehind))
+                while (pending.Count > 0) pending.Dequeue()();
             while (segments.Count > 0 && segments[0].index < Mathf.Min(checkpoint, current - rampsBehind))
             {
                 DestroySegment(segments[0]);
@@ -625,13 +631,18 @@ namespace VoidFlow
             // made the game hitch in the browser whenever a new ramp appeared ahead)
             var decor = new System.Random(unchecked(i * 7919 + 13));
             bool encloseIt = enclose && i > 1;
+            var plan = holePlan; // this ramp's hole wall (the field moves on with the next ramp)
             if (!Architecture.Continuous(biome.style))
                 pending.Enqueue(() => { if (seg.root) Scenery.Line(path, biome, kit, seg.root.transform, decor, cube); });
             pending.Enqueue(() =>
             {
                 if (!seg.root) return;
+                var next = holePlan;
+                holePlan = plan;
                 BuildArchitecture(seg, path, biome, kit, i, encloseIt, stageStart, flightArc, flightGap, extraMargin, decor);
+                holePlan = next;
                 ClearScenery(seg);
+                ClearHoleWalls(seg);
                 Physics.SyncTransforms();
             });
             segments.Add(seg);
@@ -749,13 +760,55 @@ namespace VoidFlow
                     var near = join[0];
                     foreach (var jf in join)
                         if (Flat(jf.p - hp.center).sqrMagnitude < Flat(near.p - hp.center).sqrMagnitude) near = jf;
-                    Architecture.HoleWall(near, hp.center, hp.facing, hp.hw, hp.hh, kit, seg.root.transform, seg.meshes, cube);
-                    seg.move += " + hole in the wall";
+                    var wall = Architecture.HoleWall(near, hp.center, hp.facing, hp.hw, hp.hh, kit, seg.root.transform, seg.meshes, cube);
+                    // Never a dead end: a player-sized sweep along the jump must get through the
+                    // hole, or the wall comes down (a clear flight beats a covered hole)
+                    if (FlightClears(seg, wall)) seg.move += " + hole in the wall";
+                    else Kill(wall);
                 }
                 if (stageStart) doorway = Mathf.Min(1, frames.Count - 1);
             }
             Architecture.Build(frames, biome, kit, seg.root.transform, seg.meshes, decor, cube, doorway);
             lastFrame = frames[^1];
+        }
+
+        // A ramp that curls back (a loop, a spiral) can pass through an earlier ramp's hole wall,
+        // which spans its whole building; any such wall in this ramp's way comes down
+        void ClearHoleWalls(Segment seg)
+        {
+            foreach (var other in segments)
+            {
+                if (other == seg || !other.root) continue;
+                foreach (Transform child in other.root.transform)
+                    if (child.name == "HoleWall" && (!Sweeps(seg.line, child.gameObject) || !Sweeps(seg.flight, child.gameObject)))
+                        Kill(child.gameObject);
+            }
+        }
+
+        // A new hole wall must clear the jump through it and every ramp and flight around it (a
+        // ramp before it may curl back through it)
+        bool FlightClears(Segment seg, GameObject wall)
+        {
+            if (!Sweeps(seg.flight, wall) || !Sweeps(seg.line, wall)) return false;
+            foreach (var other in segments)
+                if (other != seg && other.root && (!Sweeps(other.line, wall) || !Sweeps(other.flight, wall))) return false;
+            return true;
+        }
+
+        // Does a player-sized sweep along these course-local points get past this object?
+        bool Sweeps(Vector3[] points, GameObject wall)
+        {
+            Physics.SyncTransforms();
+            const float body = 0.9f; // a player's half width, and a little room
+            for (int k = 0; k + 1 < points.Length; k++)
+            {
+                Vector3 a = transform.TransformPoint(points[k]) + Vector3.up, b = transform.TransformPoint(points[k + 1]) + Vector3.up;
+                Vector3 d = b - a;
+                if (d.sqrMagnitude < 1e-4f) continue;
+                foreach (var hit in Physics.SphereCastAll(a, body, d.normalized, d.magnitude))
+                    if (hit.collider && hit.collider.transform.IsChildOf(wall.transform)) return false;
+            }
+            return true;
         }
 
         // Void Shards for this ramp, on the line its tier rewards: beginner on the plain
@@ -1036,9 +1089,9 @@ namespace VoidFlow
             {
                 float off = DistanceToLine(seg, p, out int nearest);
                 Progress = seg.startProgress + seg.path.distance[nearest];
-                // A checkpoint counts anywhere on or over its ramp (there's no gate to hit or miss),
-                // but not while falling past far below it
-                bool reached = off < CheckpointReach || p.y > transform.TransformPoint(seg.line[nearest]).y - 4f;
+                // A checkpoint counts once you're actually at its ramp: within reach of its riding
+                // line (there's no gate to hit or miss), and not flying in noclip
+                bool reached = off < CheckpointReach && !player.Flying;
                 if (current % checkpointEvery == 0 && current > checkpoint && reached)
                 {
                     checkpoint = current;
@@ -1331,8 +1384,15 @@ namespace VoidFlow
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
             RenderSettings.fogColor = sky;
-            RenderSettings.fogStartDistance = Mathf.Lerp(a.fogStart, b.fogStart, t);
-            RenderSettings.fogEndDistance = Mathf.Lerp(a.fogEnd, b.fogEnd, t);
+            // How far you see: the course stops at CourseView (fog closing in just before it), so
+            // turning round never has to draw a kilometre of buildings; the start terrace keeps
+            // its long view over the distant islands
+            float Reach(Biome z) => z == Biome.Terrace ? 2500f : CourseView;
+            float reach = Mathf.Lerp(Reach(a), Reach(b), t);
+            float fogEnd = Mathf.Min(Mathf.Lerp(a.fogEnd, b.fogEnd, t), reach - 40f);
+            RenderSettings.fogEndDistance = fogEnd;
+            RenderSettings.fogStartDistance = Mathf.Min(Mathf.Lerp(a.fogStart, b.fogStart, t), fogEnd * 0.6f);
+            if (view) view.farClipPlane = reach;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = Color.Lerp(a.ambientSky, b.ambientSky, t);
             RenderSettings.ambientEquatorColor = Color.Lerp(a.ambientEquator, b.ambientEquator, t);

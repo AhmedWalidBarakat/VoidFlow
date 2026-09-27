@@ -40,8 +40,9 @@ namespace VoidFlow
             best = PlayerPrefs.GetFloat(BestKey, 0f);
             course.CheckpointReached += () =>
             {
-                Note("CHECKPOINT  ·  saved");
                 if (!running) return;
+                Note(Practice ? "CHECKPOINT" : "CHECKPOINT  ·  saved");
+                if (Practice) return;
                 PlayerPrefs.SetInt(SaveRamp, course.LastCheckpoint);
                 PlayerPrefs.SetFloat(SaveProgress, course.Progress);
                 PlayerPrefs.SetFloat(SaveTime, Time.time - startTime);
@@ -59,6 +60,8 @@ namespace VoidFlow
             player.Teleport(spawnPoint.position, spawnPoint.eulerAngles.y);
             running = false;
             falls = 0;
+            runStage = 0;
+            Practice = false;
             finishTime = -99f;
         }
 
@@ -72,16 +75,21 @@ namespace VoidFlow
             startTime = Time.time - PlayerPrefs.GetFloat(SaveTime, 0f);
             falls = PlayerPrefs.GetInt(SaveFalls, 0);
             finishTime = -99f;
+            runStage = course.CurrentStage; // (no retroactive cases for stages already passed)
             Note("CONTINUING FROM YOUR LAST CHECKPOINT");
         }
 
         // The end of the course: the time stops, the congratulations go up, and every item in
         // the game is yours
         float finishTime = -99f, finalTime;
+        int runStage; // the stage this run is on, for the free Void Case every 10 stages
+        // Noclip used this run: it's practice from then on (nothing saved or rewarded)
+        public bool Practice { get; private set; }
         void Finish()
         {
             finalTime = Time.time - startTime;
             finishTime = Time.time;
+            if (Practice) return; // (a noclip run doesn't win anything)
             // The course is beaten: nothing left to carry on from
             PlayerPrefs.DeleteKey(SaveRamp);
             PlayerPrefs.Save();
@@ -139,7 +147,21 @@ namespace VoidFlow
                 return;
             }
 
-            if (running && !player.Flying && course.Progress > best)
+            // A free Void Case on reaching stage 10, 20 and 30
+            if (running && player.Flying && !Practice)
+            {
+                Practice = true;
+                Note("NOCLIP  ·  practice run, nothing saved");
+            }
+            if (running && course.CurrentStage != runStage)
+            {
+                int stage = course.CurrentStage;
+                if (stage > runStage && (stage + 1) % 10 == 0 && !Practice)
+                    Inventory.AddCase($"You reached stage {stage + 1}!");
+                runStage = stage;
+            }
+
+            if (running && !player.Flying && !Practice && course.Progress > best)
             {
                 best = course.Progress;
                 PlayerPrefs.SetFloat(BestKey, best);
@@ -208,7 +230,7 @@ namespace VoidFlow
                 GUI.Label(new Rect(0, h * 0.18f, w, 120), "CONGRATS!!!!!!!!!", big);
                 GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01(since * 2f - 0.5f));
                 GUI.Label(new Rect(0, h * 0.18f + 110, w, 40), $"You beat the whole course  ·  {Format(finalTime)}" + (falls > 0 ? $"  ·  {falls} fall{(falls == 1 ? "" : "s")}" : "  ·  no falls!"), bigStyle);
-                GUI.Label(new Rect(0, h * 0.18f + 150, w, 40), "EVERY ITEM IN THE GAME IS NOW IN YOUR INVENTORY  (press I)", bigStyle);
+                GUI.Label(new Rect(0, h * 0.18f + 150, w, 40), Practice ? "practice run (noclip used): beat it without noclip to win every item" : "EVERY ITEM IN THE GAME IS NOW IN YOUR INVENTORY  (press I)", bigStyle);
                 GUI.Label(new Rect(0, h * 0.18f + 190, w, 24), "Press R to run it again", centeredStyle);
                 GUI.color = old;
             }

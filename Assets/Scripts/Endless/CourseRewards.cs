@@ -75,7 +75,9 @@ namespace VoidFlow
                 t.localRotation = Quaternion.Euler(0f, (now + s.phase) * 90f, 0f);
                 if ((t.position - p).sqrMagnitude < pickupRadius * pickupRadius) picked.Add(s);
             }
-            foreach (var s in picked) Collect(s, now);
+            // (none for noclip or a practice run)
+            if (!player.Flying && !(timer && timer.Practice))
+                foreach (var s in picked) Collect(s, now);
 
             // Rings: crossing a ring's plane inside it gives a boost (once per ring)
             foreach (var ring in SpeedRing.All)
