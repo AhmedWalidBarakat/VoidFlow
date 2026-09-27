@@ -90,7 +90,7 @@ namespace VoidFlow
         public float designSpeed = 2300f;
 
         const float BiomeBlendSeconds = 5f; // zones melt into each other
-        const float CourseView = 700f;      // view distance on the course (metres)
+        const float CourseView = 500f;      // view distance on the course (metres)
         const int MaxRebuilds = 6;
         const float FallMargin = 40f;
 
@@ -338,9 +338,11 @@ namespace VoidFlow
                 DestroySegment(segments[0]);
                 segments.RemoveAt(0);
             }
+            // Only what's near is drawn: from the ramp behind to two ahead (built three ahead), and
+            // from the start area just its own two white-and-gold ramps, not the course beyond
             foreach (var s in segments)
             {
-                bool show = s.index >= current - rampsBehind;
+                bool show = s.index >= current - rampsBehind && s.index <= current + (current < 1 ? 1 : 2);
                 if (s.root && s.root.activeSelf != show) s.root.SetActive(show);
             }
             if (startHall) startHall.gameObject.SetActive(current < 2);

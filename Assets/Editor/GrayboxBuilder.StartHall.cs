@@ -19,7 +19,7 @@ namespace VoidFlow.EditorTools
     //  - a hanging "press I" inventory sign you see as you spawn
     public static partial class GrayboxBuilder
     {
-        const float HallHalfWidth = 22f, HallDepth = 60f, HallHeight = 16f;
+        const float HallHalfWidth = 18f, HallDepth = 50f, HallHeight = 16f;
         const float HallFront = -1f, HallBack = HallFront - HallDepth;
         const int FloatingShards = 14;
 
@@ -191,14 +191,7 @@ namespace VoidFlow.EditorTools
 
             // The Void Case gallery: everything a Void Case can drop, to look at (not to take).
             // Knives down the left wall, snipers along the right, gloves on the back wall.
-            GalleryWall(hall, "KNIVES", Skins.Knives, ItemSlot.Secondary, new Vector3(left, 0f, HallBack + 6f), Vector3.forward, Vector3.right,
-                tiers: 4, spacing: 1.95f, depth: 1.35f, step: 0.22f, scale: 3.8f, lift: 0.75f, rampMat, metal, ivory, gold);
-            GalleryWall(hall, "SNIPERS", Skins.Snipers, ItemSlot.Primary, new Vector3(right, 0f, HallFront - 8f), Vector3.back, Vector3.left,
-                tiers: 4, spacing: 2.7f, depth: 1.7f, step: 0f, scale: 1.1f, lift: 0.5f, rampMat, metal, ivory, purple);
-            int gloveColumns = Mathf.CeilToInt((Skins.Gloves.Length - 1) / 2f);
-            GalleryWall(hall, "GLOVES", Skins.Gloves, ItemSlot.Hands, new Vector3(lane - (gloveColumns - 1) * 2.3f * 0.5f, 0f, HallBack), Vector3.right, Vector3.forward,
-                tiers: 2, spacing: 2.3f, depth: 1.2f, step: 0f, scale: 4f, lift: 0.5f, rampMat, metal, ivory, magenta);
-            Label("VOID CASE GALLERY", hall, new Vector3(lane, HallHeight - 3.2f, HallBack + 0.2f), 180f, 1.1f, Ink);
+            // (No gallery walls: what the Void Case holds stays a mystery until you open one)
 
             // The Void Case on show, on a round platform by the lane, with a sign saying how to
             // earn one. It's only to look at: earned cases are opened from the inventory.
