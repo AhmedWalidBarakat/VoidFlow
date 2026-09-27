@@ -73,6 +73,7 @@ namespace VoidFlow.EditorTools
             var col = new Color[W * H];
             var height = new float[W * H];
             var detail = new Vector3[W * H];
+            var glow = new float[W * H]; // Void gloves: what lights up (stitching, grooves, the accent strip)
             float cx = 0f;
             foreach (var f in chart.fingerX) cx += f / 4f;
             float yW = chart.wristY, yK = chart.knuckleY;
@@ -86,13 +87,13 @@ namespace VoidFlow.EditorTools
                 // Smooth black leather everywhere to start
                 Color c = leather.At(x, y, 0.06f) * 1.15f;
                 float smooth = 0.75f - leatherR.At(x, y, 0.06f).r * 0.45f;
-                float h = 0f;
+                float h = 0f, g = 0f;
                 Vector3 n = leatherN.Normal(x, y, 0.06f, 0.8f);
                 void Stitch(float d, float inset)
                 {
                     if (d > -inset - 0.0006f && d < -inset + 0.0006f && Mathf.Repeat((x + y) / 0.0036f, 1f) < 0.6f)
                     {
-                        c = new Color(0.42f, 0.42f, 0.44f); smooth = 0.3f; h += 0.00025f;
+                        c = new Color(0.42f, 0.42f, 0.44f); smooth = 0.3f; h += 0.00025f; g = 1f;
                     }
                 }
                 if (back)
@@ -110,21 +111,23 @@ namespace VoidFlow.EditorTools
                         Stitch(panel, 0.0028f);
                     }
                     float accentY = yK - 0.019f;
-                    if (Mathf.Abs(y - accentY) < 0.0011f && Mathf.Abs(x - cx) < 0.031f) { c = new Color(0.6f, 0.05f, 0.05f); smooth = 0.7f; h += 0.0003f; }
+                    if (Mathf.Abs(y - accentY) < 0.0011f && Mathf.Abs(x - cx) < 0.031f) { c = new Color(0.6f, 0.05f, 0.05f); smooth = 0.7f; h += 0.0003f; g = 1f; }
                     // Rubber knuckle guard: a bar with a raised, grooved pad over each knuckle
                     float bar = Box(x, y, cx, yK - 0.008f, 0.035f, 0.004f, 0.003f);
                     if (bar < 0f) { c = new Color(0.05f, 0.05f, 0.055f); smooth = 0.25f; h += 0.0006f * Mathf.Clamp01(-bar / 0.002f); n = Vector3.forward; }
                     foreach (float fx in chart.fingerX)
                     {
                         float pad = Box(x, y, fx, yK + 0.002f, 0.0085f, 0.008f, 0.004f);
+                        float glowHere = 0f;
                         if (pad < 0f)
                         {
                             c = new Color(0.055f, 0.055f, 0.06f) * (1f + 0.15f * Mathf.Clamp01(-pad / 0.004f));
                             smooth = 0.3f; n = Vector3.forward;
                             h += 0.0012f * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(-pad / 0.003f));
-                            foreach (float g in new[] { -0.003f, 0.003f })
-                                if (Mathf.Abs(y - (yK + 0.002f + g)) < 0.0005f) h -= 0.0006f;
+                            foreach (float gy in new[] { -0.003f, 0.003f })
+                                if (Mathf.Abs(y - (yK + 0.002f + gy)) < 0.0005f) { h -= 0.0006f; glowHere = 0.8f; }
                         }
+                        g = Mathf.Max(g, glowHere);
                         // A padded, vented panel on each finger, stitched round
                         float fp = Box(x, y, fx, yK + 0.03f, 0.0075f, 0.012f, 0.004f);
                         if (fp < 0f)
@@ -168,6 +171,7 @@ namespace VoidFlow.EditorTools
                 c.a = Mathf.Clamp01(smooth);
                 col[j * W + i] = c;
                 height[j * W + i] = h;
+                glow[j * W + i] = g;
                 detail[j * W + i] = n;
             }
 
@@ -209,6 +213,19 @@ namespace VoidFlow.EditorTools
                 rib[j * 256 + i] = new Color(v.x * 0.5f + 0.5f, v.y * 0.5f + 0.5f, v.z * 0.5f + 0.5f, 1f);
             }
 
+            // The glow mask, softened a little so seams light up with a soft edge
+            var glowPx = new Color[W * H];
+            for (int j = 0; j < H; j++)
+            for (int i = 0; i < W; i++)
+            {
+                float sum = 0f;
+                for (int dj = -1; dj <= 1; dj++)
+                for (int di = -1; di <= 1; di++)
+                    sum += glow[Mathf.Clamp(j + dj, 0, H - 1) * W + Mathf.Clamp(i + di, 0, W - 1)];
+                float v = Mathf.Max(glow[j * W + i], sum / 9f * 0.8f);
+                glowPx[j * W + i] = new Color(v, v, v, 1f);
+            }
+            Write("GloveGlow", glowPx, W, H, false);
             return (Write("GloveAlbedo", col, W, H, false), Write("GloveNormal", nrm, W, H, true),
                 Write("JacketAlbedo", jac, J, J, false), Write("JacketNormal", jacN, J, J, true), Write("CuffNormal", rib, 256, 64, true));
         }

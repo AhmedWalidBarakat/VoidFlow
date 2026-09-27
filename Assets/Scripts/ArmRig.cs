@@ -13,6 +13,7 @@ namespace VoidFlow
         // Baked sport-glove and jacket textures (GrayboxBuilder.Gloves): colour with smoothness
         // in alpha, and normal maps; the glove's are laid out on its own side-on chart
         public Texture2D gloveAlbedo, gloveNormal, jacketAlbedo, jacketNormal, cuffNormal;
+        public Texture2D gloveGlow; // Void gloves: the stitching, grooves and accent strip that light up
         public string[] boneNames;
         public int[] parents;                 // -1: the rig root
         public Vector3[] bindPositions;       // local to the parent
@@ -73,6 +74,22 @@ namespace VoidFlow
                 m.SetTexture("_BumpMap", gloveNormal);
                 m.SetFloat("_BumpScale", 1f);
                 m.EnableKeyword("_NORMALMAP");
+            }
+        }
+
+        // A Void glove: the same real leather glove, tinted toward its colour, with its stitching,
+        // knuckle grooves and accent strip glowing in that colour
+        public void DressVoidGlove(Material m, Color hue)
+        {
+            if (!m) return;
+            DressGlove(m, true);
+            m.SetColor("_BaseColor", Color.Lerp(new Color(0.55f, 0.55f, 0.58f), hue, 0.3f));
+            if (gloveGlow)
+            {
+                m.EnableKeyword("_EMISSION");
+                m.SetTexture("_EmissionMap", gloveGlow);
+                m.SetColor("_EmissionColor", hue * 2.4f);
+                m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             }
         }
 

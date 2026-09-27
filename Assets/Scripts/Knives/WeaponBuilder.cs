@@ -832,6 +832,18 @@ namespace VoidFlow
 
         Material GloveMaterial(KnifeFinish finish, WeaponParts parts)
         {
+            var rig = Resources.Load<ArmRig>("Arms/RightArm");
+            var look = KnifeFinishes.Get(finish);
+            if (look.emission && rig && rig.gloveGlow)
+            {
+                // Void: the real leather glove in its colour, glowing along its seams
+                var v = Mat(Color.white, 0.5f, 0f);
+                Color hue = HueOf(finish);
+                rig.DressVoidGlove(v, hue);
+                parts.glowMaterials.Add(v);
+                parts.glowColors.Add(hue * 2.4f);
+                return v;
+            }
             var m = FinishMaterial(finish, parts);
             if (KnifeFinishes.Get(finish).emission) m.SetTexture("_EmissionMap", KnifeFinishes.GloveVeins);
             return m;
@@ -925,7 +937,10 @@ namespace VoidFlow
             Material glow = Glow(parts.hue, 2.6f, parts);
             Material dark = Mat(new Color(0.08f, 0.08f, 0.09f), 0.9f, 0.95f);
             // Polished metal in the glove's color, for plates and scales that stand out from it
-            Material shell = Mat(Color.Lerp(parts.hue, new Color(0.15f, 0.15f, 0.17f), 0.35f), 0.85f, 0.45f);
+            // Brushed metal (a CC0 scan) tinted in the glove's colour, for plates and scales
+            Material shell = Mat(Color.Lerp(parts.hue, new Color(0.55f, 0.55f, 0.58f), 0.45f), 0.8f, 0.75f);
+            var brushed = Resources.Load<Texture2D>("SkinTextures/Metal038");
+            if (brushed) { shell.SetTexture("_BaseMap", brushed); shell.SetTextureScale("_BaseMap", new Vector2(0.3f, 0.3f)); }
             float yW = fit.wristY, yK = fit.knuckleY, span = yK - yW;
             var palm = fit.Section(Mathf.Lerp(yW, yK, 0.55f));
 
@@ -958,16 +973,8 @@ namespace VoidFlow
             {
                 case KnifeModel.GloveArmor:
                 {
-                    // Overlapping plates down the back of the hand with glowing seams, a plate on
-                    // each finger, and a bracer round the wrist
-                    for (int k = 0; k < 3; k++)
-                    {
-                        float y = yW + span * (0.25f + k * 0.28f);
-                        float w = fit.Section(y).rx * 1.6f;
-                        float x = fit.Section(y).center.x;
-                        Part(t, PrimitiveType.Sphere, shell, Above(x, y, 0.0015f), new Vector3(w * 0.7f, span * 0.3f, 0.005f), OnBack(x, y) * Quaternion.Euler(-10f, 0f, 0f));
-                        Part(t, PrimitiveType.Sphere, glow, Above(x, y - span * 0.17f, 0.0005f), new Vector3(w * 0.6f, 0.0025f, 0.003f), OnBack(x, y));
-                    }
+                    // An armoured plate over each finger and a bracer round the wrist (the glove's
+                    // own quilted panel glows between them)
                     for (int f = 0; f < 4; f++)
                     {
                         var (a, b) = fit.Segment(f, 0);
@@ -1024,9 +1031,9 @@ namespace VoidFlow
                 case KnifeModel.GloveScales:
                     // Small overlapping scales lying on the back of the hand and up each finger,
                     // a glow showing between them
-                    for (int row = 0; row < 5; row++)
+                    for (int row = 0; row < 2; row++)
                     {
-                        float y = yW + span * (0.1f + row * 0.19f);
+                        float y = yW + span * (0.02f + row * 0.1f); // a band of scales at the wrist
                         float half = fit.Section(y).rx * 0.78f;
                         int cols = 5 - row % 2;
                         for (int col = 0; col < cols; col++)
@@ -1143,7 +1150,7 @@ namespace VoidFlow
                 float x = fit.At(fit.fingers[f, 0]).x;
                 flames.Add(fit.Surface(x, yK - span * 0.1f));
             }
-            AddFlames(parts, flames, 0.035f, 0.045f);
+            AddFlames(parts, flames, 0.024f, 0.03f); // small, licking off the knuckles
         }
 
         // The Void Case, for its picture: a dark armoured crate with glowing edges, a burning

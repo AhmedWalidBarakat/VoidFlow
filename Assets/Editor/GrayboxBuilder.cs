@@ -377,7 +377,7 @@ namespace VoidFlow.EditorTools
                 AssetDatabase.CreateAsset(m, $"{Root}/{name}.mat");
                 return m;
             }
-            viewModel.keepVariants = new[] { glowFade, Variant("GloveLook", true, false), Variant("GloveFinish", false, false), Variant("GloveFinishGlow", false, true) };
+            viewModel.keepVariants = new[] { glowFade, Variant("GloveLook", true, false), Variant("GloveFinish", false, false), Variant("GloveFinishGlow", false, true), Variant("GloveVoid", true, true) };
 
             // The inventory (I): loadout, unboxed skins and Void Cases, for this session
             cam.AddComponent<Inventory>().viewModel = viewModel;
