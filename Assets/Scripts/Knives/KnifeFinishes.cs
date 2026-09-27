@@ -360,6 +360,27 @@ namespace VoidFlow
             return h - Mathf.Floor(h);
         }
 
+        // Void gloves: fine glowing veins branching over the glove (a glow mask, white on black)
+        static Texture2D gloveVeins;
+        public static Texture2D GloveVeins
+        {
+            get
+            {
+                if (gloveVeins) return gloveVeins;
+                gloveVeins = new Texture2D(Size, Size, TextureFormat.RGBA32, true) { name = "GloveVeins", wrapMode = TextureWrapMode.Repeat, anisoLevel = 8 };
+                var px = new Color[Size * Size];
+                for (int j = 0; j < Size; j++)
+                for (int i = 0; i < Size; i++)
+                {
+                    float u = (i + 0.5f) / Size, y = (j + 0.5f) / Size * 3f;
+                    px[j * Size + i] = Grey(Vein(u, y, 11) * 0.8f);
+                }
+                gloveVeins.SetPixels(px);
+                gloveVeins.Apply();
+                return gloveVeins;
+            }
+        }
+
         // Thin glowing veins
         static float Vein(float u, float y, int seed)
         {

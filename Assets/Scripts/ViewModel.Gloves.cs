@@ -37,7 +37,11 @@ namespace VoidFlow
 
         void ApplyGloves()
         {
-            foreach (var kit in gloveKits) if (kit.root) Kill(kit.root.gameObject);
+            foreach (var kit in gloveKits)
+            {
+                if (kit.root) Kill(kit.root.gameObject);
+                foreach (var bit in kit.attached) Kill(bit);
+            }
             gloveKits.Clear();
             foreach (var m in gloveMaterials) Kill(m);
             gloveMaterials.Clear();
@@ -54,14 +58,23 @@ namespace VoidFlow
                 foreach (var r in arm.root.GetComponentsInChildren<Renderer>(true))
                 {
                     if (r.name == "GloveBlock") SetArmMaterial(r, body);
-                    else if (r.name == "GlovePlate")
-                    {
-                        SetArmMaterial(r, plate);
-                        r.gameObject.SetActive(skin.rarity == SkinRarity.Void);
-                    }
+                    else if (r.name == "GlovePlate") r.gameObject.SetActive(false); // (the fitted add-ons glow instead)
                 }
-                if (skin.rarity == SkinRarity.Void) gloveKits.Add(builder.GloveKit(skin, arm.root));
+                if (skin.rarity == SkinRarity.Void)
+                {
+                    // Fitted to the glove with the fingers straight, then back to the hand's pose
+                    var fit = HandFit.Measure(arm.rig, arm.bones, FindSkin(arm, "GloveBlock"), FindSkin(arm, "GloveStrap"));
+                    gloveKits.Add(builder.GloveKit(skin, fit));
+                    arm.rig.Pose(arm.bones, arm.current);
+                }
             }
+        }
+
+        static SkinnedMeshRenderer FindSkin(BlockArm arm, string name)
+        {
+            foreach (var r in arm.root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                if (r.name == name) return r;
+            return null;
         }
 
         // Swaps a glove part's material, keeping the see-through copy the arm fades to in step
