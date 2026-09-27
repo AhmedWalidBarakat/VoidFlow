@@ -98,6 +98,7 @@ namespace VoidFlow
         {
             var v = new List<Vector3>();
             var n = new List<Vector3>();
+            var uv = new List<Vector2>();
             var tris = new List<int>();
             for (int i = 0; i <= segments; i++)
             {
@@ -110,6 +111,7 @@ namespace VoidFlow
                     var dir = outward * Mathf.Cos(b) + Vector3.up * Mathf.Sin(b) * flat;
                     v.Add(c + outward * Mathf.Cos(b) * tube + Vector3.up * Mathf.Sin(b) * tube * flat);
                     n.Add(dir.normalized);
+                    uv.Add(new Vector2((float)i / segments, (float)s / sides));
                 }
             }
             for (int i = 0; i < segments; i++)
@@ -121,8 +123,10 @@ namespace VoidFlow
             var mesh = new Mesh { name = "Loop" };
             mesh.SetVertices(v);
             mesh.SetNormals(n);
+            mesh.SetUVs(0, uv);
             mesh.SetTriangles(tris, 0);
             mesh.RecalculateBounds();
+            mesh.RecalculateTangents();
             return mesh;
         }
     }

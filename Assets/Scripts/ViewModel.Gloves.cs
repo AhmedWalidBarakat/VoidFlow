@@ -49,6 +49,8 @@ namespace VoidFlow
             var skin = Skins.Gloves[gloveSkin];
             var builder = new WeaponBuilder(template, Layer, false, gloveMaterials);
             Material body = skin.finish == KnifeFinish.Polished ? glove : builder.SkinMaterial(skin.finish);
+            // Skins keep the glove's stitching, padding and grain as relief under their finish
+            if (body != glove) Resources.Load<ArmRig>("Arms/RightArm")?.DressGlove(body, false);
             Color hue = KnifeFinishes.Get(skin.finish).glow;
             if (hue.maxColorComponent > 0f) hue /= hue.maxColorComponent;
             Material plate = skin.rarity == SkinRarity.Void ? builder.Glow(hue, 2.4f, null) : gloveRubber;

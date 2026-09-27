@@ -35,7 +35,7 @@ namespace VoidFlow
         // Where a held handle sits: in the closed fist
         static readonly Vector3 GripFront = new(0f, 0.052f, 0f);
 
-        Material gloveRubber, gloveTrim, armSkin;
+        Material gloveRubber, gloveTrim, armSkin, jacketCuff;
 
         BlockArm BuildBlockArm(Transform parent, string name, string grip = Fist)
         {
@@ -47,6 +47,10 @@ namespace VoidFlow
                 armSkin = Make(Color.white, 0.32f, 0f);
                 armSkin.SetTexture("_BaseMap", JacketTexture());
                 armSkin.SetTextureScale("_BaseMap", new Vector2(3f, 3f));
+                Resources.Load<ArmRig>("Arms/RightArm")?.DressJacket(armSkin, false); // the baked woven fabric
+                jacketCuff = Make(Color.white, 0.3f, 0f);
+                Resources.Load<ArmRig>("Arms/RightArm")?.DressJacket(jacketCuff, true);
+                jacketCuff.SetTextureScale("_BumpMap", Vector2.one);
             }
 
             var arm = new BlockArm { root = new GameObject(name).transform };
@@ -78,7 +82,7 @@ namespace VoidFlow
             ring.transform.localPosition = cuffAt;
             ring.AddComponent<MeshFilter>().sharedMesh = HandFit.Loop(crx + 0.0055f, crz + 0.0055f, 0.0068f, 1.2f);
             var cr = ring.AddComponent<MeshRenderer>();
-            cr.sharedMaterial = armSkin;
+            cr.sharedMaterial = jacketCuff;
             cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             Skinned(t, "GloveBlock", rig.glove, glove, arm);
             Skinned(t, "GloveStrap", rig.strap, cuff, arm);

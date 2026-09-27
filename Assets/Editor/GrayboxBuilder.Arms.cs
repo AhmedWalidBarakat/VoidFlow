@@ -28,19 +28,32 @@ namespace VoidFlow.EditorTools
             foreach (var f in Directory.GetFiles(ArmsFolder)) File.Delete(f); // the old still hands
             AssetDatabase.Refresh();
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CharacterPath);
+            var rigs = new System.Collections.Generic.List<ArmRig>();
+            GloveChart right = default;
             foreach (var side in new[] { "r", "l" })
             {
-                var rig = BakeArm(prefab, side);
+                var rig = BakeArm(prefab, side, out var chart);
+                if (side == "r") right = chart;
+                rigs.Add(rig);
                 string path = $"{ArmsFolder}/{(side == "r" ? "Right" : "Left")}Arm.asset";
                 AssetDatabase.CreateAsset(rig, path);
                 AssetDatabase.AddObjectToAsset(rig.skin, rig);
                 AssetDatabase.AddObjectToAsset(rig.glove, rig);
                 AssetDatabase.AddObjectToAsset(rig.strap, rig);
             }
+            // The glove and jacket textures, laid out on the right hand's chart (the left
+            // hand's UVs are mirrored onto the same one)
+            var (albedo, normal, jacket, jacketNormal, cuffNormal) = BakeGloveTextures(right);
+            foreach (var rig in rigs)
+            {
+                rig.gloveAlbedo = albedo; rig.gloveNormal = normal;
+                rig.jacketAlbedo = jacket; rig.jacketNormal = jacketNormal; rig.cuffNormal = cuffNormal;
+                EditorUtility.SetDirty(rig);
+            }
             AssetDatabase.SaveAssets();
         }
 
-        static ArmRig BakeArm(GameObject prefab, string side)
+        static ArmRig BakeArm(GameObject prefab, string side, out GloveChart chart)
         {
             var body = Object.Instantiate(prefab);
             try
@@ -87,6 +100,18 @@ namespace VoidFlow.EditorTools
                 Vector3 thumbAxis = SignedAxis(Vector3.Cross((t2.position - t1.position).normalized, toFingers), t2, t3, toFingers);
                 Quaternion t1Swung = t1.rotation, t2Swung = t2.rotation, t3Swung = t3.rotation;
                 t1.rotation = t1Rest;
+
+                // The glove's texture chart: wrist, knuckles and fingertips up the hand, and each
+                // finger's place across it (mirrored on the left hand)
+                float mirror = side == "r" ? 1f : -1f;
+                chart = new GloveChart
+                {
+                    wristY = ToArm(hand.position).y,
+                    knuckleY = ToArm(knuckles).y,
+                    tipY = FingerNames.Max(f => ToArm(B($"{f}_03").GetChild(0).position).y),
+                    fingerX = FingerNames.Select(f => mirror * ToArm(B($"{f}_01").position).x).ToArray(),
+                };
+                var gloveChart = chart;
 
                 var rig = ScriptableObject.CreateInstance<ArmRig>();
                 rig.name = side == "r" ? "RightArm" : "LeftArm";
@@ -236,7 +261,8 @@ namespace VoidFlow.EditorTools
                             Vector3 nA = worldToArm * normalW;
                             v.Add(p); nn.Add(nA);
                             Vector3 an = new(Mathf.Abs(nA.x), Mathf.Abs(nA.y), Mathf.Abs(nA.z));
-                            uv.Add((an.x >= an.y && an.x >= an.z ? new Vector2(p.z, p.y) : an.y >= an.z ? new Vector2(p.x, p.z) : new Vector2(p.x, p.y)) / 0.08f);
+                            if (name == "Glove") uv.Add(gloveChart.UV(mirror * p.x, p.y, nA.z >= 0f));
+                            else uv.Add((an.x >= an.y && an.x >= an.z ? new Vector2(p.z, p.y) : an.y >= an.z ? new Vector2(p.x, p.z) : new Vector2(p.x, p.y)) / 0.08f);
                             var list = recW[s].OrderByDescending(x => x.Value).Select(x => (b: x.Key, wt: x.Value)).Take(4).ToList();
                             while (list.Count < 4) list.Add((0, 0f));
                             float sum = Mathf.Max(1e-5f, list.Sum(x => x.wt));

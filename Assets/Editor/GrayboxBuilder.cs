@@ -366,7 +366,18 @@ namespace VoidFlow.EditorTools
             glowFade.SetColor("_EmissionColor", Color.white);
             glowFade.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             AssetDatabase.CreateAsset(glowFade, $"{Root}/GlowFade.mat");
-            viewModel.keepVariants = new[] { glowFade };
+            // The gloves and jacket: normal-mapped, smoothness in the colour's alpha, and glove
+            // skins' finishes (plain and glowing) with the glove's relief
+            var arm = Resources.Load<ArmRig>("Arms/RightArm");
+            Material Variant(string name, bool colour, bool glow)
+            {
+                var m = new Material(viewModelTemplate) { name = name };
+                if (arm) arm.DressGlove(m, colour);
+                if (glow) { m.EnableKeyword("_EMISSION"); m.SetColor("_EmissionColor", Color.white); }
+                AssetDatabase.CreateAsset(m, $"{Root}/{name}.mat");
+                return m;
+            }
+            viewModel.keepVariants = new[] { glowFade, Variant("GloveLook", true, false), Variant("GloveFinish", false, false), Variant("GloveFinishGlow", false, true) };
 
             // The inventory (I): loadout, unboxed skins and Void Cases, for this session
             cam.AddComponent<Inventory>().viewModel = viewModel;

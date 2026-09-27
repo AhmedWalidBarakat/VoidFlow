@@ -849,6 +849,7 @@ namespace VoidFlow
             Material body = skin.finish == KnifeFinish.Polished ? Mat(new Color(0.07f, 0.07f, 0.08f), 0.4f, 0f) : GloveMaterial(skin.finish, parts);
             Material cuff = Mat(new Color(0.05f, 0.05f, 0.055f), 0.35f, 0f);
             var rig = Resources.Load<ArmRig>("Arms/RightArm");
+            if (rig) rig.DressGlove(body, skin.finish == KnifeFinish.Polished);
             var glove = new GameObject("Glove").transform;
             glove.SetParent(root, false);
             if (!rig) return parts;
@@ -925,8 +926,6 @@ namespace VoidFlow
             Material dark = Mat(new Color(0.08f, 0.08f, 0.09f), 0.9f, 0.95f);
             // Polished metal in the glove's color, for plates and scales that stand out from it
             Material shell = Mat(Color.Lerp(parts.hue, new Color(0.15f, 0.15f, 0.17f), 0.35f), 0.85f, 0.45f);
-            shell.EnableKeyword("_EMISSION");
-            shell.SetColor("_EmissionColor", parts.hue * 0.3f);
             float yW = fit.wristY, yK = fit.knuckleY, span = yK - yW;
             var palm = fit.Section(Mathf.Lerp(yW, yK, 0.55f));
 

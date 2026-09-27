@@ -495,6 +495,7 @@ namespace VoidFlow
         {
             glove = Make(Color.white, 0.35f, 0f);
             glove.SetTexture("_BaseMap", GloveTexture());
+            Resources.Load<ArmRig>("Arms/RightArm")?.DressGlove(glove, true); // the baked sport glove
             cuff = Make(new Color(0.05f, 0.05f, 0.055f), 0.35f, 0f);
             sleeve = Make(new Color(0.17f, 0.17f, 0.2f), 0.2f, 0f); // dark fabric sleeve
             sleeve.SetTexture("_BaseMap", SleeveTexture());

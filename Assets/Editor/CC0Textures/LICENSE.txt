@@ -1,0 +1,8 @@
+Textures in this folder are from ambientCG (https://ambientcg.com), released under the
+Creative Commons CC0 1.0 Universal license (public domain): free to use, modify and publish,
+commercially too, with no attribution required. Credit is given here anyway.
+
+Leather034C (stitched quilted leather), Leather026 (smooth black leather), Leather018
+(perforated leather), Fabric082A (fine woven fabric): color, normal (OpenGL) and roughness
+maps, resized to 512x512. Editor-only sources: GrayboxBuilder.Gloves bakes the glove and
+jacket textures from them (Resources/Arms); these files are not shipped in builds.

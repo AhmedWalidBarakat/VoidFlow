@@ -10,6 +10,9 @@ namespace VoidFlow
     public class ArmRig : ScriptableObject
     {
         public Mesh skin, glove, strap;
+        // Baked sport-glove and jacket textures (GrayboxBuilder.Gloves): colour with smoothness
+        // in alpha, and normal maps; the glove's are laid out on its own side-on chart
+        public Texture2D gloveAlbedo, gloveNormal, jacketAlbedo, jacketNormal, cuffNormal;
         public string[] boneNames;
         public int[] parents;                 // -1: the rig root
         public Vector3[] bindPositions;       // local to the parent
@@ -50,6 +53,46 @@ namespace VoidFlow
         public static readonly Grip Trigger = new() { index = new(20f, 55f, 30f), fingers = new(80f, 95f, 50f), thumb = new(15f, 40f, 30f), across = 25f };
         public static readonly Grip Support = new() { index = new(40f, 50f, 30f), fingers = new(45f, 55f, 35f), thumb = new(10f, 15f, 10f), across = 10f };
         public static readonly Grip Relaxed = new() { index = new(30f, 35f, 20f), fingers = new(40f, 45f, 25f), thumb = new(8f, 15f, 10f), across = 15f };
+
+        // Puts the baked sport-glove look on a material: its colour and smoothness too, or (for a
+        // skin's finish) just the stitching, padding and grain as relief
+        public void DressGlove(Material m, bool colour)
+        {
+            if (!m) return;
+            if (colour && gloveAlbedo)
+            {
+                m.SetTexture("_BaseMap", gloveAlbedo);
+                m.SetTextureScale("_BaseMap", Vector2.one);
+                m.SetColor("_BaseColor", Color.white);
+                m.SetFloat("_SmoothnessTextureChannel", 1f);
+                m.EnableKeyword("_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A");
+                m.SetFloat("_Smoothness", 1f);
+            }
+            if (gloveNormal)
+            {
+                m.SetTexture("_BumpMap", gloveNormal);
+                m.SetFloat("_BumpScale", 1f);
+                m.EnableKeyword("_NORMALMAP");
+            }
+        }
+
+        // The jacket's woven fabric (or the cuff's knit ribs) on a material
+        public void DressJacket(Material m, bool cuff)
+        {
+            if (!m || !jacketAlbedo) return;
+            m.SetTexture("_BaseMap", jacketAlbedo);
+            m.SetColor("_BaseColor", Color.white);
+            m.SetFloat("_SmoothnessTextureChannel", 1f);
+            m.EnableKeyword("_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A");
+            m.SetFloat("_Smoothness", 1f);
+            var n = cuff ? cuffNormal : jacketNormal;
+            if (n)
+            {
+                m.SetTexture("_BumpMap", n);
+                m.SetTextureScale("_BaseMap", cuff ? new Vector2(1f, 1f) : Vector2.one);
+                m.EnableKeyword("_NORMALMAP");
+            }
+        }
 
         public static Grip Named(string name) => name switch
         {
