@@ -23,8 +23,7 @@ namespace VoidFlow
         // left glove empty, the right one holding the knife (a talon knife comes out the far
         // side and curls up to the right)
         static readonly Vector3 RightIdle = new(0.1f, -0.105f, 0.3f);
-        // As in the classic shooters, only the knife hand shows at rest: the left waits out of
-        // view below the bottom left corner and comes in for the tricks
+        // As in CS2, both gloves show at rest: the left a loose fist low left of the middle
         static readonly Vector3 LeftIdle = new(-0.085f, -0.14f, 0.32f);
         static readonly Quaternion ReverseIdle = FingersBack(new Vector3(-0.3f, 0.5f, 1f), new Vector3(0.1f, 0.6f, -0.7f));
         // Talon knife at rest: low on the right, the ring out to the right of the glove and the
