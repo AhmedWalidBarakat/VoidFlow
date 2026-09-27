@@ -21,7 +21,10 @@ namespace VoidFlow
         WallTracery, WallGrate, WallPanels, WallBlocks, WallHexVents, WallWood,
         RampSpectrum, WallGrid, RampCelestial,
         RampSnow, RampWhiteGrid, RampGlass, RampBrick, RampHex, RampEmber, RampAmethyst, RampToy, RampMine, RampSynth, RampSandstone,
-        WallHedge, WallLab, WallSandstone }
+        WallHedge, WallLab, WallSandstone,
+        // The finale's zones
+        RampOmnific, RampCastle, RampHell, RampTorii, RampTomb, RampDeity, RampCorrupt, RampPatchwork, RampRuins, RampPro,
+        WallCastle, WallCopper }
 
     public class Biome
     {
@@ -341,7 +344,123 @@ namespace VoidFlow
                 accent = new Color(0.7f, 0.4f, 0.26f), accentSurface = Surface.WallPanels,
                 shaft = new Color(1f, 0.8f, 0.55f),
             },
+            // The finale: ten zones after the legendary hard maps, hardest last, then the finish
+            new Biome
+            {
+                name = "OMNIFIC NEON", sky = new Color(0.1f, 0.03f, 0.18f), skyTop = new Color(0.02f, 0f, 0.05f), skyBottom = new Color(0.05f, 0.01f, 0.1f),
+                fogStart = 200f, fogEnd = 1200f,
+                ambientSky = new Color(0.45f, 0.35f, 0.6f), ambientEquator = new Color(0.25f, 0.18f, 0.4f), ambientGround = new Color(0.05f, 0.03f, 0.1f),
+                sunColor = new Color(0.9f, 0.7f, 1f), sunIntensity = 0.5f,
+                ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampOmnific, slab = new Color(0.12f, 0.08f, 0.2f), slabSurface = Surface.Metal,
+                glow = new Color(1f, 0.3f, 0.8f), glowAlt = new Color(0.3f, 0.9f, 1f),
+                scenery = new Color(1f, 1f, 1f), scenerySurface = Surface.WallGrid, style = SceneryStyle.Spectrum,
+                hues = new[] { new Color(1f, 0.2f, 0.7f), new Color(0.3f, 1f, 0.45f), new Color(0.25f, 0.7f, 1f), new Color(0.7f, 0.3f, 1f), new Color(1f, 0.55f, 0.15f), new Color(0.2f, 1f, 0.95f) },
+            },
+            new Biome
+            {
+                name = "CASTLE WALLS", sky = new Color(0.35f, 0.3f, 0.3f), skyTop = new Color(0.12f, 0.12f, 0.2f), skyBottom = new Color(0.2f, 0.16f, 0.14f),
+                fogStart = 90f, fogEnd = 650f,
+                ambientSky = new Color(0.6f, 0.55f, 0.5f), ambientEquator = new Color(0.4f, 0.34f, 0.3f), ambientGround = new Color(0.12f, 0.1f, 0.08f),
+                sunColor = new Color(1f, 0.8f, 0.6f), sunIntensity = 0.8f,
+                ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampCastle, slab = new Color(0.35f, 0.33f, 0.3f), slabSurface = Surface.Stone,
+                glow = new Color(1f, 0.6f, 0.25f), glowAlt = new Color(0.2f, 0.9f, 0.85f),
+                scenery = new Color(0.62f, 0.6f, 0.56f), scenerySurface = Surface.WallCastle, style = SceneryStyle.Cathedral,
+                floor = new Color(0.4f, 0.38f, 0.35f), floorSurface = Surface.WallCastle,
+                accent = new Color(0.35f, 0.25f, 0.16f), accentSurface = Surface.WallWood,
+                shaft = new Color(1f, 0.8f, 0.55f),
+            },
+            new Biome
+            {
+                name = "SIX SIX SIX", sky = new Color(0.25f, 0.03f, 0.03f), skyTop = new Color(0.04f, 0f, 0f), skyBottom = new Color(0.08f, 0.01f, 0.01f),
+                fogStart = 60f, fogEnd = 480f,
+                ambientSky = new Color(0.6f, 0.2f, 0.18f), ambientEquator = new Color(0.35f, 0.08f, 0.07f), ambientGround = new Color(0.08f, 0.01f, 0.01f),
+                sunColor = new Color(1f, 0.4f, 0.3f), sunIntensity = 0.6f,
+                ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampHell, slab = new Color(0.3f, 0.06f, 0.05f), slabSurface = Surface.Metal,
+                glow = new Color(1f, 0.2f, 0.1f), glowAlt = new Color(1f, 0.5f, 0.3f),
+                scenery = new Color(0.45f, 0.12f, 0.1f), scenerySurface = Surface.Panel, style = SceneryStyle.Mine,
+                floor = new Color(0.25f, 0.05f, 0.04f), floorSurface = Surface.Plates,
+                accent = new Color(0.5f, 0.14f, 0.1f), accentSurface = Surface.WallPanels,
+            },
+            new Biome
+            {
+                name = "JADE SHRINE", sky = new Color(0.6f, 0.75f, 0.72f), skyTop = new Color(0.3f, 0.45f, 0.55f), skyBottom = new Color(0.35f, 0.5f, 0.45f),
+                fogStart = 180f, fogEnd = 1100f,
+                ambientSky = new Color(0.75f, 0.85f, 0.82f), ambientEquator = new Color(0.5f, 0.6f, 0.55f), ambientGround = new Color(0.2f, 0.28f, 0.24f),
+                sunColor = new Color(1f, 0.95f, 0.85f), sunIntensity = 1.0f,
+                ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampTorii, slab = new Color(0.12f, 0.1f, 0.1f), slabSurface = Surface.Wood,
+                glow = new Color(1f, 0.25f, 0.15f), glowAlt = new Color(0.3f, 1f, 0.7f),
+                scenery = new Color(0.45f, 0.45f, 0.47f), scenerySurface = Surface.Rock, style = SceneryStyle.Canyon,
+                floor = new Color(0.15f, 0.4f, 0.33f), floorSurface = Surface.Stone,
+            },
+            new Biome
+            {
+                name = "TOMB OF ANUBIS", sky = new Color(0.2f, 0.12f, 0.05f), skyTop = new Color(0.03f, 0.02f, 0.01f), skyBottom = new Color(0.1f, 0.06f, 0.03f),
+                fogStart = 70f, fogEnd = 520f,
+                ambientSky = new Color(0.75f, 0.5f, 0.3f), ambientEquator = new Color(0.5f, 0.32f, 0.18f), ambientGround = new Color(0.15f, 0.09f, 0.05f),
+                sunColor = new Color(1f, 0.7f, 0.4f), sunIntensity = 0.55f,
+                ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampTomb, slab = new Color(0.55f, 0.38f, 0.22f), slabSurface = Surface.Plaster,
+                glow = new Color(1f, 0.55f, 0.15f), glowAlt = new Color(1f, 0.8f, 0.35f),
+                scenery = new Color(0.72f, 0.5f, 0.3f), scenerySurface = Surface.WallSandstone, style = SceneryStyle.Temple,
+                floor = new Color(0.55f, 0.4f, 0.25f), floorSurface = Surface.Plaster,
+                accent = new Color(0.6f, 0.42f, 0.24f), accentSurface = Surface.WallPanels,
+                shaft = new Color(1f, 0.65f, 0.3f),
+            },
+            new Biome
+            {
+                name = "DEITY'S SANCTUM", sky = new Color(0.2f, 0.1f, 0.05f), skyTop = new Color(0.04f, 0.02f, 0.01f), skyBottom = new Color(0.1f, 0.05f, 0.02f),
+                fogStart = 80f, fogEnd = 560f,
+                ambientSky = new Color(0.7f, 0.45f, 0.3f), ambientEquator = new Color(0.45f, 0.27f, 0.16f), ambientGround = new Color(0.12f, 0.07f, 0.04f),
+                sunColor = new Color(1f, 0.75f, 0.5f), sunIntensity = 0.7f,
+                ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampDeity, slab = new Color(0.4f, 0.2f, 0.1f), slabSurface = Surface.Metal,
+                glow = new Color(1f, 0.6f, 0.3f), glowAlt = new Color(0.35f, 0.9f, 0.75f),
+                scenery = new Color(0.62f, 0.36f, 0.2f), scenerySurface = Surface.WallCopper, style = SceneryStyle.Library,
+                floor = new Color(0.3f, 0.16f, 0.08f), floorSurface = Surface.Wood,
+                accent = new Color(0.55f, 0.3f, 0.16f), accentSurface = Surface.WallCopper,
+            },
+            new Biome
+            {
+                name = "CORRUPTION", sky = new Color(0.2f, 0.05f, 0.3f), skyTop = new Color(0.05f, 0.01f, 0.1f), skyBottom = new Color(0.25f, 0.08f, 0.35f),
+                fogStart = 150f, fogEnd = 900f,
+                ambientSky = new Color(0.6f, 0.45f, 0.8f), ambientEquator = new Color(0.35f, 0.2f, 0.5f), ambientGround = new Color(0.1f, 0.04f, 0.15f),
+                sunColor = new Color(0.95f, 0.85f, 1f), sunIntensity = 0.8f,
+                ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampCorrupt, slab = new Color(0.1f, 0.05f, 0.15f), slabSurface = Surface.Metal,
+                glow = new Color(0.6f, 0.15f, 1f), glowAlt = new Color(1f, 0.3f, 0.9f),
+                scenery = new Color(0.14f, 0.08f, 0.2f), scenerySurface = Surface.WallHexVents, style = SceneryStyle.Rings,
+            },
+            new Biome
+            {
+                name = "SINSANE PATCHWORK", sky = new Color(0.55f, 0.5f, 0.45f), skyTop = new Color(0.3f, 0.35f, 0.45f), skyBottom = new Color(0.4f, 0.36f, 0.32f),
+                fogStart = 140f, fogEnd = 800f,
+                ambientSky = new Color(0.75f, 0.7f, 0.65f), ambientEquator = new Color(0.5f, 0.46f, 0.42f), ambientGround = new Color(0.2f, 0.18f, 0.16f),
+                sunColor = new Color(1f, 0.93f, 0.8f), sunIntensity = 1.0f,
+                ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampPatchwork, slab = new Color(0.5f, 0.46f, 0.4f), slabSurface = Surface.Concrete,
+                glow = new Color(1f, 0.8f, 0.3f), glowAlt = new Color(0.4f, 0.8f, 1f),
+                scenery = new Color(0.6f, 0.45f, 0.35f), scenerySurface = Surface.Bricks, style = SceneryStyle.Gallery,
+            },
+            new Biome
+            {
+                name = "ESSENTIA RUINS", sky = new Color(1f, 0.8f, 0.8f), skyTop = new Color(0.45f, 0.65f, 0.95f), skyBottom = new Color(0.95f, 0.75f, 0.8f),
+                fogStart = 260f, fogEnd = 1500f,
+                ambientSky = new Color(0.95f, 0.9f, 0.95f), ambientEquator = new Color(0.85f, 0.75f, 0.8f), ambientGround = new Color(0.55f, 0.5f, 0.55f),
+                sunColor = new Color(1f, 0.92f, 0.88f), sunIntensity = 1.25f,
+                ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampRuins, slab = new Color(0.55f, 0.55f, 0.58f), slabSurface = Surface.Stone,
+                glow = new Color(1f, 0.75f, 0.4f), glowAlt = new Color(0.9f, 0.35f, 0.3f),
+                scenery = new Color(0.6f, 0.6f, 0.63f), scenerySurface = Surface.Stone, style = SceneryStyle.Palace,
+            },
+            new Biome
+            {
+                name = "PRO", sky = new Color(0.02f, 0.02f, 0.02f), skyTop = new Color(0f, 0f, 0f), skyBottom = new Color(0.01f, 0.01f, 0.01f),
+                fogStart = 90f, fogEnd = 700f,
+                ambientSky = new Color(0.4f, 0.4f, 0.42f), ambientEquator = new Color(0.2f, 0.2f, 0.22f), ambientGround = new Color(0.04f, 0.04f, 0.05f),
+                sunColor = new Color(1f, 1f, 1f), sunIntensity = 0.7f,
+                ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampPro, slab = new Color(0.06f, 0.06f, 0.06f), slabSurface = Surface.Metal,
+                glow = new Color(1f, 0.1f, 0.12f), glowAlt = new Color(1f, 1f, 1f),
+                scenery = new Color(1f, 1f, 1f), scenerySurface = Surface.WallGrid, style = SceneryStyle.Wire,
+            },
         };
+
+        // Where the finale's zones start in All (the course ends after the last of them)
+        public const int FinaleFrom = 22;
     }
 
     // One set of shared materials per biome. Every ramp and scenery piece in the biome uses

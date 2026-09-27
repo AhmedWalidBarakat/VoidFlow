@@ -36,6 +36,7 @@ namespace VoidFlow
         {
             best = PlayerPrefs.GetFloat(BestKey, 0f);
             course.CheckpointReached += () => Note("CHECKPOINT");
+            course.CourseFinished += Finish;
             course.BiomeEntered += b => { banner = $"{b.name}\nSTAGE {course.CurrentStage + 1}  ·  {course.CurrentTierName}  ·  {course.CurrentStageName}"; bannerTime = Time.time; };
             Restart();
         }
@@ -46,9 +47,21 @@ namespace VoidFlow
             player.Teleport(spawnPoint.position, spawnPoint.eulerAngles.y);
             running = false;
             falls = 0;
+            finishTime = -99f;
         }
 
         void Note(string text) { note = text; noteTime = Time.time; }
+
+        // The end of the course: the time stops, the congratulations go up, and every item in
+        // the game is yours
+        float finishTime = -99f, finalTime;
+        void Finish()
+        {
+            finalTime = Time.time - startTime;
+            finishTime = Time.time;
+            Inventory.GrantEverything();
+        }
+        bool FinishedRun => course.Finished && finishTime > 0f;
 
         void Update()
         {
@@ -71,6 +84,12 @@ namespace VoidFlow
                 }
             }
 
+            // Past the finish: falling off the plaza just puts you back on it
+            if (FinishedRun && course.IsFallen(p) && !player.Flying)
+            {
+                player.Teleport(course.FinishSpawn, course.FinishYaw);
+                return;
+            }
             if (course.IsFallen(p) && !player.Flying)
             {
                 if (running && course.RespawnAtCheckpoint(player))
@@ -116,7 +135,7 @@ namespace VoidFlow
             {
                 GUI.Label(new Rect(0, 16, w, 40), Distance(course.Progress), bigStyle);
                 GUI.Label(new Rect(0, 52, w, 24),
-                    $"stage {course.CurrentStage + 1}: {course.CurrentTierName} {course.CurrentStageName}   ·   ramp {course.CurrentRamp + 1}   ·   {course.CurrentBiome.name}   ·   {Format(Time.time - startTime)}" + (falls > 0 ? $"   ·   {falls} fall{(falls == 1 ? "" : "s")}" : ""),
+                    $"stage {course.CurrentStage + 1}: {course.CurrentTierName} {course.CurrentStageName}   ·   ramp {course.CurrentRamp + 1}   ·   {course.CurrentBiome.name}   ·   {Format(FinishedRun ? finalTime : Time.time - startTime)}" + (falls > 0 ? $"   ·   {falls} fall{(falls == 1 ? "" : "s")}" : ""),
                     centeredStyle);
             }
             else
@@ -139,6 +158,22 @@ namespace VoidFlow
                 var old = GUI.color;
                 GUI.color = new Color(0.75f, 1f, 0.8f, Mathf.Clamp01(Mathf.Min(noteAge * 5f, (1.6f - noteAge) * 2f)));
                 GUI.Label(new Rect(0, h * 0.16f, w, 40), note, bigStyle);
+                GUI.color = old;
+            }
+
+            if (FinishedRun)
+            {
+                // CONGRATS, pulsing through the colors, for as long as you stand at the finish
+                float since = Time.time - finishTime;
+                var old = GUI.color;
+                GUI.color = Color.HSVToRGB(Mathf.Repeat(Time.time * 0.25f, 1f), 0.55f, 1f) * new Color(1f, 1f, 1f, Mathf.Clamp01(since * 2f));
+                float pulse = 1f + 0.06f * Mathf.Sin(Time.time * 5f);
+                var big = new GUIStyle(bannerStyle) { fontSize = Mathf.RoundToInt(80 * pulse) };
+                GUI.Label(new Rect(0, h * 0.18f, w, 120), "CONGRATS!!!!!!!!!", big);
+                GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01(since * 2f - 0.5f));
+                GUI.Label(new Rect(0, h * 0.18f + 110, w, 40), $"You beat the whole course  ·  {Format(finalTime)}" + (falls > 0 ? $"  ·  {falls} fall{(falls == 1 ? "" : "s")}" : "  ·  no falls!"), bigStyle);
+                GUI.Label(new Rect(0, h * 0.18f + 150, w, 40), "EVERY ITEM IN THE GAME IS NOW IN YOUR INVENTORY  (press I)", bigStyle);
+                GUI.Label(new Rect(0, h * 0.18f + 190, w, 24), "Press R to run it again", centeredStyle);
                 GUI.color = old;
             }
 

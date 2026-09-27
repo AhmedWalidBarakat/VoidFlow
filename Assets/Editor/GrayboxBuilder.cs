@@ -210,13 +210,25 @@ namespace VoidFlow.EditorTools
                 Surface.WallHedge => MakeWallHedge(),
                 Surface.WallLab => MakeWallLab(),
                 Surface.WallSandstone => MakeWallSandstone(),
+                Surface.RampOmnific => MakeRampOmnific(),
+                Surface.RampCastle => MakeRampCastle(),
+                Surface.RampHell => MakeRampHell(),
+                Surface.RampTorii => MakeRampTorii(),
+                Surface.RampTomb => MakeRampTomb(),
+                Surface.RampDeity => MakeRampDeity(),
+                Surface.RampCorrupt => MakeRampCorrupt(),
+                Surface.RampPatchwork => MakeRampPatchwork(),
+                Surface.RampRuins => MakeRampRuins(),
+                Surface.RampPro => MakeRampPro(),
+                Surface.WallCastle => MakeWallCastle(),
+                Surface.WallCopper => MakeWallCopper(),
                 _ => grid,
             };
 
             // The designs cover 8m: ramps map 2m per UV, walls 4m. Ramp designs and the wood
             // carry their own colors, so they aren't tinted.
             bool IsDesign(Surface s) => s >= Surface.RampCrimson;
-            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s is Surface.WallWood or Surface.RampSpectrum or Surface.WallGrid or Surface.RampCelestial || s >= Surface.RampSnow && s <= Surface.RampSandstone || s == Surface.WallHedge;
+            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s is Surface.WallWood or Surface.RampSpectrum or Surface.WallGrid or Surface.RampCelestial || s >= Surface.RampSnow && s <= Surface.RampSandstone || s == Surface.WallHedge || s >= Surface.RampCastle && s <= Surface.RampPro;
             // What glows: ramp masks carry their own colors, wall masks take the zone's glow
             var glowMade = new Dictionary<Surface, Texture2D>();
             Texture2D GlowOf(Surface s)
@@ -238,6 +250,10 @@ namespace VoidFlow.EditorTools
                     Surface.RampEmber => MakeRampEmberGlow(),
                     Surface.RampAmethyst => MakeRampAmethystGlow(),
                     Surface.RampSynth => MakeRampSynthGlow(),
+                    Surface.RampOmnific => MakeRampOmnificGlow(),
+                    Surface.RampHell => MakeRampHellGlow(),
+                    Surface.RampCorrupt => MakeRampCorruptGlow(),
+                    Surface.RampPro => MakeRampProGlow(),
                     Surface.WallGrid => MakeWallGridGlow(),
                     Surface.WallTracery => MakeWallTraceryGlow(),
                     Surface.WallHexVents => MakeWallHexVentsGlow(),
@@ -290,7 +306,7 @@ namespace VoidFlow.EditorTools
                     kits[i].glowHues = new Material[b.hues.Length];
                     for (int h = 0; h < b.hues.Length; h++)
                     {
-                        kits[i].rampHues[h] = Save(Lit(Paint(b.ramp, b.rampSurface, RampTile(b.rampSurface)), b.rampSurface, b.hues[h] * 1.6f), $"Ramp{h}");
+                        kits[i].rampHues[h] = Save(Lit(Paint(Baked(b.rampSurface) ? b.ramp : Color.Lerp(b.hues[h], Color.white, 0.35f), b.rampSurface, RampTile(b.rampSurface)), b.rampSurface, b.hues[h] * 1.6f), $"Ramp{h}");
                         kits[i].glowHues[h] = Save(BiomeKit.Glow(template, b.hues[h]), $"Glow{h}");
                     }
                 }

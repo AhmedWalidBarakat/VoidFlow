@@ -142,13 +142,21 @@ namespace VoidFlow
         static readonly Tier[] TierCycle = { Tier.Intermediate, Tier.Advanced, Tier.Technical, Tier.Beginner };
         public static Tier TierOf(int stage) => stage <= 0 ? Tier.Beginner : TierCycle[(stage - 1) % TierCycle.Length];
         public Tier CurrentTier => TierOf(CurrentStage);
-        public string CurrentTierName => TierNames[(int)CurrentTier];
+        public string CurrentTierName => InFinale(CurrentStage) ? "FINALE" : TierNames[(int)CurrentTier];
 
         [Tooltip("Crystal material for Void Shards")]
         public Material shardMaterial;
         static Mesh shardMesh;
 
         public int CurrentStage => current / rampsPerBiome;
+        // The course ends after the last zone: the final ramp throws you onto the finish
+        public int FinalRamp => Biome.All.Length * rampsPerBiome;
+        bool InFinale(int stage) => stage >= Biome.FinaleFrom;
+        public bool Finished { get; private set; }
+        Transform finish;
+        public Vector3 FinishSpawn => finish ? finish.position + Vector3.up * 1.5f : Vector3.zero;
+        public float FinishYaw => finish ? finish.eulerAngles.y : 0f;
+        public event Action CourseFinished;
         public string CurrentStageName => ThemeOf(CurrentStage);
 
         // Each stage's theme: the first is always Classic; later ones are picked from those the
@@ -224,6 +232,7 @@ namespace VoidFlow
             nextIndex = 0;
             current = 0;
             checkpoint = 0;
+            Finished = false;
             padInUse = null;
             last = null;
             lastFrame = null;
@@ -279,7 +288,7 @@ namespace VoidFlow
 
         void Stream(bool all)
         {
-            while (nextIndex <= current + rampsAhead)
+            while (nextIndex <= current + rampsAhead && nextIndex < FinalRamp)
             {
                 Generate();
                 if (!all) break; // at most one new ramp per frame, so there are no hitches
@@ -304,6 +313,9 @@ namespace VoidFlow
         float Difficulty(int ramp)
         {
             int stage = ramp / rampsPerBiome;
+            // The finale climbs from hard to the hardest there is, zone by zone
+            if (InFinale(stage))
+                return Mathf.Lerp(0.8f, 1f, (ramp - Biome.FinaleFrom * rampsPerBiome) / (float)Mathf.Max(1, FinalRamp - 1 - Biome.FinaleFrom * rampsPerBiome));
             float within = (ramp % rampsPerBiome) / (float)Mathf.Max(1, rampsPerBiome - 1);
             // The first lap round the tiers eases you in; after that each tier is itself
             int lapIndex = Mathf.Max(0, stage - 1) / TierCycle.Length;
@@ -581,6 +593,7 @@ namespace VoidFlow
             BuildArchitecture(seg, path, biome, kit, i, enclose && i > 1, stageStart, flightArc, flightGap, extraMargin, decor);
             ClearScenery(seg);
             segments.Add(seg);
+            if (i == FinalRamp - 1) BuildFinish(seg, kit);
             Physics.SyncTransforms();
         }
 
@@ -987,6 +1000,12 @@ namespace VoidFlow
                     checkpoint = current;
                     CheckpointReached?.Invoke();
                 }
+                // Off the end of the very last ramp: the course is done
+                if (!Finished && current == FinalRamp - 1 && nearest >= seg.line.Length - 3 && reached)
+                {
+                    Finished = true;
+                    CourseFinished?.Invoke();
+                }
             }
         }
 
@@ -1004,6 +1023,7 @@ namespace VoidFlow
 
         public bool IsFallen(Vector3 p)
         {
+            if (Finished) return p.y < FinishSpawn.y - 60f;
             Segment here = Seg(current), next = Seg(current + 1);
             if (here == null) return false;
             float floor = here.lowestY;
@@ -1066,6 +1086,41 @@ namespace VoidFlow
             Block("Glow", new Vector3(0f, -0.85f, 0f), new Vector3(PadWidth - 1f, 0.1f, PadLength - 1f), Quaternion.identity, kit.glow);
             seg.pad = pad;
             pad.gameObject.SetActive(false); // only there while someone respawns on it
+        }
+
+        // The finish, past the end of the final ramp: a huge plaza wide and long enough to catch
+        // any launch off it, lined in the zone's glow, with a gate of light at its far end
+        void BuildFinish(Segment seg, BiomeKit kit)
+        {
+            Vector3 end = seg.line[^1];
+            Vector3 dir = seg.line[^1] - seg.line[Mathf.Max(0, seg.line.Length - 6)];
+            dir.y = 0f;
+            dir = dir.sqrMagnitude > 0.01f ? dir.normalized : Vector3.forward;
+            const float Length = 520f, Width = 320f;
+            float top = seg.lowestY - 12f;
+            finish = new GameObject("Finish").transform;
+            finish.SetParent(seg.root.transform, false);
+            finish.SetLocalPositionAndRotation(new Vector3(end.x, top, end.z) + dir * (Length * 0.5f + 10f), Quaternion.LookRotation(dir, Vector3.up));
+            void Block(Vector3 at, Vector3 size, Material mat, bool solid)
+            {
+                var go = new GameObject(solid ? "FinishDeck" : "FinishGlow");
+                go.transform.SetParent(finish, false);
+                go.transform.localPosition = at;
+                go.transform.localScale = size;
+                go.AddComponent<MeshFilter>().sharedMesh = cube;
+                go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+                if (solid) go.AddComponent<BoxCollider>();
+            }
+            Block(new Vector3(0f, -2f, 0f), new Vector3(Width, 4f, Length), kit.slab, true);
+            foreach (float x in new[] { -1f, 1f })
+                Block(new Vector3(x * Width * 0.5f, 0.1f, 0f), new Vector3(1.5f, 0.4f, Length), kit.glow, false);
+            for (int k = 0; k < 12; k++)
+                Block(new Vector3(0f, 0.05f, -Length * 0.5f + 30f + k * 40f), new Vector3(Width * 0.8f, 0.2f, 1.2f), kit.glowAlt, false);
+            // The gate of light at the far end
+            float gz = Length * 0.5f - 20f;
+            foreach (float x in new[] { -1f, 1f })
+                Block(new Vector3(x * 60f, 40f, gz), new Vector3(6f, 80f, 6f), kit.glow, false);
+            Block(new Vector3(0f, 82f, gz), new Vector3(126f, 6f, 6f), kit.glow, false);
         }
 
         Segment padInUse;

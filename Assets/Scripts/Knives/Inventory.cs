@@ -42,6 +42,17 @@ namespace VoidFlow
         // For testing: start every session owning everything (true), or empty as players do
         const bool GiveEverything = true;
 
+        // Finishing the whole course: every item in the game, straight into the inventory
+        public static void GrantEverything()
+        {
+            for (int slot = 0; slot < 3; slot++)
+            {
+                var pool = Skins.Pool((ItemSlot)slot);
+                for (int i = 1; i < pool.Length; i++)
+                    if (!items.Exists(it => it.slot == (ItemSlot)slot && it.index == i)) Add((ItemSlot)slot, i);
+            }
+        }
+
         // An unboxed skin
         public static void Add(ItemSlot slot, int index)
         {
