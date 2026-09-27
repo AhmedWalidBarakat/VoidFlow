@@ -242,6 +242,7 @@ namespace VoidFlow
         {
             foreach (var seg in segments) DestroySegment(seg);
             segments.Clear();
+            pending.Clear();
             if (startHall)
             {
                 startHall.position -= hallOffset;
@@ -307,13 +308,23 @@ namespace VoidFlow
             return null;
         }
 
+        // Building work put off to later frames (see Generate), one piece a frame
+        readonly Queue<Action> pending = new();
+
         void Stream(bool all)
         {
+            if (all) { while (pending.Count > 0) pending.Dequeue()(); }
+            else if (pending.Count > 0)
+            {
+                pending.Dequeue()();
+                return;
+            }
             while (nextIndex <= current + rampsAhead && nextIndex < FinalRamp)
             {
                 Generate();
                 if (!all) break; // at most one new ramp per frame, so there are no hitches
             }
+            if (all) { while (pending.Count > 0) pending.Dequeue()(); }
             // Ramps behind you vanish. Those since the last checkpoint are only hidden, so a fall
             // can bring them back; older ones go for good.
             while (segments.Count > 0 && segments[0].index < Mathf.Min(checkpoint, current - rampsBehind))
@@ -609,10 +620,20 @@ namespace VoidFlow
             // one enclosed interior
             // Decoration has its own random numbers (from the ramp's number), so changing how the
             // buildings look never reshuffles the course itself
+            // The scenery and the building round the ramp come a frame or two later, each in a
+            // frame of its own, so no single frame has to build a whole ramp and its world (that
+            // made the game hitch in the browser whenever a new ramp appeared ahead)
             var decor = new System.Random(unchecked(i * 7919 + 13));
-            if (!Architecture.Continuous(biome.style)) Scenery.Line(path, biome, kit, seg.root.transform, decor, cube);
-            BuildArchitecture(seg, path, biome, kit, i, enclose && i > 1, stageStart, flightArc, flightGap, extraMargin, decor);
-            ClearScenery(seg);
+            bool encloseIt = enclose && i > 1;
+            if (!Architecture.Continuous(biome.style))
+                pending.Enqueue(() => { if (seg.root) Scenery.Line(path, biome, kit, seg.root.transform, decor, cube); });
+            pending.Enqueue(() =>
+            {
+                if (!seg.root) return;
+                BuildArchitecture(seg, path, biome, kit, i, encloseIt, stageStart, flightArc, flightGap, extraMargin, decor);
+                ClearScenery(seg);
+                Physics.SyncTransforms();
+            });
             segments.Add(seg);
             if (i == FinalRamp - 1) BuildFinish(seg, kit);
             Physics.SyncTransforms();
@@ -774,7 +795,7 @@ namespace VoidFlow
 
         // A mesh object under a segment. Solid ones are surf surfaces with collision and
         // shadows; the rest are glow and decoration, drawn cheaply.
-        static void AddPart(Segment seg, string name, Vector3 position, Mesh mesh, Material mat, bool solid)
+        void AddPart(Segment seg, string name, Vector3 position, Mesh mesh, Material mat, bool solid)
         {
             seg.meshes.Add(mesh);
             var go = new GameObject(name);
@@ -783,7 +804,9 @@ namespace VoidFlow
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var r = go.AddComponent<MeshRenderer>();
             r.sharedMaterial = mat;
-            if (solid) go.AddComponent<MeshCollider>().sharedMesh = mesh;
+            // Its collision comes a frame later, in a frame of its own (cooking it is costly),
+            // long before anyone reaches a ramp built three ahead
+            if (solid) pending.Enqueue(() => { if (go) { go.AddComponent<MeshCollider>().sharedMesh = mesh; Physics.SyncTransforms(); } });
             else
             {
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;

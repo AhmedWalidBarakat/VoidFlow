@@ -304,8 +304,9 @@ namespace VoidFlow
 
         Look LookFor(string name) => name switch
         {
-            "HALL" => new Look { mat = magic, glowMat = mote, a = new Color(0.7f, 0.35f, 1f), b = new Color(0.4f, 0.1f, 0.9f), glow = new Color(0.8f, 0.5f, 1f),
-                size = 0.5f, rate = 22f, glowRate = 30f, gravity = -0.02f, drift = new Vector3(0f, 0.35f, 0f), life = 6f },
+            // The start terrace stays clear: nothing drifting around in it
+            "HALL" => new Look { mat = mote, glowMat = mote, a = Color.white, b = Color.white, glow = Color.white,
+                size = 0.1f, rate = 0f, glowRate = 0f, drift = Vector3.zero, life = 1f },
             "CRIMSON HALL" => new Look { mat = mote, glowMat = spark, a = new Color(1f, 0.15f, 0.2f), b = new Color(0.6f, 0.02f, 0.06f), glow = new Color(1f, 0.2f, 0.25f),
                 size = 0.14f, rate = 50f, glowRate = 10f, gravity = -0.05f, drift = new Vector3(0.1f, 0.4f, 0f), life = 6f },
             "SKY PALACE" => new Look { mat = star, glowMat = mote, a = new Color(1f, 0.95f, 0.8f), b = new Color(0.7f, 0.85f, 1f), glow = new Color(1f, 0.85f, 0.5f),
