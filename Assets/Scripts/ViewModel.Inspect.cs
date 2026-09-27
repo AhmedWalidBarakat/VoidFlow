@@ -22,16 +22,16 @@ namespace VoidFlow
         // Resting poses in camera space: two block arms coming in from the bottom corners, the
         // left glove empty, the right one holding the knife (a talon knife comes out the far
         // side and curls up to the right)
-        static readonly Vector3 RightIdle = new(0.12f, -0.1f, 0.3f);
+        static readonly Vector3 RightIdle = new(0.1f, -0.105f, 0.3f);
         // As in the classic shooters, only the knife hand shows at rest: the left waits out of
         // view below the bottom left corner and comes in for the tricks
-        static readonly Vector3 LeftIdle = new(-0.2f, -0.3f, 0.26f);
+        static readonly Vector3 LeftIdle = new(-0.085f, -0.14f, 0.32f);
         static readonly Quaternion ReverseIdle = FingersBack(new Vector3(-0.3f, 0.5f, 1f), new Vector3(0.1f, 0.6f, -0.7f));
         // Talon knife at rest: low on the right, the ring out to the right of the glove and the
         // hooked blade sweeping left and curling down, flat side toward you
         // (the reverse-grip hold from the classic shooters: fist tilted in from the bottom right
         // corner, ring up by the index finger, the hooked blade curling down out of the fist)
-        static readonly Vector3 TalonIdlePos = new(0.14f, -0.09f, 0.3f);
+        static readonly Vector3 TalonIdlePos = new(0.11f, -0.1f, 0.3f);
         static readonly Quaternion TalonIdle = FingersBack(new Vector3(-0.45f, 0.85f, 0.3f), new Vector3(-0.3f, -0.1f, 0.95f));
         // Talon inspect: the knife hangs from the finger ring in front of the raised glove, flat
         // side on, and spins round the finger there
@@ -471,8 +471,8 @@ namespace VoidFlow
                 return;
             }
             rightHand.open = 0f; rightHand.keepIndex = false;
-            leftHand.open = 0f;
-            SetHandGrip(leftHand, Relaxed);
+            leftHand.open = 0.3f; // a loose fist at rest, as in CS2
+            SetHandGrip(leftHand, Fist);
             hand.localPosition = (talon ? TalonIdlePos : RightIdle) + pos;
             hand.localRotation = Quaternion.Euler(rot) * (talon ? TalonIdle : ForwardIdle);
             SetArmAlpha(1f);
