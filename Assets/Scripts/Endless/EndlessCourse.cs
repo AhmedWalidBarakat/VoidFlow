@@ -378,6 +378,8 @@ namespace VoidFlow
             int biomeIndex = BiomeOf(i);
             Biome biome = Biome.All[biomeIndex];
             BiomeKit kit = kits[biomeIndex];
+            // The first two ramps fly out under the start terrace's sky, and wear its white and gold
+            if (i < 2 && kits.Length > Biome.All.Length) kit = kits[Biome.All.Length];
             // Spectrum zones run through their hues, one ramp at a time
             if (kit.rampHues != null && kit.rampHues.Length > 0)
                 kit = kit.Hue(i % rampsPerBiome * kit.rampHues.Length / rampsPerBiome);

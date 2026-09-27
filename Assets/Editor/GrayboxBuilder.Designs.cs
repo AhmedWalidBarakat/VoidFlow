@@ -236,6 +236,19 @@ namespace VoidFlow.EditorTools
             return Solid(wood * shade);
         });
 
+        // The terrace's ramps: white marble, gold lines running along the ramp every 2m (a wider
+        // one every 8m), and faint gold rules across every 8m (own colors)
+        static Texture2D MakeRampCelestial() => Design("RampCelestial", (u, v) =>
+        {
+            if (ToLine(v * 2f) * 4f < 0.06f) return Rgb(1f, 0.8f, 0.4f);
+            if (ToLine(v * 4f) * 2f < 0.025f) return Rgb(0.95f, 0.78f, 0.45f);
+            if (ToLine(u * 2f) * 4f < 0.02f) return Rgb(0.85f, 0.75f, 0.55f);
+            float n = Noise(u * 4f, v * 4f, 4, 321) * 0.6f + Noise(u * 16f, v * 16f, 16, 323) * 0.4f;
+            float vein = Mathf.Pow(1f - Mathf.Abs(Mathf.Sin(Mathf.PI * 2f * (2f * u + v) + n * 9f)), 20f);
+            float shade = 0.95f + 0.04f * Mottle(u, v, 325) - vein * 0.18f;
+            return Rgb(shade * 0.99f, shade * 0.98f, shade * 0.95f);
+        });
+
         // ------------------------------------------------------------------ walls
 
         // Gothic blind arches over ashlar: two tall pointed arches every 8m, each with a mullion

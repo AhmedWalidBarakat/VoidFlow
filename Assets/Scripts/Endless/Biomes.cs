@@ -18,7 +18,7 @@ namespace VoidFlow
         // Each zone's own ramp design, and wall patterns (8m tiles)
         RampCrimson, RampForge, RampSunset, RampGallery, RampPalace, RampCandy, RampNeon, RampWire, RampGrotto, RampLibrary,
         WallTracery, WallGrate, WallPanels, WallBlocks, WallHexVents, WallWood,
-        RampSpectrum, WallGrid }
+        RampSpectrum, WallGrid, RampCelestial }
 
     public class Biome
     {
@@ -51,6 +51,10 @@ namespace VoidFlow
             fogStart = 350f, fogEnd = 2400f,
             ambientSky = new Color(0.92f, 0.94f, 1f), ambientEquator = new Color(0.9f, 0.84f, 0.74f), ambientGround = new Color(0.55f, 0.5f, 0.45f),
             sunColor = new Color(1f, 0.95f, 0.85f), sunIntensity = 1.3f,
+            // The first two ramps, under this sky: white marble lined in gold
+            ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampCelestial, slab = new Color(0.95f, 0.93f, 0.88f), slabSurface = Surface.Plaster,
+            glow = new Color(1f, 0.78f, 0.4f), glowAlt = new Color(0.6f, 0.8f, 1f),
+            scenery = new Color(0.95f, 0.94f, 0.9f), scenerySurface = Surface.Plaster,
         };
 
         public static readonly Biome[] All =

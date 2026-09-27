@@ -195,13 +195,14 @@ namespace VoidFlow.EditorTools
                 Surface.WallWood => MakeWallWood(),
                 Surface.RampSpectrum => MakeRampSpectrum(),
                 Surface.WallGrid => MakeWallGrid(),
+                Surface.RampCelestial => MakeRampCelestial(),
                 _ => grid,
             };
 
             // The designs cover 8m: ramps map 2m per UV, walls 4m. Ramp designs and the wood
             // carry their own colors, so they aren't tinted.
             bool IsDesign(Surface s) => s >= Surface.RampCrimson;
-            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s is Surface.WallWood or Surface.RampSpectrum or Surface.WallGrid;
+            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s is Surface.WallWood or Surface.RampSpectrum or Surface.WallGrid or Surface.RampCelestial;
             // What glows: ramp masks carry their own colors, wall masks take the zone's glow
             var glowMade = new Dictionary<Surface, Texture2D>();
             Texture2D GlowOf(Surface s)
@@ -217,6 +218,7 @@ namespace VoidFlow.EditorTools
                     Surface.RampWire => MakeRampWireGlow(),
                     Surface.RampGrotto => MakeRampGrottoGlow(),
                     Surface.RampSpectrum => MakeRampSpectrumGlow(),
+                    Surface.RampCelestial => MakeRampCelestialGlow(),
                     Surface.WallGrid => MakeWallGridGlow(),
                     Surface.WallTracery => MakeWallTraceryGlow(),
                     Surface.WallHexVents => MakeWallHexVentsGlow(),
@@ -238,10 +240,11 @@ namespace VoidFlow.EditorTools
             Vector2 WallTile(Surface s) => IsDesign(s) ? Vector2.one * 0.5f : Vector2.one;
             Material Paint(Color c, Surface s, Vector2 tile) => BiomeKit.Surface(template, Baked(s) ? Color.white : c, Tex(s), tile);
 
-            var kits = new BiomeKit[Biome.All.Length];
+            // One kit per zone, and one more at the end for the start terrace's ramps
+            var kits = new BiomeKit[Biome.All.Length + 1];
             for (int i = 0; i < kits.Length; i++)
             {
-                Biome b = Biome.All[i];
+                Biome b = i < Biome.All.Length ? Biome.All[i] : Biome.Terrace;
                 string name = b.name.Replace(" ", "");
                 Material Save(Material m, string part)
                 {

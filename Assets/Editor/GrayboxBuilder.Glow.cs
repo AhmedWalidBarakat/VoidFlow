@@ -64,6 +64,14 @@ namespace VoidFlow.EditorTools
             return Dark;
         });
 
+        // Terrace ramps: the gold lines along the ramp shine softly
+        static Texture2D MakeRampCelestialGlow() => Design("RampCelestialGlow", (u, v) =>
+        {
+            if (ToLine(v * 2f) * 4f < 0.06f) return Rgb(1f, 0.75f, 0.35f);
+            if (ToLine(v * 4f) * 2f < 0.025f) return Rgb(0.5f, 0.38f, 0.18f);
+            return Dark;
+        });
+
         // Grotto: the crystal veins
         static Texture2D MakeRampGrottoGlow() => Design("RampGrottoGlow", (u, v) =>
         {
