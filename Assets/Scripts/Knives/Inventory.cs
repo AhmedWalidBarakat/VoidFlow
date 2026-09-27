@@ -40,7 +40,7 @@ namespace VoidFlow
         }
 
         // For testing: start every session owning everything (true), or empty as players do
-        const bool GiveEverything = false;
+        const bool GiveEverything = true;
 
         // An unboxed skin
         public static void Add(ItemSlot slot, int index)

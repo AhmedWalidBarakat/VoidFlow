@@ -217,8 +217,6 @@ namespace VoidFlow
             root.SetParent(parent, false);
             var parts = new WeaponParts { root = root, model = skin.model, rarity = skin.rarity, hue = HueOf(skin.finish) };
             Material finish = FinishMaterial(skin.finish, parts);
-            // Blades are long and thin: show a matching strip of a photo texture
-            if (KnifeFinishes.Get(skin.finish).photo) finish.SetTextureScale("_BaseMap", new Vector2(0.2f, 1f));
             switch (skin.model)
             {
                 case KnifeModel.Butterfly: Butterfly(parts, finish); break;
@@ -251,6 +249,12 @@ namespace VoidFlow
                 AddFlames(parts, at, 0.085f, 0.09f);
             }
             if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, finish, 6);
+            // Skins flow across the whole knife as one piece, from the heel to the point
+            if (skin.rarity != SkinRarity.Void)
+            {
+                Vector3 tip = parts.tip ? parts.root.InverseTransformPoint(parts.tip.position) : Vector3.up * 0.2f;
+                LayFinish(parts, skin.finish, tip.normalized, Vector3.right);
+            }
             parts.Animate(0f, -1f);
             return parts;
         }
@@ -1477,6 +1481,7 @@ namespace VoidFlow
             keep.Add(lens);
             keep.Add(red);
             if (skin.finish != KnifeFinish.Polished) CoverAndSparkle(parts, skin.finish, chassis, KnifeFinishes.Get(skin.finish).photo ? 14 : 8);
+            if (skin.finish != KnifeFinish.Polished && skin.rarity != SkinRarity.Void) LayFinish(parts, skin.finish, Vector3.forward, Vector3.up);
             if (burn.Count > 0) AddFlames(parts, burn, 0.1f, 0.1f);
             parts.Animate(0f, -1f);
             return parts;
@@ -1513,9 +1518,10 @@ namespace VoidFlow
         Material FinishMaterial(KnifeFinish finish, WeaponParts parts)
         {
             var look = KnifeFinishes.Get(finish);
-            // Every finish is polished metal: mirror-smooth and fully metallic, so each one
-            // flashes and reflects like the golds do
-            var m = Mat(look.tint, Mathf.Max(look.smoothness, 0.95f), Mathf.Max(look.metallic, 0.9f));
+            // Every finish is glossy, but only the real metals are fully metallic: painted and
+            // anodised skins are a coloured coat over the steel (as in the classic shooters), so
+            // their colours show from every angle instead of going dark away from the light
+            var m = Mat(look.tint, Mathf.Max(look.smoothness, 0.85f), look.metallic);
             if (look.albedo) m.SetTexture("_BaseMap", look.albedo);
             var emission = look.emission ? look.emission : look.photo ? KnifeFinishes.Glitter : null;
             if (emission)
@@ -1561,6 +1567,55 @@ namespace VoidFlow
                 float size = parts.model == KnifeModel.Rifle ? 0.03f : 0.016f;
                 parts.sparkles.Add((sparkle, size, (float)random.NextDouble() * 20f, 1.2f + (float)random.NextDouble() * 1.6f));
             }
+        }
+
+        // Lays a skin over the whole weapon as one continuous piece, the way the classic
+        // shooters' skins wrap a model: every part wearing the finish is mapped from the same
+        // side-on projection (v running `along` the weapon from its back end to its front, u
+        // `across` it), at one scale, so the pattern and the fade run on unbroken from part to
+        // part instead of each part squeezing in, or restarting, the whole texture
+        void LayFinish(WeaponParts parts, KnifeFinish finish, Vector3 along, Vector3 across)
+        {
+            var look = KnifeFinishes.Get(finish);
+            if (!look.albedo) return;
+            along.Normalize();
+            across = (across - Vector3.Dot(across, along) * along).normalized;
+            var filters = new List<(MeshFilter f, Vector3[] p)>();
+            float lo = float.MaxValue, hi = float.MinValue, wide = 0f;
+            foreach (var r in parts.root.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (!r.sharedMaterial || r.sharedMaterial.GetTexture("_BaseMap") != look.albedo) continue;
+                var f = r.GetComponent<MeshFilter>();
+                if (!f || !f.sharedMesh) continue;
+                var verts = f.sharedMesh.vertices;
+                var p = new Vector3[verts.Length];
+                for (int i = 0; i < verts.Length; i++)
+                {
+                    p[i] = parts.root.InverseTransformPoint(f.transform.TransformPoint(verts[i]));
+                    float a = Vector3.Dot(p[i], along);
+                    lo = Mathf.Min(lo, a); hi = Mathf.Max(hi, a);
+                    wide = Mathf.Max(wide, Mathf.Abs(Vector3.Dot(p[i], across)));
+                }
+                filters.Add((f, p));
+            }
+            if (filters.Count == 0) return;
+            float length = Mathf.Max(hi - lo, 1e-3f);
+            // The textures are painted for a width a third of their length; wider weapons get
+            // a little more room so nothing runs off the side
+            float width = Mathf.Max(length / 3f, wide * 2.2f);
+            foreach (var (f, p) in filters)
+            {
+                var mesh = Object.Instantiate(f.sharedMesh);
+                var uv = new Vector2[p.Length];
+                for (int i = 0; i < p.Length; i++)
+                    uv[i] = new Vector2(0.5f + Vector3.Dot(p[i], across) / width, (Vector3.Dot(p[i], along) - lo) / length);
+                mesh.uv = uv;
+                f.sharedMesh = mesh;
+            }
+            // Photos stay square: the length shows several copies' worth
+            if (look.photo)
+                foreach (var (f, _) in filters)
+                    f.GetComponent<MeshRenderer>().sharedMaterial.SetTextureScale("_BaseMap", new Vector2(1f, length / width));
         }
 
         // ---------------------------------------------------------------- shapes

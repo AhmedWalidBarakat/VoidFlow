@@ -37,13 +37,13 @@ namespace VoidFlow
             KnifeFinish.RedWeb => new Look { albedo = Paint(f, RedWeb), tint = Color.white, metallic = 0.45f, smoothness = 0.75f },
             KnifeFinish.HollowMoon => new Look
             {
-                albedo = Paint(f, (u, y) => Grey(0.05f + Noise(u * 6f, y * 6f, 3) * 0.03f)),
+                albedo = Paint(f, (u, y) => Damascus(u, y, 3, 0.05f, new Color(0.9f, 0.05f, 0.08f))),
                 emission = Paint(f, (u, y) => Grey(Mathf.Max(1f - Edge(0.01f, 0.08f, u), Vein(u, y, 5) * 0.2f))),
                 tint = Color.white, glow = new Color(0.9f, 0.03f, 0.06f) * 1.8f, metallic = 0.7f, smoothness = 0.88f,
             },
             KnifeFinish.Tidebreaker => new Look
             {
-                albedo = Paint(f, (u, y) => new Color(0.05f, 0.07f, 0.12f)),
+                albedo = Paint(f, (u, y) => Damascus(u, y, 9, 0.06f, new Color(0.2f, 0.5f, 1f))),
                 emission = Paint(f, Waves),
                 tint = Color.white, glow = new Color(0.2f, 0.6f, 1f) * 1.6f, metallic = 0.7f, smoothness = 0.9f,
             },
@@ -127,6 +127,7 @@ namespace VoidFlow
             KnifeFinish.AntiqueGold => Photo("Metal007", 1f, 0.95f),
             KnifeFinish.Holographic => Holo("FoilHolo"),
             KnifeFinish.Tempered => new Look { albedo = Paint(f, Tempered), tint = Color.white, metallic = 0.85f, smoothness = 0.93f },
+            KnifeFinish.Vanilla => new Look { albedo = Paint(f, Satin), tint = Color.white, metallic = 0.75f, smoothness = 0.78f },
             // Mirror polished steel
             _ => new Look { tint = new Color(0.93f, 0.94f, 0.97f), metallic = 0.8f, smoothness = 0.95f },
         };
@@ -197,9 +198,9 @@ namespace VoidFlow
         // Dark polished metal whose edge (and a few veins) burn in the given color
         static Look VoidEdge(KnifeFinish f, Color hue, float body) => new()
         {
-            albedo = Paint(f, (u, y) => Grey(body + Noise(u * 6f, y * 6f, 3) * 0.04f)),
+            albedo = Paint(f, (u, y) => Damascus(u, y, (int)f, body, hue)),
             emission = Paint(f, (u, y) => Grey(Mathf.Max(1f - Edge(0.01f, 0.1f, u), Vein(u, y, 11) * 0.45f))),
-            tint = Color.white, glow = hue * 2.2f, metallic = 0.9f, smoothness = 0.95f,
+            tint = Color.white, glow = hue * 2.2f, metallic = 0.7f, smoothness = 0.9f,
         };
 
         // A plasma blade: a white-hot core glowing out into its color
@@ -213,16 +214,16 @@ namespace VoidFlow
         // Crystal: pale facets with glowing seams
         static Look Crystal(KnifeFinish f, Color hue) => new()
         {
-            albedo = Paint(f, (u, y) => Color.Lerp(hue * 0.5f, Color.white, Noise(u * 4f, y * 3f, 17) * 0.6f)),
+            albedo = Paint(f, (u, y) => Color.Lerp(hue * 0.5f, Color.white, Noise(u * 4f, y * 3f, 17) * 0.6f) * (0.8f + 0.25f * Facets(u, y))),
             emission = Paint(f, (u, y) => Grey(0.25f + Vein(u, y, 23) * 0.75f)),
             tint = Color.white, glow = hue * 1.8f, metallic = 0.3f, smoothness = 1f,
         };
 
-        static Look Candy(Texture2D albedo) => new() { albedo = albedo, tint = Color.white, metallic = 0.7f, smoothness = 0.92f };
+        static Look Candy(Texture2D albedo) => new() { albedo = albedo, tint = Color.white, metallic = 0.45f, smoothness = 0.9f };
 
         static Texture2D Paint(KnifeFinish f, System.Func<float, float, Color> pixel)
         {
-            var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, true) { name = f.ToString(), wrapMode = TextureWrapMode.Clamp };
+            var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, true) { name = f.ToString(), wrapMode = TextureWrapMode.Clamp, anisoLevel = 8 };
             var px = new Color[Size * Size];
             for (int j = 0; j < Size; j++)
             for (int i = 0; i < Size; i++)
@@ -330,6 +331,33 @@ namespace VoidFlow
             float ring = Mathf.Abs(ringR - Mathf.Round(ringR)) * 0.26f;
             float line = Mathf.Min(spoke, Mathf.Round(ringR) > 0f ? ring : 1f);
             return Color.Lerp(new Color(0.02f, 0.01f, 0.01f), baseColor, Edge(0.003f, 0.008f, line));
+        }
+
+        // Satin steel: a light grey brushed along the blade, fine streaks and a soft sheen
+        static Color Satin(float u, float y)
+        {
+            float streak = (Noise(u * 140f, y * 1.2f, 61) - 0.5f) * 0.1f + (Noise(u * 30f, y * 0.6f, 62) - 0.5f) * 0.06f;
+            return Grey(0.66f + streak + (u - 0.5f) * 0.05f);
+        }
+
+        // Damascus-style steel for the Void pieces: dark and light layers folded into flowing
+        // waves along the blade, the light layers faintly tinted with the weapon's color
+        static Color Damascus(float u, float y, int seed, float body, Color hue)
+        {
+            float warp = Noise(u * 3f, y * 1.5f, seed) * 2.5f + Noise(u * 9f, y * 4f, seed + 1) * 0.6f;
+            float layers = Mathf.Sin((u * 2.2f + y * 0.35f + warp) * Mathf.PI * 7f) * 0.5f + 0.5f;
+            layers = Mathf.SmoothStep(0f, 1f, layers);
+            var dark = Grey(body * 0.8f);
+            var light = Color.Lerp(Grey(body + 0.22f), hue * 0.45f, 0.35f);
+            return Color.Lerp(dark, light, layers * 0.85f);
+        }
+
+        // Cut facets: a cell pattern, each facet its own brightness
+        static float Facets(float u, float y)
+        {
+            float cx = Mathf.Floor(u * 5f + Noise(u * 2f, y, 71) * 1.5f), cy = Mathf.Floor(y * 4f + Noise(u, y * 2f, 72) * 1.5f);
+            float h = Mathf.Sin(cx * 12.9898f + cy * 78.233f) * 43758.5453f;
+            return h - Mathf.Floor(h);
         }
 
         // Thin glowing veins

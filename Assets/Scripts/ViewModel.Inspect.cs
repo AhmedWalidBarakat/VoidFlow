@@ -240,7 +240,19 @@ namespace VoidFlow
         float sustainExtra;
         bool sustaining, sustainDone;
 
-        Routine RoutineFor(WeaponParts parts) => parts.model switch
+        // As in CS2, the empty left hand drops out of view for the inspect (it only rests on
+        // screen, and comes up when a trick needs it), so nothing swings through it
+        static readonly Vector3 LeftDropped = LeftIdle + new Vector3(-0.03f, -0.13f, -0.03f);
+
+        Routine RoutineFor(WeaponParts parts)
+        {
+            var r = RoutineOf(parts);
+            for (int i = 1; i < r.keys.Length - 1; i++)
+                if (r.keys[i].lp == LeftIdle) r.keys[i].lp = LeftDropped;
+            return r;
+        }
+
+        Routine RoutineOf(WeaponParts parts) => parts.model switch
         {
             KnifeModel.Talon => TalonRoutine(),
             KnifeModel.Butterfly => ButterflyRoutine(),
@@ -250,6 +262,8 @@ namespace VoidFlow
             KnifeModel.Shardfang or KnifeModel.Sai or KnifeModel.Kris => ShardRoutine(),
             KnifeModel.Axe or KnifeModel.Spear => ReaperRoutine(),
             KnifeModel.Kukri or KnifeModel.Claws => SaberRoutine(),
+            // Swords: raised and turned to show off the blade, like the fixed blades
+            KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus => FixedBladeRoutine(parts.model),
             _ => SwordRoutine(),
         };
 

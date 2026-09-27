@@ -18,6 +18,7 @@ namespace VoidFlow
         SoulReaper, FrostReaper, NovaSaber, CrimsonSaber, Shardfang, Singularity, FrostRail, Hellfire,
         SerpentFang, DragonClaw, DoomAxe, StormSai, Starlance, WraithKris, InfernoReaper, VoidSaber, SolarSaber, EmeraldShard, EventHorizon, TempestRail, Inferno, AbyssalFire, PrismRifle, AmethystPrism, Deathwhisper, PlasmaLance, CrimsonLance, Seraph,
         InfernoGauntlet, FrostTalons, VoidRunes, Dragonscale, PlasmaKnuckles, Bonehand, CrystalGauntlet, SeraphWraps, StormGauntlet, ReaperWraps,
+        Vanilla,
     }
 
     public enum SkinRarity { Default, Mythic, Void }
@@ -139,7 +140,7 @@ namespace VoidFlow
 
         public static readonly Skin[] Knives =
         {
-            new("Talon Knife", KnifeModel.Talon, KnifeFinish.Tempered, SkinRarity.Default),
+            new("Talon Knife", KnifeModel.Talon, KnifeFinish.Vanilla, SkinRarity.Default),
             new("Talon Knife | Nebula", KnifeModel.Talon, KnifeFinish.Nebula, SkinRarity.Mythic),
             new("Talon Knife | Amber Stripe", KnifeModel.Talon, KnifeFinish.AmberStripe, SkinRarity.Mythic),
             new("Talon Knife | Red Web", KnifeModel.Talon, KnifeFinish.RedWeb, SkinRarity.Mythic),
@@ -210,6 +211,12 @@ namespace VoidFlow
             new("Butterfly | Antique Gold", KnifeModel.Butterfly, KnifeFinish.AntiqueGold, SkinRarity.Mythic),
             new("Talon Knife | Holographic", KnifeModel.Talon, KnifeFinish.Holographic, SkinRarity.Mythic),
             new("Butterfly | Holographic", KnifeModel.Butterfly, KnifeFinish.Holographic, SkinRarity.Mythic),
+            // Plain satin steel, like the classic shooters' vanilla knives
+            new("Talon Knife | Tempered", KnifeModel.Talon, KnifeFinish.Tempered, SkinRarity.Mythic),
+            new("Butterfly Knife", KnifeModel.Butterfly, KnifeFinish.Vanilla, SkinRarity.Mythic),
+            new("M9 Bayonet", KnifeModel.Bayonet, KnifeFinish.Vanilla, SkinRarity.Mythic),
+            new("Skeleton Knife", KnifeModel.Skeleton, KnifeFinish.Vanilla, SkinRarity.Mythic),
+            new("Kukri Knife", KnifeModel.KukriKnife, KnifeFinish.Vanilla, SkinRarity.Mythic),
             // Classic fixed blades: our own takes on the real kukri, M9 bayonet and skeleton knife
             new("Kukri Knife | Sunset Fade", KnifeModel.KukriKnife, KnifeFinish.SunsetFade, SkinRarity.Mythic),
             new("Kukri Knife | Red Web", KnifeModel.KukriKnife, KnifeFinish.RedWeb, SkinRarity.Mythic),
