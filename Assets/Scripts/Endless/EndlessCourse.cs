@@ -589,6 +589,7 @@ namespace VoidFlow
             var decor = new System.Random(unchecked(i * 7919 + 13));
             if (!Architecture.Continuous(biome.style)) Scenery.Line(path, biome, kit, seg.root.transform, decor, cube);
             BuildArchitecture(seg, path, biome, kit, i, enclose && i > 1, stageStart, flightArc, flightGap, extraMargin, decor);
+            ClearScenery(seg);
             segments.Add(seg);
             Physics.SyncTransforms();
         }
@@ -629,6 +630,33 @@ namespace VoidFlow
 
         static Vector3 Flat(Vector3 v) => new(v.x, 0f, v.z);
 
+        // A new ramp takes out any open-zone scenery (from the ramps before it) standing in its
+        // riding line or its flight in
+        void ClearScenery(Segment seg)
+        {
+            var pts = new List<Vector3>();
+            foreach (var p in seg.line) pts.Add(transform.TransformPoint(p));
+            foreach (var p in seg.flight) pts.Add(transform.TransformPoint(p));
+            foreach (var other in segments)
+            {
+                if (!other.root) continue;
+                foreach (Transform piece in other.root.transform)
+                {
+                    if (piece.name != Architecture.ScenePiece) continue;
+                    Bounds? box = null;
+                    foreach (var r in piece.GetComponentsInChildren<Renderer>())
+                    {
+                        if (box is Bounds bb) { bb.Encapsulate(r.bounds); box = bb; }
+                        else box = r.bounds;
+                    }
+                    if (box is not Bounds area) continue;
+                    area.Expand(12f);
+                    foreach (var p in pts)
+                        if (area.Contains(p)) { Kill(piece.gameObject); break; }
+                }
+            }
+        }
+
         readonly List<Vector3> airShards = new();
         bool afterLaunch; // the ramp just built ends in a launch kicker
         bool afterTwin;   // ...has a twin beside it (you might launch from either)
@@ -648,7 +676,16 @@ namespace VoidFlow
                 // Open zones: a building over the middle of the ramp only
                 float from = Mathf.Min(path.Length * 0.1f, 30f), to = Mathf.Min(path.Length * 0.88f, path.Length - 25f);
                 if (to - from >= 30f)
+                {
+                    // What the scenery must keep clear of: this ramp, the flight into it, the ramp before
+                    Architecture.KeepOut.Clear();
+                    for (int k = 0; k < seg.line.Length; k += 3) Architecture.KeepOut.Add(seg.line[k]);
+                    Architecture.KeepOut.AddRange(seg.flight);
+                    if (Seg(i - 1) is Segment before)
+                        for (int k = 0; k < before.line.Length; k += 3) Architecture.KeepOut.Add(before.line[k]);
                     Architecture.Build(Architecture.RampFrames(path, from, to, step, 24f, extraMargin), biome, kit, seg.root.transform, seg.meshes, decor, cube);
+                    Architecture.KeepOut.Clear();
+                }
                 lastFrame = null;
                 return;
             }
