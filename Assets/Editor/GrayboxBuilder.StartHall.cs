@@ -37,6 +37,21 @@ namespace VoidFlow.EditorTools
             // White marble and gold, deep lapis blue for the signs (so gold and white text reads),
             // a cool sky blue for the lit edges; warm gold light over it all
             Material floor = MakeMaterial("HallFloor", Color.white, MakeSanctumFloor());
+            // Polished white marble for the display walls and sign panels: soft grey veining
+            // with a few fine gold veins through it
+            hallMarble = MakeMaterial("HallMarble", Color.white, Paint("HallMarble", (u, v) =>
+            {
+                float warp = Noise(u * 3f, v * 3f, 3, 811) * 2.5f + Noise(u * 9f, v * 9f, 9, 812) * 0.6f;
+                float grey = Mathf.Abs(Mathf.Sin((u * 1.7f + v * 1.1f + warp) * Mathf.PI * 3f));
+                float gold = Mathf.Abs(Mathf.Sin((u * 0.9f - v * 1.3f + warp * 1.3f) * Mathf.PI * 2f));
+                var c = Color.Lerp(new Color(0.97f, 0.965f, 0.95f), new Color(0.8f, 0.8f, 0.82f), Mathf.Clamp01(1f - grey * 12f) * 0.6f);
+                c = Color.Lerp(c, new Color(0.85f, 0.62f, 0.25f), Mathf.Clamp01(1f - gold * 30f));
+                c.a = 1f;
+                return c;
+            }));
+            hallMarble.SetTextureScale("_BaseMap", Vector2.one * 0.35f);
+            hallMarble.SetFloat("_Smoothness", 0.85f);
+            hallMarble.SetFloat("_Metallic", 0.05f);
             floor.SetTextureScale("_BaseMap", Vector2.one * 0.25f); // 8m of pattern per tile
             floor.SetFloat("_Smoothness", 0.7f);
             floor.SetFloat("_Metallic", 0.05f);
@@ -183,13 +198,13 @@ namespace VoidFlow.EditorTools
             int gloveColumns = Mathf.CeilToInt((Skins.Gloves.Length - 1) / 2f);
             GalleryWall(hall, "GLOVES", Skins.Gloves, ItemSlot.Hands, new Vector3(lane - (gloveColumns - 1) * 2.3f * 0.5f, 0f, HallBack), Vector3.right, Vector3.forward,
                 tiers: 2, spacing: 2.3f, depth: 1.2f, step: 0f, scale: 4f, lift: 0.5f, rampMat, metal, ivory, magenta);
-            Label("VOID CASE GALLERY", hall, new Vector3(lane, HallHeight - 3.2f, HallBack + 0.2f), 180f, 1.1f, new Color(0.85f, 0.6f, 1f));
+            Label("VOID CASE GALLERY", hall, new Vector3(lane, HallHeight - 3.2f, HallBack + 0.2f), 180f, 1.1f, Ink);
 
             // The Void Case on show, on a round platform by the lane, with a sign saying how to
             // earn one. It's only to look at: earned cases are opened from the inventory.
             {
                 var at = new Vector3(lane - 9f, 0f, HallFront - 14f);
-                Material pink = MakeGlow("GlowVoidCase", new Color(1f, 0.35f, 0.8f), 1.5f);
+                Material pink = MakeGlow("GlowVoidCase", new Color(1f, 0.72f, 0.32f), 1.4f); // (gold)
                 Shape(PrimitiveType.Cylinder, "VoidCasePlatformRing", hall, at.WithY(0.03f), new Vector3(7.4f, 0.03f, 7.4f), pink);
                 Shape(PrimitiveType.Cylinder, "VoidCasePlatform", hall, at.WithY(0.05f), new Vector3(7f, 0.05f, 7f), dark);
                 Box("VoidCasePedestal", at + new Vector3(0f, 0.6f, 0f), new Vector3(2f, 1.2f, 2f), metal, hall);
@@ -206,18 +221,18 @@ namespace VoidFlow.EditorTools
                 var sign = new GameObject("VoidCaseSign").transform;
                 sign.SetParent(hall, false);
                 sign.SetPositionAndRotation(at + new Vector3(-4.3f, 4.8f, 0f), Quaternion.Euler(0f, -90f, 0f));
-                Deco("Panel", sign, new Vector3(0f, 0f, 0.06f), new Vector3(7f, 4.4f, 0.12f), Quaternion.identity, dark, local: true);
+                Deco("Panel", sign, new Vector3(0f, 0f, 0.06f), new Vector3(7f, 4.4f, 0.12f), Quaternion.identity, hallMarble, local: true);
                 foreach (float y in new[] { -2.25f, 2.25f })
                     Deco("Edge", sign, new Vector3(0f, y, -0.02f), new Vector3(7.2f, 0.08f, 0.1f), Quaternion.identity, pink, local: true);
                 foreach (float x in new[] { -3.55f, 3.55f })
-                    Deco("Edge", sign, new Vector3(x, 0f, -0.02f), new Vector3(0.08f, 4.5f, 0.1f), Quaternion.identity, purple, local: true);
+                    Deco("Edge", sign, new Vector3(x, 0f, -0.02f), new Vector3(0.08f, 4.5f, 0.1f), Quaternion.identity, pink, local: true);
                 Deco("Leg", sign, new Vector3(0f, -3.5f, 0.06f), new Vector3(0.3f, 2.6f, 0.12f), Quaternion.identity, metal, local: true);
-                Label("VOID CASE", sign, new Vector3(0f, 1.55f, -0.03f), 0f, 0.8f, Color.white, local: true);
-                Label("knives  ·  snipers  ·  gloves   ·   Void 6%", sign, new Vector3(0f, 0.95f, -0.03f), 0f, 0.26f, new Color(1f, 0.6f, 0.9f), local: true);
-                Label("HOW TO EARN ONE", sign, new Vector3(0f, 0.35f, -0.03f), 0f, 0.3f, new Color(1f, 0.8f, 0.5f), local: true);
+                Label("VOID CASE", sign, new Vector3(0f, 1.55f, -0.03f), 0f, 0.8f, Ink, local: true);
+                Label("knives  ·  snipers  ·  gloves   ·   Void 6%", sign, new Vector3(0f, 0.95f, -0.03f), 0f, 0.26f, Bronze, local: true);
+                Label("HOW TO EARN ONE", sign, new Vector3(0f, 0.35f, -0.03f), 0f, 0.3f, Ink, local: true);
                 Label("hit 4 of 10 at the skeet range\ncollect 25 Void Shards on the course",
-                    sign, new Vector3(0f, -0.65f, -0.03f), 0f, 0.3f, Color.white, local: true);
-                Label("open them from your inventory  ( I )", sign, new Vector3(0f, -1.75f, -0.03f), 0f, 0.24f, new Color(1f, 0.6f, 0.9f), local: true);
+                    sign, new Vector3(0f, -0.65f, -0.03f), 0f, 0.3f, Bronze, local: true);
+                Label("open them from your inventory  ( I )", sign, new Vector3(0f, -1.75f, -0.03f), 0f, 0.24f, Ink, local: true);
             }
 
             // "Press I for inventory": a glowing sign hung over the runway, facing you as you
@@ -229,15 +244,15 @@ namespace VoidFlow.EditorTools
                 // hang over the runway, right in the way of the view)
                 sign.SetPositionAndRotation(new Vector3(lane + 7f, 3.4f, HallBack + 16f), Quaternion.Euler(0f, 35f, 0f));
                 sign.localScale = Vector3.one * 0.7f;
-                Material hot = MakeGlow("GlowInventory", new Color(1f, 0.3f, 0.75f), 1.8f);
-                Material cap = MakeGlow("GlowKeycap", new Color(0.85f, 0.78f, 1f), 0.7f);
-                Material capTop = MakeGlow("GlowKeycapTop", new Color(0.95f, 0.9f, 1f), 1.2f);
-                Deco("SignPanel", sign, new Vector3(0f, 0f, 0.06f), new Vector3(8.2f, 2.8f, 0.12f), Quaternion.identity, dark, local: true);
+                Material hot = MakeGlow("GlowInventory", new Color(1f, 0.74f, 0.34f), 1.6f); // (gold)
+                Material cap = MakeGlow("GlowKeycap", new Color(1f, 0.9f, 0.7f), 0.7f);
+                Material capTop = MakeGlow("GlowKeycapTop", new Color(1f, 0.97f, 0.9f), 1.2f);
+                Deco("SignPanel", sign, new Vector3(0f, 0f, 0.06f), new Vector3(8.2f, 2.8f, 0.12f), Quaternion.identity, hallMarble, local: true);
                 foreach (float y in new[] { -1.45f, 1.45f })
                     Deco("SignEdge", sign, new Vector3(0f, y, -0.02f), new Vector3(8.4f, 0.1f, 0.1f), Quaternion.identity, hot, local: true);
                 foreach (float x in new[] { -4.15f, 4.15f })
                 {
-                    Deco("SignEdge", sign, new Vector3(x, 0f, -0.02f), new Vector3(0.1f, 3f, 0.1f), Quaternion.identity, purple, local: true);
+                    Deco("SignEdge", sign, new Vector3(x, 0f, -0.02f), new Vector3(0.1f, 3f, 0.1f), Quaternion.identity, hot, local: true);
                     Deco("SignCap", sign, new Vector3(x, 0f, 0.06f), new Vector3(0.3f, 3.3f, 0.3f), Quaternion.identity, metal, local: true); // gold end posts: it floats
                 }
                 var key = new GameObject("Keycap").transform;
@@ -245,7 +260,7 @@ namespace VoidFlow.EditorTools
                 key.localPosition = new Vector3(-3.05f, 0f, -0.2f);
                 Deco("KeycapBase", key, Vector3.zero, new Vector3(1.7f, 1.7f, 0.4f), Quaternion.identity, cap, local: true);
                 Deco("KeycapTop", key, new Vector3(0f, 0.04f, -0.22f), new Vector3(1.4f, 1.4f, 0.06f), Quaternion.identity, capTop, local: true);
-                Label("I", key, new Vector3(0f, 0.06f, -0.28f), 0f, 1.25f, new Color(0.18f, 0.06f, 0.3f), local: true);
+                Label("I", key, new Vector3(0f, 0.06f, -0.28f), 0f, 1.25f, Ink, local: true);
                 // Its stand: a slim gold post on a round foot
                 Deco("SignPost", sign, new Vector3(0f, -3.4f, 0.1f), new Vector3(0.22f, 4.2f, 0.22f), Quaternion.identity, metal, local: true);
                 Deco("SignFoot", sign, new Vector3(0f, -4.8f, 0.1f), new Vector3(1.6f, 0.12f, 1.6f), Quaternion.identity, dark, local: true);
@@ -253,8 +268,8 @@ namespace VoidFlow.EditorTools
                 bob.spin = Vector3.zero;
                 bob.bobHeight = 0.07f;
                 bob.bobSpeed = 2.2f;
-                Label("INVENTORY", sign, new Vector3(1.05f, 0.35f, -0.03f), 0f, 0.95f, Color.white, local: true);
-                Label("press  I  to open", sign, new Vector3(1.05f, -0.7f, -0.03f), 0f, 0.42f, new Color(1f, 0.55f, 0.85f), local: true);
+                Label("INVENTORY", sign, new Vector3(1.2f, 0.35f, -0.03f), 0f, 0.7f, Ink, local: true);
+                Label("press  I  to open", sign, new Vector3(1.2f, -0.7f, -0.03f), 0f, 0.42f, Bronze, local: true);
             }
 
             // Skeet range in the back right corner, with room to breathe: the launcher by the
@@ -282,15 +297,15 @@ namespace VoidFlow.EditorTools
             button.SetParent(range.transform, false);
             button.position = buttonAt + new Vector3(0f, 1.1f, 0f);
             range.startButton = button;
-            Label("SKEET\nE to start", hall, buttonAt + new Vector3(-0.52f, 0.62f, 0f), 90f, 0.2f, new Color(0.85f, 0.55f, 1f));
-            Label("SKEET RANGE", hall, new Vector3(right - 0.15f, 9f, HallBack + 9f), 90f, 1f, new Color(0.8f, 0.55f, 1f));
-            Label("snipe the discs before they land  ·  hit 4 for a Void Case", hall, new Vector3(right - 0.15f, 7.8f, HallBack + 9f), 90f, 0.35f, new Color(0.8f, 0.55f, 1f));
+            Label("SKEET\nE to start", hall, buttonAt + new Vector3(-0.52f, 0.62f, 0f), 90f, 0.2f, Ink);
+            Label("SKEET RANGE", hall, new Vector3(right - 0.15f, 9f, HallBack + 9f), 90f, 1f, Ink);
+            Label("snipe the discs before they land  ·  hit 4 for a Void Case", hall, new Vector3(right - 0.15f, 7.8f, HallBack + 9f), 90f, 0.35f, Bronze);
 
             // Title over the opening, on a dark banner so it reads against the sky
-            Deco("TitleBanner", hall, new Vector3(lane, 11.4f, HallFront - 1.1f), new Vector3(26f, 4.6f, 0.2f), Quaternion.identity, dark);
+            Box("TitleBanner", new Vector3(lane, 11.4f, HallFront - 1.1f), new Vector3(26f, 4.6f, 0.2f), hallMarble, hall);
             Deco("TitleBannerEdge", hall, new Vector3(lane, 9.05f, HallFront - 1.15f), new Vector3(26f, 0.12f, 0.2f), Quaternion.identity, gold);
-            Label("VOIDFLOW", hall, new Vector3(lane, 12f, HallFront - 1.3f), 0f, 3f, Color.white);
-            Label("surf  /  bhop  /  knives  /  cases", hall, new Vector3(lane, 9.9f, HallFront - 1.3f), 0f, 0.7f, new Color(1f, 0.8f, 0.5f));
+            Label("VOIDFLOW", hall, new Vector3(lane, 12f, HallFront - 1.3f), 0f, 3f, Ink);
+            Label("surf  /  bhop  /  knives  /  cases", hall, new Vector3(lane, 9.9f, HallFront - 1.3f), 0f, 0.7f, Bronze);
 
             // Calm floating orbs high over the court, white with a gold band
             var rng = new System.Random(20260925);
@@ -401,6 +416,11 @@ namespace VoidFlow.EditorTools
         // turning over a small lit pedestal, its name on a plaque on the shelf's edge. Mythics
         // fill the lower shelves and the Voids glow along the top. `start` is where the first
         // column meets the wall, `along` runs down the wall and `outward` points into the hall.
+        // The hall's white marble veined in gold (the floor's), and lettering colours that read
+        // on white: deep gold for titles, bronze for small print
+        static Material hallMarble;
+        static readonly Color Ink = new(0.36f, 0.22f, 0.02f), Bronze = new(0.3f, 0.2f, 0.08f);
+
         static void GalleryWall(Transform hall, string title, Skins.Skin[] pool, ItemSlot slot, Vector3 start, Vector3 along, Vector3 outward,
             int tiers, float spacing, float depth, float step, float scale, float lift, Material rampMat, Material metal, Material dark, Material edge)
         {
@@ -416,28 +436,27 @@ namespace VoidFlow.EditorTools
             const float tierHeight = 1.4f, firstLedge = 0.9f;
             float top = firstLedge + tiers * tierHeight, wide = length + spacing;
 
-            Material lacquer = MakeMaterial($"Gallery{title}Wall", new Color(0.035f, 0.04f, 0.06f), GrayboxBuilder.metal);
-            lacquer.SetFloat("_Smoothness", 0.85f);
-            lacquer.SetFloat("_Metallic", 0.4f);
-            Material shelf = MakeMaterial($"Gallery{title}Shelf", new Color(0.08f, 0.085f, 0.11f), GrayboxBuilder.metal);
-            shelf.SetFloat("_Smoothness", 0.9f);
-            shelf.SetFloat("_Metallic", 0.7f);
+            Material lacquer = hallMarble ? hallMarble : dark; // white marble veined in gold
+            Material shelf = MakeMaterial($"Gallery{title}Shelf", new Color(0.96f, 0.95f, 0.91f), GrayboxBuilder.metal);
+            shelf.SetFloat("_Smoothness", 0.8f);
+            shelf.SetFloat("_Metallic", 0.1f);
             Material shelfEdge = MakeGlow($"Gallery{title}Edge", new Color(1f, 0.88f, 0.7f), 1.6f);
             Material under = MakeGlow($"Gallery{title}Under", new Color(1f, 0.85f, 0.65f), 0.5f);
             var nicheGlow = new System.Collections.Generic.Dictionary<SkinRarity, Material>();
             var padGlow = new System.Collections.Generic.Dictionary<SkinRarity, Material>();
-            Color RarityColor(SkinRarity r) => r == SkinRarity.Void ? new Color(0.6f, 0.25f, 1f) : Skins.RarityColor(r);
+            // Gold light for Mythics, a paler white-gold for the Voids
+            Color RarityColor(SkinRarity r) => r == SkinRarity.Void ? new Color(1f, 0.93f, 0.72f) : new Color(1f, 0.7f, 0.28f);
 
             // The lacquered wall, a gold frame round it, and the title over it on a lit band
-            Deco($"{title}Wall", hall, center + outward * 0.05f + Vector3.up * (top * 0.5f + 0.35f), Size(wide + 0.6f, top + 0.7f, 0.1f), Quaternion.identity, lacquer);
+            Box($"{title}Wall", center + outward * 0.05f + Vector3.up * (top * 0.5f + 0.35f), Size(wide + 0.6f, top + 0.7f, 0.1f), lacquer, hall);
             foreach (float h in new[] { 0.02f, top + 0.7f })
                 Deco($"{title}FrameH", hall, center + outward * 0.1f + Vector3.up * h, Size(wide + 0.7f, 0.07f, 0.06f), Quaternion.identity, metal);
             foreach (float side in new[] { -1f, 1f })
                 Deco($"{title}FrameV", hall, center + along * (side * (wide * 0.5f + 0.32f)) + outward * 0.1f + Vector3.up * (top * 0.5f + 0.35f), Size(0.07f, top + 0.72f, 0.06f), Quaternion.identity, metal);
-            Deco($"{title}TitleBand", hall, center + outward * 0.08f + Vector3.up * (top + 1.35f), Size(wide * 0.55f, 1.1f, 0.06f), Quaternion.identity, lacquer);
+            Box($"{title}TitleBand", center + outward * 0.08f + Vector3.up * (top + 1.35f), Size(wide * 0.55f, 1.1f, 0.06f), lacquer, hall);
             Deco($"{title}TitleLine", hall, center + outward * 0.12f + Vector3.up * (top + 0.84f), Size(wide * 0.55f, 0.035f, 0.03f), Quaternion.identity, edge);
-            Label(title, hall, center + outward * 0.13f + Vector3.up * (top + 1.5f), yaw, 0.95f, Color.white);
-            Label($"{mythics} MYTHIC   ·   {items.Count - mythics} VOID   ·   from the Void Case", hall, center + outward * 0.13f + Vector3.up * (top + 1.03f), yaw, 0.24f, new Color(1f, 0.82f, 0.55f));
+            Label(title, hall, center + outward * 0.13f + Vector3.up * (top + 1.5f), yaw, 0.95f, Ink);
+            Label($"{mythics} MYTHIC   ·   {items.Count - mythics} VOID   ·   from the Void Case", hall, center + outward * 0.13f + Vector3.up * (top + 1.03f), yaw, 0.24f, Bronze);
 
             // Shelves: slim and dark, a glowing front edge, a soft light underneath
             for (int t = 0; t < tiers; t++)
@@ -486,9 +505,9 @@ namespace VoidFlow.EditorTools
 
                 // Its name on a plaque on the shelf's front edge
                 Vector3 plaque = column + outward * (d + 0.02f) + Vector3.up * (y - 0.12f);
-                Deco("Plaque", hall, plaque - outward * 0.012f, Size(spacing * 0.7f, 0.16f, 0.015f), Quaternion.identity, lacquer);
-                Label(UiArtName(skin.name).ToUpper(), hall, plaque + Vector3.up * 0.028f, yaw, 0.062f, Color.white);
-                Label(Skins.RarityName(skin.rarity).ToUpper(), hall, plaque - Vector3.up * 0.042f, yaw, 0.045f, color);
+                Deco("Plaque", hall, plaque - outward * 0.012f, Size(spacing * 0.7f, 0.16f, 0.015f), Quaternion.identity, metal);
+                Label(UiArtName(skin.name).ToUpper(), hall, plaque + Vector3.up * 0.028f, yaw, 0.07f, new Color(0.18f, 0.12f, 0.04f));
+                Label(Skins.RarityName(skin.rarity).ToUpper(), hall, plaque - Vector3.up * 0.042f, yaw, 0.05f, new Color(0.35f, 0.22f, 0.05f));
             }
         }
 
@@ -545,7 +564,10 @@ namespace VoidFlow.EditorTools
             if (local) go.transform.SetLocalPositionAndRotation(position, rotation);
             else go.transform.SetPositionAndRotation(position, rotation);
 
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            // Titles and big signs in Orbitron, smaller lines in Rajdhani (both SIL OFL fonts,
+            // Assets/Fonts); the built-in font if they're missing
+            var font = AssetDatabase.LoadAssetAtPath<Font>(height >= 0.5f ? "Assets/Fonts/Orbitron.ttf" : "Assets/Fonts/Rajdhani-SemiBold.ttf")
+                ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             var tm = go.AddComponent<TextMesh>();
             tm.font = font;
             tm.text = text;
@@ -554,8 +576,21 @@ namespace VoidFlow.EditorTools
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
             tm.color = color;
-            go.GetComponent<MeshRenderer>().sharedMaterial = font.material;
+            go.GetComponent<MeshRenderer>().sharedMaterial = TextMaterial(font);
+            go.AddComponent<TextDepth>(); // keeps the material on the font's current glyphs
             return go;
+        }
+
+        // One depth-tested text material per font (saved, so builds keep its shader)
+        static readonly System.Collections.Generic.Dictionary<Font, Material> textMaterials = new();
+        static Material TextMaterial(Font font)
+        {
+            if (textMaterials.TryGetValue(font, out var mat) && mat) return mat;
+            var shader = Shader.Find("VoidFlow/Text3D");
+            if (!shader) return font.material;
+            mat = new Material(shader) { name = $"Text{font.name}", mainTexture = font.material.mainTexture };
+            AssetDatabase.CreateAsset(mat, $"{Root}/Text{font.name.Replace(" ", "")}.mat");
+            return textMaterials[font] = mat;
         }
 
         static void PointLight(string name, Transform parent, Vector3 position, Color color, float intensity = 2f, float range = 30f)
