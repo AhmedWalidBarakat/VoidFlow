@@ -87,7 +87,7 @@ namespace VoidFlow
         {
             public Key[] keys;
             public float sustainAt = -1f; // held F pauses the routine here...
-            public int sustainAxis;       // ...and keeps spinning: 0 nothing, 1 the knife, 2 around the arm
+            public int sustainAxis;       // ...and keeps spinning: 0 nothing, 1 the knife, 2 around the arm, 3 butterfly flips
             public float sustainSpeed;
             public (float t, AudioClip clip, float volume)[] sounds = System.Array.Empty<(float, AudioClip, float)>();
             public float Length => keys[^1].t;
@@ -131,30 +131,26 @@ namespace VoidFlow
             };
         }
 
-        // Butterfly knife: flipped up, thrown across to the left hand with the arms flung wide,
-        // flipped there, thrown high and caught by the right, carried in circles around the
-        // right arm while flipping, a last throw, home
+        // Butterfly knife, after the classic butterfly inspect: it never leaves the hand. The
+        // hand comes up and flips it open and shut, rolling the wrist to show both sides, holds
+        // it fanned open with the blade up, then snaps it shut with two quick flips. Held F keeps
+        // it flipping.
         static Routine ButterflyRoutine()
         {
+            var up = new Vector3(0.1f, -0.085f, 0.3f); // held thumb up, blade standing up out of the fist
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
-            k = k.At(0.3f); k.rp = new(0.08f, -0.02f, 0.33f); k.rq = FB(-0.2f, 0.8f, 0.6f, 0.3f, 0.2f, -1f); k.flips = 2f; ks.Add(k);
-            k = k.At(0.55f); k.hold = Hold.Air; k.ap = new(0f, 0.08f, 0.4f); k.aq = Quaternion.identity; k.spin = new(0f, 0f, 300f);
-            k.rp = RightWide; k.rq = RightUp; k.lp = LeftWide; k.lq = LeftUp; ks.Add(k);
-            k = k.At(0.8f); k.hold = Hold.Left; k.lp = new(-0.13f, -0.01f, 0.33f); k.spin = new(0f, 0f, 720f); ks.Add(k);
-            k = k.At(1.1f); k.lp = new(-0.12f, 0f, 0.34f); k.flips = 4f; ks.Add(k);
-            k = k.At(1.4f); k.hold = Hold.Air; k.ap = new(0f, 0.12f, 0.44f); k.spin = new(360f, 0f, 720f); k.lp = LeftWide; ks.Add(k);
-            k = k.At(1.75f); k.hold = Hold.Right; k.rp = new(0.12f, -0.01f, 0.33f); k.spin = new(720f, 0f, 720f); k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
-            k = k.At(2.1f); k.rp = new(0.07f, -0.03f, 0.34f); ks.Add(k);
-            k = k.At(2.9f); k.orbit = 720f; k.flips = 6f; k.rp = new(0.08f, -0.02f, 0.34f); ks.Add(k);
-            k = k.At(3.15f); k.hold = Hold.Air; k.ap = new(0.03f, 0.08f, 0.39f); k.aq = Quaternion.Euler(0f, 0f, -20f); k.spin = new(900f, 0f, 720f);
-            k.rp = RightWide; k.lp = LeftWide; k.lq = LeftUp; ks.Add(k);
-            k = k.At(3.45f); k.hold = Hold.Right; k.rp = new(0.12f, -0.02f, 0.33f); k.spin = new(1080f, 0f, 720f); k.flips = 8f; k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
-            k = k.At(3.9f); k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
+            k = k.At(0.3f); k.rp = up; k.rq = FB(-0.55f, 0.45f, 0.7f, 0.7f, 0f, 0.55f); k.flips = 1f; k.rOpen = 0.25f; ks.Add(k);
+            k = k.At(0.9f); k.rq = FB(-0.8f, 0.45f, 0.35f, 0.4f, 0f, 0.9f); k.flips = 3f; ks.Add(k);
+            k = k.At(1.5f); k.rq = FB(-0.3f, 0.45f, 0.85f, 0.95f, 0f, 0.3f); k.flips = 5f; ks.Add(k);
+            k = k.At(1.8f); k.flips = 5.5f; k.rOpen = 0.15f; ks.Add(k);
+            k = k.At(2.4f); k.rq = FB(-0.55f, 0.45f, 0.7f, 0.7f, 0f, 0.55f); ks.Add(k);
+            k = k.At(2.8f); k.flips = 7f; k.rOpen = 0.3f; ks.Add(k);
+            k = k.At(3.2f); k.rp = RightIdle; k.rq = ForwardIdle; k.flips = 8f; k.rOpen = 0f; ks.Add(k);
             return new Routine
             {
-                keys = ks.ToArray(), sustainAt = 2.5f, sustainAxis = 2, sustainSpeed = 900f,
-                sounds = new[] { (0.45f, WeaponSounds.Slash, 0.35f), (1.3f, WeaponSounds.Slash, 0.35f), (3.05f, WeaponSounds.Slash, 0.3f) },
+                keys = ks.ToArray(), sustainAt = 1.2f, sustainAxis = 3, sustainSpeed = 720f,
+                sounds = new[] { (0.35f, WeaponSounds.Tick, 0.3f), (0.75f, WeaponSounds.Tick, 0.3f), (1.2f, WeaponSounds.Tick, 0.3f), (2.6f, WeaponSounds.Tick, 0.3f), (2.95f, WeaponSounds.Tick, 0.35f) },
             };
         }
 
@@ -560,7 +556,7 @@ namespace VoidFlow
             // Butterfly handles and blade flip as the routine says
             if (knife.model == KnifeModel.Butterfly && knife.blade && knife.swingHandle)
             {
-                float flips = Mathf.Lerp(a.flips, b.flips, s);
+                float flips = Mathf.Lerp(a.flips, b.flips, s) + (routine.sustainAxis == 3 ? sustainExtra / 360f * 2f : 0f);
                 float frac = flips - Mathf.Floor(flips);
                 knife.swingHandle.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(frac * Mathf.PI) * 150f);
                 knife.blade.localRotation = Quaternion.Euler(0f, 0f, flips * 180f);
