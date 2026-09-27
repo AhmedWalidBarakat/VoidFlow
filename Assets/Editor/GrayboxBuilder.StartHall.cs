@@ -5,11 +5,12 @@ using UnityEngine.Rendering.Universal;
 
 namespace VoidFlow.EditorTools
 {
-    // The start hall: the Void Sanctum, a dark violet-and-gold temple where you spawn before
-    // dropping into the course. A room on the ledge above ramp 1, open at the front onto the
-    // course, with:
-    //  - a black marble floor inlaid with gold and violet-lit seams, walls of gothic arches
-    //    (the same arches as the Crimson Hall you drop into), a coffered gold-lit ceiling
+    // The start hall: the Celestial Terrace, a white-and-gold court open to a bright sky, high
+    // above a distant utopia of floating islands and gleaming spires, where you spawn before
+    // dropping into the course. On the ledge above ramp 1, open at the front onto the course,
+    // with:
+    //  - a white marble floor inlaid with gold, white walls carved with gold-framed arches,
+    //    and no roof: white arches span it against the sky
     //  - a runway with speed gates and holographic diamonds down the lane to the drop
     //  - the Void Case gallery: every knife, sniper and glove a Void Case can drop, on lit
     //    ledges along the walls, just to look at
@@ -33,26 +34,30 @@ namespace VoidFlow.EditorTools
             // Void Sanctum: polished black marble with gold inlay and violet-lit seams, violet
             // stone walls carved with gold-framed gothic arches, a coffered ceiling. Warm gold
             // light for the structure; purple and magenta for the things you use.
+            // White marble and gold, deep lapis blue for the signs (so gold and white text reads),
+            // a cool sky blue for the lit edges; warm gold light over it all
             Material floor = MakeMaterial("HallFloor", Color.white, MakeSanctumFloor());
             floor.SetTextureScale("_BaseMap", Vector2.one * 0.25f); // 8m of pattern per tile
-            floor.SetFloat("_Smoothness", 0.6f);
-            floor.SetFloat("_Metallic", 0.1f);
-            GlowMap(floor, MakeSanctumFloorGlow(), new Color(0.55f, 0.22f, 1f) * 0.9f);
+            floor.SetFloat("_Smoothness", 0.7f);
+            floor.SetFloat("_Metallic", 0.05f);
+            GlowMap(floor, MakeSanctumFloorGlow(), new Color(1f, 0.85f, 0.6f) * 0.45f);
             Material wall = MakeMaterial("HallWall", Color.white, MakeSanctumWall());
             wall.SetTextureScale("_BaseMap", new Vector2(0.25f, 2f)); // 8m across, 8m of height
             wall.SetFloat("_Smoothness", 0.3f);
             wall.SetFloat("_Metallic", 0.15f);
-            Material dark = MakeMaterial("HallDark", new Color(0.045f, 0.045f, 0.06f), GrayboxBuilder.metal);
-            dark.SetFloat("_Smoothness", 0.55f);
-            dark.SetFloat("_Metallic", 0.6f);
-            Material metal = MakeMaterial("HallMetal", new Color(0.22f, 0.16f, 0.1f), GrayboxBuilder.metal); // dark bronze
-            metal.SetFloat("_Smoothness", 0.6f);
-            metal.SetFloat("_Metallic", 0.75f);
-            Material purple = MakeGlow("GlowPurple", new Color(0.55f, 0.12f, 1f), 0.9f);
-            Material violet = MakeGlow("GlowViolet", new Color(0.7f, 0.3f, 1f), 0.8f);
+            Material dark = MakeMaterial("HallDark", new Color(0.07f, 0.1f, 0.24f), GrayboxBuilder.metal); // lapis
+            dark.SetFloat("_Smoothness", 0.7f);
+            dark.SetFloat("_Metallic", 0.3f);
+            Material metal = MakeMaterial("HallMetal", new Color(0.95f, 0.76f, 0.4f), GrayboxBuilder.metal); // polished gold
+            metal.SetFloat("_Smoothness", 0.8f);
+            metal.SetFloat("_Metallic", 0.9f);
+            Material ivory = MakeMaterial("HallIvory", new Color(0.97f, 0.96f, 0.93f), GrayboxBuilder.metal);
+            ivory.SetFloat("_Smoothness", 0.45f);
+            Material purple = MakeGlow("GlowPurple", new Color(0.45f, 0.72f, 1f), 1f);   // (sky blue)
+            Material violet = MakeGlow("GlowViolet", new Color(0.75f, 0.88f, 1f), 0.9f); // (pale sky)
             Material gold = MakeGlow("GlowGold", new Color(1f, 0.68f, 0.28f), 1.5f);
             Material goldSoft = MakeGlow("GlowGoldSoft", new Color(0.95f, 0.6f, 0.3f), 0.8f);
-            Material magenta = MakeGlow("GlowMagenta", new Color(0.9f, 0.2f, 1f), 1f);
+            Material magenta = MakeGlow("GlowMagenta", new Color(1f, 0.66f, 0.5f), 1.1f); // (rose gold)
 
             float left = lane - HallHalfWidth, right = lane + HallHalfWidth;
             float width = right - left, midZ = (HallFront + HallBack) * 0.5f;
@@ -63,9 +68,10 @@ namespace VoidFlow.EditorTools
             Box("HallWallLeft", new Vector3(left - 0.5f, HallHeight * 0.5f, midZ), new Vector3(1f, HallHeight, HallDepth), wall, hall, stripes: true);
             Box("HallWallRight", new Vector3(right + 0.5f, HallHeight * 0.5f, midZ), new Vector3(1f, HallHeight, HallDepth), wall, hall, stripes: true);
             Box("HallWallBack", new Vector3(lane, HallHeight * 0.5f, HallBack - 0.5f), new Vector3(width + 2f, HallHeight, 1f), wall, hall, stripes: true);
-            const float slot = 3f;
-            Box("HallCeilingLeft", new Vector3((left + lane - slot) * 0.5f, HallHeight + 0.5f, midZ), new Vector3(lane - slot - left, 1f, HallDepth), dark, hall);
-            Box("HallCeilingRight", new Vector3((right + lane + slot) * 0.5f, HallHeight + 0.5f, midZ), new Vector3(right - lane - slot, 1f, HallDepth), dark, hall);
+            // A gold coping along the tops of the walls (the court is open to the sky)
+            foreach (float x in new[] { left - 0.5f, right + 0.5f })
+                Deco("Coping", hall, new Vector3(x, HallHeight + 0.2f, midZ), new Vector3(1.6f, 0.4f, HallDepth + 1f), Quaternion.identity, metal);
+            Deco("Coping", hall, new Vector3(lane, HallHeight + 0.2f, HallBack - 0.5f), new Vector3(width + 2.6f, 0.4f, 1.6f), Quaternion.identity, metal);
 
             // Crisp edges: a dark baseboard with a gold line along every wall, a purple line up top
             foreach (var (a, b) in new[] { (new Vector3(left, 0f, HallBack), new Vector3(left, 0f, HallFront - 1f)), (new Vector3(right, 0f, HallBack), new Vector3(right, 0f, HallFront - 1f)), (new Vector3(left, 0f, HallBack), new Vector3(right, 0f, HallBack)) })
@@ -79,14 +85,22 @@ namespace VoidFlow.EditorTools
                 Deco("TopLight", hall, mid + inward * 0.06f + Vector3.up * (HallHeight - 1.6f), Size(len, 0.12f, 0.1f), Quaternion.identity, purple);
             }
 
-            // Coffered ceiling: beams across every 6m with a light bar under each
-            for (float z = HallBack + 3f; z < HallFront - 2f; z += 6f)
-                foreach (var (from, to) in new[] { (left, lane - slot), (lane + slot, right) })
+            // No roof: tall round white arches span the court every 12m against the sky, each
+            // with a gold line under its curve
+            for (float z = HallBack + 6f; z < HallFront - 4f; z += 12f)
+            {
+                const int pieces = 18;
+                float r = width * 0.5f;
+                for (int p = 0; p < pieces; p++)
                 {
-                    float cx = (from + to) * 0.5f, w = to - from;
-                    Deco("CeilingBeam", hall, new Vector3(cx, HallHeight - 0.4f, z), new Vector3(w, 0.8f, 0.7f), Quaternion.identity, metal);
-                    Deco("CeilingLight", hall, new Vector3(cx, HallHeight - 0.83f, z), new Vector3(w - 2f, 0.05f, 0.2f), Quaternion.identity, goldSoft);
+                    float a0 = Mathf.PI * p / pieces, a1 = Mathf.PI * (p + 1) / pieces;
+                    Vector3 q0 = new(lane - Mathf.Cos(a0) * r, HallHeight + Mathf.Sin(a0) * r * 0.55f, z);
+                    Vector3 q1 = new(lane - Mathf.Cos(a1) * r, HallHeight + Mathf.Sin(a1) * r * 0.55f, z);
+                    var along = Quaternion.LookRotation(q1 - q0, Vector3.forward);
+                    Deco("ArchStone", hall, (q0 + q1) * 0.5f, new Vector3(0.9f, 1.2f, (q1 - q0).magnitude + 0.2f), along, ivory);
+                    Deco("ArchGold", hall, (q0 + q1) * 0.5f + along * Vector3.down * 0.65f, new Vector3(0.3f, 0.1f, (q1 - q0).magnitude + 0.05f), along, gold);
                 }
+            }
 
             // The opening: a heavy dark frame, gold inside, purple on its outer face
             Box("FrameLeft", new Vector3(left + 0.7f, HallHeight * 0.5f, HallFront - 0.5f), new Vector3(1.4f, HallHeight, 1f), metal, hall);
@@ -150,12 +164,12 @@ namespace VoidFlow.EditorTools
             // The Void Case gallery: everything a Void Case can drop, to look at (not to take).
             // Knives down the left wall, snipers along the right, gloves on the back wall.
             GalleryWall(hall, "KNIVES", Skins.Knives, ItemSlot.Secondary, new Vector3(left, 0f, HallBack + 6f), Vector3.forward, Vector3.right,
-                tiers: 3, spacing: 1.95f, depth: 1.35f, step: 0.22f, scale: 3.8f, lift: 0.75f, rampMat, metal, dark, gold);
+                tiers: 3, spacing: 1.95f, depth: 1.35f, step: 0.22f, scale: 3.8f, lift: 0.75f, rampMat, metal, ivory, gold);
             GalleryWall(hall, "SNIPERS", Skins.Snipers, ItemSlot.Primary, new Vector3(right, 0f, HallFront - 8f), Vector3.back, Vector3.left,
-                tiers: 4, spacing: 2.7f, depth: 1.7f, step: 0f, scale: 1.1f, lift: 0.5f, rampMat, metal, dark, purple);
+                tiers: 4, spacing: 2.7f, depth: 1.7f, step: 0f, scale: 1.1f, lift: 0.5f, rampMat, metal, ivory, purple);
             int gloveColumns = Mathf.CeilToInt((Skins.Gloves.Length - 1) / 2f);
             GalleryWall(hall, "GLOVES", Skins.Gloves, ItemSlot.Hands, new Vector3(lane - (gloveColumns - 1) * 2.3f * 0.5f, 0f, HallBack), Vector3.right, Vector3.forward,
-                tiers: 2, spacing: 2.3f, depth: 1.2f, step: 0f, scale: 4f, lift: 0.5f, rampMat, metal, dark, magenta);
+                tiers: 2, spacing: 2.3f, depth: 1.2f, step: 0f, scale: 4f, lift: 0.5f, rampMat, metal, ivory, magenta);
             Label("VOID CASE GALLERY", hall, new Vector3(lane, HallHeight - 3.2f, HallBack + 0.2f), 180f, 1.1f, new Color(0.85f, 0.6f, 1f));
 
             // The Void Case on show, on a round platform by the lane, with a sign saying how to
@@ -208,7 +222,7 @@ namespace VoidFlow.EditorTools
                 foreach (float x in new[] { -4.15f, 4.15f })
                 {
                     Deco("SignEdge", sign, new Vector3(x, 0f, -0.02f), new Vector3(0.1f, 3f, 0.1f), Quaternion.identity, purple, local: true);
-                    Deco("SignCable", sign, new Vector3(x * 0.85f, (HallHeight - 7.6f + 1.4f) * 0.5f, 0.06f), new Vector3(0.04f, HallHeight - 7.6f - 1.4f, 0.04f), Quaternion.identity, metal, local: true);
+                    Deco("SignCap", sign, new Vector3(x, 0f, 0.06f), new Vector3(0.3f, 3.3f, 0.3f), Quaternion.identity, metal, local: true); // gold end posts: it floats
                 }
                 var key = new GameObject("Keycap").transform;
                 key.SetParent(sign, false);
@@ -216,6 +230,10 @@ namespace VoidFlow.EditorTools
                 Deco("KeycapBase", key, Vector3.zero, new Vector3(1.7f, 1.7f, 0.4f), Quaternion.identity, cap, local: true);
                 Deco("KeycapTop", key, new Vector3(0f, 0.04f, -0.22f), new Vector3(1.4f, 1.4f, 0.06f), Quaternion.identity, capTop, local: true);
                 Label("I", key, new Vector3(0f, 0.06f, -0.28f), 0f, 1.25f, new Color(0.18f, 0.06f, 0.3f), local: true);
+                var drift = sign.gameObject.AddComponent<Floaty>();
+                drift.spin = Vector3.zero;
+                drift.bobHeight = 0.18f;
+                drift.bobSpeed = 0.45f;
                 var bob = key.gameObject.AddComponent<Floaty>();
                 bob.spin = Vector3.zero;
                 bob.bobHeight = 0.07f;
@@ -259,7 +277,7 @@ namespace VoidFlow.EditorTools
             Label("VOIDFLOW", hall, new Vector3(lane, 12f, HallFront - 1.3f), 0f, 3f, Color.white);
             Label("surf  /  bhop  /  knives  /  cases", hall, new Vector3(lane, 9.9f, HallFront - 1.3f), 0f, 0.7f, new Color(1f, 0.8f, 0.5f));
 
-            // Calm floating monoliths high overhead, each with a glowing band
+            // Calm floating orbs high over the court, white with a gold band
             var rng = new System.Random(20260925);
             float Rand(float min, float max) => min + (float)rng.NextDouble() * (max - min);
             for (int c = 0; c < FloatingShards; c++)
@@ -268,10 +286,10 @@ namespace VoidFlow.EditorTools
                 if (Mathf.Abs(x - lane) < 5.5f) x += x < lane ? -6f : 6f; // keep clear of the sign's cables
                 var shard = new GameObject("FloatingShard").transform;
                 shard.SetParent(hall, false);
-                shard.SetPositionAndRotation(new Vector3(x, Rand(11f, 14f), Rand(HallBack + 8f, HallFront - 8f)), Quaternion.Euler(Rand(-12f, 12f), Rand(0f, 360f), Rand(-12f, 12f)));
-                float h = Rand(1.2f, 2.6f);
-                Deco("Body", shard, Vector3.zero, new Vector3(0.36f, h, 0.36f), Quaternion.identity, dark, local: true);
-                Deco("Band", shard, new Vector3(0f, h * 0.18f, 0f), new Vector3(0.39f, 0.07f, 0.39f), Quaternion.identity, c % 3 == 0 ? purple : gold, local: true);
+                shard.SetPositionAndRotation(new Vector3(x, Rand(18f, 26f), Rand(HallBack + 8f, HallFront - 8f)), Quaternion.Euler(Rand(-20f, 20f), Rand(0f, 360f), Rand(-20f, 20f)));
+                float h = Rand(0.8f, 1.6f);
+                Shape(PrimitiveType.Sphere, "Body", shard, shard.position, Vector3.one * h, ivory);
+                Deco("Band", shard, shard.position, new Vector3(h * 1.08f, 0.08f, h * 1.08f), shard.rotation, c % 3 == 0 ? violet : gold);
                 var f = shard.gameObject.AddComponent<Floaty>();
                 f.spin = new Vector3(0f, Rand(-20f, 20f), 0f);
                 f.bobHeight = Rand(0.2f, 0.45f);
@@ -279,11 +297,12 @@ namespace VoidFlow.EditorTools
             }
 
             // Moody colored light, and reflections of it all in the glossy floor
-            PointLight("FrontCyan", hall, new Vector3(lane, 6f, HallFront - 8f), new Color(0.3f, 0.8f, 1f), 1.8f, 28f);
-            PointLight("LeftPurple", hall, new Vector3(left + 8f, 7f, midZ), new Color(0.6f, 0.25f, 1f), 1.3f, 26f);
-            PointLight("RightViolet", hall, new Vector3(right - 8f, 7f, midZ + 6f), new Color(0.75f, 0.35f, 1f), 1.2f, 26f);
-            PointLight("BackCyan", hall, new Vector3(lane, 6f, HallBack + 10f), new Color(0.3f, 0.75f, 1f), 1.2f, 24f);
-            PointLight("SkeetMagenta", hall, new Vector3(right - 8f, 5f, HallBack + 9f), new Color(0.9f, 0.3f, 1f), 1f, 18f);
+            PointLight("FrontGold", hall, new Vector3(lane, 7f, HallFront - 8f), new Color(1f, 0.86f, 0.6f), 1.4f, 30f);
+            PointLight("LeftSky", hall, new Vector3(left + 8f, 8f, midZ), new Color(0.8f, 0.9f, 1f), 1.1f, 28f);
+            PointLight("RightSky", hall, new Vector3(right - 8f, 8f, midZ + 6f), new Color(0.8f, 0.9f, 1f), 1.1f, 28f);
+            PointLight("BackGold", hall, new Vector3(lane, 7f, HallBack + 10f), new Color(1f, 0.85f, 0.6f), 1.2f, 26f);
+            PointLight("SkeetRose", hall, new Vector3(right - 8f, 5f, HallBack + 9f), new Color(1f, 0.75f, 0.6f), 0.9f, 18f);
+            BuildUtopia(hall, lane, ivory, metal, gold, violet);
             var probe = new GameObject("HallReflections").AddComponent<ReflectionProbe>();
             probe.transform.SetParent(hall, false);
             probe.transform.position = new Vector3(lane, 4f, midZ);
@@ -303,6 +322,62 @@ namespace VoidFlow.EditorTools
             spawn.SetPositionAndRotation(spawnPos, Quaternion.identity);
             BoxCollider zone = Zone("StartZone", new Vector3(lane, 2f, midZ), new Vector3(width, 4f, HallDepth), hall);
             return (zone, spawn, hall);
+        }
+
+        // The view from the terrace: a distant utopia. Floating islands all round, far off and
+        // below, each crowned with white spires and gold domes; soft clouds drifting beneath
+        // them; two great gold halos turning slowly in the sky. Seen over the walls and out of
+        // the open front, it only exists while the hall does.
+        static void BuildUtopia(Transform hall, float lane, Material ivory, Material gold, Material glow, Material sky)
+        {
+            var rng = new System.Random(777);
+            float Rand(float min, float max) => min + (float)rng.NextDouble() * (max - min);
+            var root = new GameObject("Utopia").transform;
+            root.SetParent(hall, false);
+            Vector3 centre = new(lane, 0f, HallFront - 30f);
+            for (int i = 0; i < 16; i++)
+            {
+                float angle = i * Mathf.PI * 2f / 16f + Rand(-0.15f, 0.15f);
+                float dist = Rand(380f, 820f);
+                var island = new GameObject("Island").transform;
+                island.SetParent(root, false);
+                island.position = centre + new Vector3(Mathf.Sin(angle) * dist, Rand(-120f, 60f), Mathf.Cos(angle) * dist);
+                float size = Rand(90f, 180f);
+                // The island: a flattened white disc over a rounded underside
+                Shape(PrimitiveType.Sphere, "Top", island, island.position, new Vector3(size, size * 0.14f, size), ivory);
+                Shape(PrimitiveType.Sphere, "Underside", island, island.position + Vector3.down * size * 0.22f, new Vector3(size * 0.8f, size * 0.5f, size * 0.8f), ivory);
+                // Spires, the first the tallest, each with a gold dome and a glowing needle
+                int spires = rng.Next(3, 7);
+                for (int k = 0; k < spires; k++)
+                {
+                    Vector3 at = island.position + new Vector3(Rand(-0.3f, 0.3f) * size, 0f, Rand(-0.3f, 0.3f) * size);
+                    float h = Rand(0.4f, 1.3f) * size * (k == 0 ? 1.4f : 1f), w = Rand(0.06f, 0.12f) * size;
+                    Shape(PrimitiveType.Cylinder, "Spire", island, at + Vector3.up * h * 0.5f, new Vector3(w, h * 0.5f, w), ivory);
+                    Shape(PrimitiveType.Sphere, "Dome", island, at + Vector3.up * h, Vector3.one * w * 1.35f, gold);
+                    Deco("Needle", island, at + Vector3.up * (h + w * 1.2f), new Vector3(w * 0.12f, w * 1.6f, w * 0.12f), Quaternion.identity, glow);
+                }
+                // Clouds drifting under it
+                for (int k = 0; k < 3; k++)
+                    Shape(PrimitiveType.Sphere, "Cloud", island, island.position + new Vector3(Rand(-1f, 1f) * size, -size * Rand(0.5f, 0.9f), Rand(-1f, 1f) * size),
+                        new Vector3(size * Rand(0.8f, 1.6f), size * Rand(0.12f, 0.2f), size * Rand(0.6f, 1.1f)), ivory);
+            }
+            // Two great halos turning in the sky beyond the drop
+            foreach (var (at, radius, tilt, speed) in new[] { (centre + new Vector3(-120f, 220f, 600f), 140f, 70f, 3f), (centre + new Vector3(260f, 160f, 420f), 80f, 55f, -5f) })
+            {
+                var halo = new GameObject("Halo").transform;
+                halo.SetParent(root, false);
+                halo.SetPositionAndRotation(at, Quaternion.Euler(tilt, Rand(0f, 360f), 0f));
+                const int blocks = 40;
+                for (int b = 0; b < blocks; b++)
+                {
+                    float a0 = b * Mathf.PI * 2f / blocks, a1 = (b + 1) * Mathf.PI * 2f / blocks;
+                    Vector3 p0 = new(Mathf.Cos(a0) * radius, 0f, Mathf.Sin(a0) * radius), p1 = new(Mathf.Cos(a1) * radius, 0f, Mathf.Sin(a1) * radius);
+                    Deco("Arc", halo, (p0 + p1) * 0.5f, new Vector3(radius * 0.04f, radius * 0.02f, (p1 - p0).magnitude + 0.5f), Quaternion.LookRotation(p1 - p0), b % 5 == 0 ? sky : glow, local: true);
+                }
+                var turn = halo.gameObject.AddComponent<Floaty>();
+                turn.spin = new Vector3(0f, speed, 0f);
+                turn.bobHeight = 0f;
+            }
         }
 
         // A gallery wall: lit ledges stepped up the wall, each item spinning over a small pad

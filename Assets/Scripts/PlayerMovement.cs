@@ -237,11 +237,15 @@ namespace VoidFlow
 
             CategorizePosition();
 
+            // Gravity is split round the move exactly as Source does it (StartGravity before,
+            // FinishGravity after), so jump and flight arcs match CS to the unit
+            velocity.y -= gravity * 0.5f * dt;
+
             bool wantJump = input.jumpPressed || (autoHop && input.jumpHeld);
             if (grounded && wantJump)
             {
                 // Jumping before friction is what makes bhop keep its speed
-                velocity.y = jumpSpeed;
+                velocity.y = jumpSpeed - gravity * 0.5f * dt; // (CheckJumpButton's own FinishGravity)
                 grounded = false;
                 Jumped?.Invoke();
             }
@@ -252,11 +256,7 @@ namespace VoidFlow
                 ApplyFriction(dt);
                 Accelerate(wishDir, wishSpeed, dt);
             }
-            else
-            {
-                AirAccelerate(wishDir, wishSpeed, dt);
-                velocity.y -= gravity * dt;
-            }
+            else AirAccelerate(wishDir, wishSpeed, dt);
 
             velocity = Vector3.ClampMagnitude(velocity, maxVelocity);
 
@@ -266,6 +266,7 @@ namespace VoidFlow
             SlideMove(dt);
             Depenetrate();
             CategorizePosition();
+            velocity.y -= gravity * 0.5f * dt;
             if (grounded && velocity.y < 0f) velocity.y = 0f;
 
             // Touching down, on the ground or a ramp, after being in the air

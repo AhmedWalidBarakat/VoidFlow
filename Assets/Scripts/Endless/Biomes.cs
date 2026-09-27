@@ -43,6 +43,16 @@ namespace VoidFlow
         public SceneryStyle style;
         public Color[] hues;              // Spectrum: each ramp in the zone takes the next of these
 
+        // The start terrace's sky: bright and celestial, deep blue overhead, warm gold at the
+        // horizon, a long clear view over the distant utopia (not a course zone)
+        public static readonly Biome Terrace = new()
+        {
+            name = "CELESTIAL TERRACE", sky = new Color(1f, 0.92f, 0.78f), skyTop = new Color(0.3f, 0.48f, 0.9f), skyBottom = new Color(0.96f, 0.93f, 0.88f),
+            fogStart = 350f, fogEnd = 2400f,
+            ambientSky = new Color(0.92f, 0.94f, 1f), ambientEquator = new Color(0.9f, 0.84f, 0.74f), ambientGround = new Color(0.55f, 0.5f, 0.45f),
+            sunColor = new Color(1f, 0.95f, 0.85f), sunIntensity = 1.3f,
+        };
+
         public static readonly Biome[] All =
         {
             new Biome

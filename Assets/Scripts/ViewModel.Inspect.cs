@@ -131,26 +131,38 @@ namespace VoidFlow
             };
         }
 
-        // Butterfly knife, after the classic butterfly inspect: it never leaves the hand. The
-        // hand comes up and flips it open and shut, rolling the wrist to show both sides, holds
-        // it fanned open with the blade up, then snaps it shut with two quick flips. Held F keeps
-        // it flipping.
+        // Butterfly knife, after the classic butterfly inspect, every trick in the one hand:
+        // quick flips while the wrist rolls hard one way and the other, a pop up out of the
+        // fingers where it somersaults and is snatched back, a rollover right round the fist
+        // still flipping, a fanned-open show with the blade standing up, then a rapid burst of
+        // flips that snaps it shut. Held thumb up, blade standing out of the fist, the forearm
+        // rising from the bottom right corner. Held F keeps the flips going.
         static Routine ButterflyRoutine()
         {
-            var up = new Vector3(0.1f, -0.085f, 0.3f); // held thumb up, blade standing up out of the fist
+            var up = new Vector3(0.1f, -0.085f, 0.3f);
+            Quaternion R1 = FB(-0.55f, 0.45f, 0.7f, 0.7f, 0f, 0.55f), R2 = FB(-0.85f, 0.4f, 0.3f, 0.35f, 0f, 0.95f), R3 = FB(-0.2f, 0.45f, 0.9f, 1f, 0f, 0.2f);
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
-            k = k.At(0.3f); k.rp = up; k.rq = FB(-0.55f, 0.45f, 0.7f, 0.7f, 0f, 0.55f); k.flips = 1f; k.rOpen = 0.25f; ks.Add(k);
-            k = k.At(0.9f); k.rq = FB(-0.8f, 0.45f, 0.35f, 0.4f, 0f, 0.9f); k.flips = 3f; ks.Add(k);
-            k = k.At(1.5f); k.rq = FB(-0.3f, 0.45f, 0.85f, 0.95f, 0f, 0.3f); k.flips = 5f; ks.Add(k);
-            k = k.At(1.8f); k.flips = 5.5f; k.rOpen = 0.15f; ks.Add(k);
-            k = k.At(2.4f); k.rq = FB(-0.55f, 0.45f, 0.7f, 0.7f, 0f, 0.55f); ks.Add(k);
-            k = k.At(2.8f); k.flips = 7f; k.rOpen = 0.3f; ks.Add(k);
-            k = k.At(3.2f); k.rp = RightIdle; k.rq = ForwardIdle; k.flips = 8f; k.rOpen = 0f; ks.Add(k);
+            k = k.At(0.25f); k.rp = up; k.rq = R1; k.flips = 1f; k.rOpen = 0.25f; ks.Add(k);
+            k = k.At(0.55f); k.rq = R2; k.flips = 3f; ks.Add(k);
+            k = k.At(0.85f); k.rq = R3; k.flips = 5f; ks.Add(k);
+            // Popped up out of the fingers, somersaulting, and snatched back
+            k = k.At(1.02f); k.hold = Hold.Air; k.ap = up + new Vector3(-0.01f, 0.08f, -0.02f); k.aq = Quaternion.identity; k.rq = R1; k.rp = up + new Vector3(0f, 0.01f, 0f); ks.Add(k);
+            k = k.At(1.28f); k.ap = up + new Vector3(-0.015f, 0.14f, -0.02f); k.spin = new(540f, 0f, 0f); ks.Add(k);
+            k = k.At(1.5f); k.hold = Hold.Right; k.rp = up; k.spin = new(720f, 0f, 0f); k.flips = 6f; ks.Add(k);
+            // Rolled right round the fist, flipping all the way
+            k = k.At(1.95f); k.orbit = 360f; k.flips = 8f; k.rq = R2; ks.Add(k);
+            // Fanned open, blade up, turned to show it
+            k = k.At(2.3f); k.flips = 8.5f; k.rq = R3; k.rOpen = 0.15f; ks.Add(k);
+            k = k.At(2.6f); k.rq = R1; ks.Add(k);
+            // A rapid burst of flips, snapped shut, home
+            k = k.At(3.0f); k.flips = 12f; k.rq = R2; k.rOpen = 0.3f; ks.Add(k);
+            k = k.At(3.35f); k.rp = RightIdle; k.rq = ForwardIdle; k.rOpen = 0f; ks.Add(k);
             return new Routine
             {
-                keys = ks.ToArray(), sustainAt = 1.2f, sustainAxis = 3, sustainSpeed = 720f,
-                sounds = new[] { (0.35f, WeaponSounds.Tick, 0.3f), (0.75f, WeaponSounds.Tick, 0.3f), (1.2f, WeaponSounds.Tick, 0.3f), (2.6f, WeaponSounds.Tick, 0.3f), (2.95f, WeaponSounds.Tick, 0.35f) },
+                keys = ks.ToArray(), sustainAt = 0.7f, sustainAxis = 3, sustainSpeed = 900f,
+                sounds = new[] { (0.3f, WeaponSounds.Tick, 0.3f), (0.6f, WeaponSounds.Tick, 0.3f), (0.9f, WeaponSounds.Tick, 0.3f), (1.1f, WeaponSounds.Slash, 0.3f),
+                    (1.5f, WeaponSounds.Tick, 0.4f), (1.9f, WeaponSounds.Tick, 0.3f), (2.75f, WeaponSounds.Tick, 0.3f), (2.9f, WeaponSounds.Tick, 0.3f), (3.05f, WeaponSounds.Tick, 0.4f) },
             };
         }
 
@@ -496,7 +508,7 @@ namespace VoidFlow
             var left = Pose.Blend(LeftArm(a), LeftArm(b), s);
             // Knife tricks stay low on the screen so you can still see the run: anything above
             // the resting height is pulled down (the swords' sheath moves are low already)
-            bool keepLow = !knife.IsSword;
+            bool keepLow = !knife.IsSword && knife.model != KnifeModel.Butterfly; // (the butterfly pops up for its somersault)
             if (keepLow) { right.p = Low(right.p); left.p = Low(left.p); }
             float show = Mathf.Lerp(a.show, b.show, s);
             float size = Mathf.Lerp(1f, 0.8f, show) * knifeScale; // a little smaller while it's up on show

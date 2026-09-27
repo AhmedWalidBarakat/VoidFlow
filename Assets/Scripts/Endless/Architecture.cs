@@ -50,11 +50,11 @@ namespace VoidFlow
             _ => 12f,
         };
 
-        const float Roof = 48f, Margin = 60f; // roomy: walls 60m out from the ramp, so you can air-strafe a long way and stay inside
+        const float Roof = 64f, Margin = 85f; // roomy: walls 85m out from the ramp and a high roof, so every space reads big and distant
 
         // How far the floor lies below the ramp: the rooms after Raphaelo have theirs close by
         // (you see it), the rest drop away into depth
-        public static float DepthFor(SceneryStyle s) => s is SceneryStyle.Sunset or SceneryStyle.Gallery or SceneryStyle.Library ? 12f : 30f;
+        public static float DepthFor(SceneryStyle s) => s is SceneryStyle.Sunset or SceneryStyle.Gallery or SceneryStyle.Library ? 16f : 40f;
 
         // Cross-sections along a ramp, between two distances along it
         public static List<Frame> RampFrames(RampShapes.RampPath path, float from, float to, float step, float depth = 24f, float extra = 0f)
@@ -104,8 +104,8 @@ namespace VoidFlow
                     p = Vector3.Lerp(from.p, to.p, u).WithY(level), f = f, right = right,
                     A = Vector3.Lerp(from.A, to.A, u), B = Vector3.Lerp(from.B, to.B, u),
                     level = level,
-                    top = Mathf.Max(Mathf.Lerp(from.top, to.top, u), level + 36f),
-                    bottom = Mathf.Min(Mathf.Lerp(from.bottom, to.bottom, u), level - 16f),
+                    top = Mathf.Max(Mathf.Lerp(from.top, to.top, u), level + 48f),
+                    bottom = Mathf.Min(Mathf.Lerp(from.bottom, to.bottom, u), level - 22f),
                 });
             }
             return frames;

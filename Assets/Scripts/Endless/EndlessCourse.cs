@@ -109,6 +109,7 @@ namespace VoidFlow
         readonly List<Segment> segments = new();
         System.Random rng;
         int nextIndex, current, checkpoint;
+        bool inTerrace; // still under the start terrace's sky
         const float CheckpointReach = 12f; // metres from the riding line that count as on the ramp
         float nextProgress;
         RampShapes.RampPath last;
@@ -242,8 +243,11 @@ namespace VoidFlow
                 Kill(temp);
             }
 
-            envFrom = envTo = Biome.All[0];
+            // The start terrace has its own sky, over the first two ramps too; the first zone's
+            // blends in as you reach its building
+            envFrom = envTo = Biome.Terrace;
             envBlend = 1f;
+            inTerrace = true;
             ApplyEnvironment(envTo, envTo, 1f);
             Stream(all: true);
         }
@@ -558,13 +562,13 @@ namespace VoidFlow
             {
                 // A gate over the start of the landing hill, marking the new stage
                 Vector3 foot = seg.line[0] + Vector3.down * 3f;
-                AddPart(seg, "StageGate", foot, RampShapes.GateMesh(foot, path.forward[0], 22f, 16f, $"Gate {i}"), kit.glow, solid: false);
+                AddPart(seg, "StageGate", foot, RampShapes.GateMesh(foot, path.forward[0], GateWidth(path), 26f, $"Gate {i}"), kit.glow, solid: false);
             }
             else if (i > 0 && i % checkpointEvery == 0)
             {
                 // A checkpoint: a lighter gate over the start of the landing hill
                 Vector3 foot = seg.line[0] + Vector3.down * 3f;
-                AddPart(seg, "CheckpointGate", foot, RampShapes.GateMesh(foot, path.forward[0], 18f, 12f, $"Checkpoint {i}"), kit.glowAlt, solid: false);
+                AddPart(seg, "CheckpointGate", foot, RampShapes.GateMesh(foot, path.forward[0], GateWidth(path) - 6f, 22f, $"Checkpoint {i}"), kit.glowAlt, solid: false);
             }
             if (i > 0 && i % checkpointEvery == 0) BuildPad(seg, path, landingEnd, kit);
             if (ringCenter is Vector3 ring)
@@ -582,7 +586,7 @@ namespace VoidFlow
             // buildings look never reshuffles the course itself
             var decor = new System.Random(unchecked(i * 7919 + 13));
             if (!Architecture.Continuous(biome.style)) Scenery.Line(path, biome, kit, seg.root.transform, decor, cube);
-            BuildArchitecture(seg, path, biome, kit, i, enclose || i == 0, stageStart, flightArc, flightGap, extraMargin, decor);
+            BuildArchitecture(seg, path, biome, kit, i, enclose && i > 1, stageStart, flightArc, flightGap, extraMargin, decor);
             segments.Add(seg);
             Physics.SyncTransforms();
         }
@@ -650,7 +654,7 @@ namespace VoidFlow
             // the building before it across the flight
             var frames = Architecture.RampFrames(path, i == 0 ? 45f : 0f, path.Length, step, Architecture.DepthFor(style), extraMargin);
             if (frames.Count == 0) { lastFrame = null; return; }
-            int doorway = stageStart ? 0 : -1;
+            int doorway = stageStart || lastFrame == null ? 0 : -1; // a doorway wherever a building begins
             if (lastFrame is Architecture.Frame prev && flightArc != null)
             {
                 var join = Architecture.FlightFrames(prev, frames[0], flightArc, flightGap, step);
@@ -926,7 +930,14 @@ namespace VoidFlow
                 if (here == null || next == null) break;
                 if (DistanceToLine(next, p, out _) >= DistanceToLine(here, p, out _)) break;
                 current++;
-                if (next.biome != here.biome)
+                if (inTerrace && current >= 2) // the first two ramps fly under the terrace sky
+                {
+                    inTerrace = false;
+                    envFrom = Biome.Terrace;
+                    envTo = Biome.All[next.biome];
+                    envBlend = 0f;
+                }
+                else if (next.biome != here.biome)
                 {
                     envFrom = Biome.All[here.biome];
                     envTo = Biome.All[next.biome];
@@ -985,10 +996,13 @@ namespace VoidFlow
 
         // The drop-in platform over a checkpoint ramp: it floats 6m over the riding line just
         // past the landing hill, where flights have already come down and riders are sliding
-        // along the surface under it. It's only solid while someone respawns on it, so it can
-        // never catch a rider coming through; step off any edge and you're sent down the ramp
-        // at the speed it was built for.
+        // along the surface under it. It only appears (and is only solid) while someone
+        // respawns on it, so it is never in the way of a run; step off any edge and you are
+        // sent down the ramp at the speed it was built for.
         const float PadHeight = 6f, PadWidth = 7f, PadLength = 9f;
+
+        // Gates stand well clear of the ramp on both sides, so their posts are never in the way
+        static float GateWidth(RampShapes.RampPath path) => 2f * path.width + 36f;
 
         void BuildPad(Segment seg, RampShapes.RampPath path, float landingEnd, BiomeKit kit)
         {
@@ -1022,6 +1036,7 @@ namespace VoidFlow
                     Block("Chevron", new Vector3(x * 0.55f, 0.03f, 0.8f + c * 1.8f), new Vector3(0.25f, 0.06f, 1.6f), Quaternion.Euler(0f, -x * 45f, 0f), kit.glowAlt);
             Block("Glow", new Vector3(0f, -0.85f, 0f), new Vector3(PadWidth - 1f, 0.1f, PadLength - 1f), Quaternion.identity, kit.glow);
             seg.pad = pad;
+            pad.gameObject.SetActive(false); // only there while someone respawns on it
         }
 
         Segment padInUse;
@@ -1044,9 +1059,10 @@ namespace VoidFlow
                 Vector3 h = pad.forward * speed;
                 player.SetVelocity(new Vector3(h.x, Mathf.Min(v.y, 0f), h.z));
             }
-            if (padLeft && (padTimer += dt) > 1.5f)
+            if (padLeft && (padTimer += dt) > 1.2f)
             {
                 SetPadSolid(padInUse, false);
+                padInUse.pad.gameObject.SetActive(false);
                 padInUse = null;
             }
         }
@@ -1074,9 +1090,10 @@ namespace VoidFlow
                 ApplyEnvironment(envTo, envTo, 1f);
             }
             var seg = Seg(current);
-            if (padInUse != null) SetPadSolid(padInUse, false);
+            if (padInUse != null && padInUse.pad) { SetPadSolid(padInUse, false); padInUse.pad.gameObject.SetActive(false); }
             if (seg.pad)
             {
+                seg.pad.gameObject.SetActive(true);
                 SetPadSolid(seg, true);
                 padInUse = seg;
                 padLeft = false;

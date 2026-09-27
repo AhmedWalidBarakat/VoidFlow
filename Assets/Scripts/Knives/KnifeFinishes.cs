@@ -16,7 +16,7 @@ namespace VoidFlow
             public bool photo; // a square photo texture: blades show a strip of it, not all of it squeezed
         }
 
-        const int Size = 256;
+        const int Size = 512; // sharp patterns and crisp edges up close
         static readonly Dictionary<KnifeFinish, Look> cache = new();
 
         public static Look Get(KnifeFinish finish)
@@ -251,15 +251,17 @@ namespace VoidFlow
 
         static readonly Color[] NebulaStops =
         {
-            new(0.06f, 0.03f, 0.25f), new(0.4f, 0.08f, 0.7f), new(1f, 0.35f, 0.8f), new(0.45f, 0.75f, 1f), new(0.95f, 0.9f, 1f),
+            // (the classic galaxy knife tones: near-black, deep purple, magenta, hot pink)
+            new(0.02f, 0.01f, 0.05f), new(0.16f, 0.03f, 0.26f), new(0.5f, 0.05f, 0.45f), new(0.95f, 0.2f, 0.6f), new(1f, 0.6f, 0.88f),
         };
         static readonly Color[] EmeraldStops =
         {
-            new(0.01f, 0.15f, 0.1f), new(0.03f, 0.5f, 0.28f), new(0.25f, 0.95f, 0.55f), new(0.1f, 0.55f, 0.75f), new(0.85f, 1f, 0.9f),
+            new(0.0f, 0.05f, 0.03f), new(0.01f, 0.28f, 0.12f), new(0.04f, 0.7f, 0.3f), new(0.35f, 1f, 0.55f), new(0.85f, 1f, 0.88f),
         };
         static readonly Color[] SunsetStops =
         {
-            new(0.4f, 0.12f, 0.85f), new(0.95f, 0.3f, 0.65f), new(1f, 0.55f, 0.25f), new(1f, 0.88f, 0.25f),
+            // (the classic fade: gold at the base through pink to purple at the tip)
+            new(1f, 0.86f, 0.28f), new(1f, 0.5f, 0.5f), new(0.95f, 0.25f, 0.72f), new(0.5f, 0.12f, 0.9f),
         };
 
         // Domain-warped noise mapped onto a palette, with dark flecks: a galaxy-like swirl
@@ -316,7 +318,7 @@ namespace VoidFlow
         // Deep red with a black spider web: spokes from a point near the base, sagging rings
         static Color RedWeb(float u, float y)
         {
-            var baseColor = new Color(0.85f, 0.08f, 0.08f) * (0.85f + Noise(u * 4f, y * 4f, 51) * 0.3f);
+            var baseColor = new Color(0.58f, 0.03f, 0.04f) * (0.85f + Noise(u * 4f, y * 4f, 51) * 0.3f); // deep crimson
             Vector2 p = new(u - 0.45f, y - 0.9f);
             float r = p.magnitude;
             float a = Mathf.Atan2(p.y, p.x) / (2f * Mathf.PI);

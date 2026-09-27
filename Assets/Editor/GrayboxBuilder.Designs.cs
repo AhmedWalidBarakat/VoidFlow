@@ -345,37 +345,38 @@ namespace VoidFlow.EditorTools
 
         // ------------------------------------------------------------------ start hall
 
-        // Black marble floor: 2m tiles with pale veins and a gold diamond lattice inlaid through
-        // them (own colors)
+        // Celestial terrace floor: white marble slabs, 2m square, with soft grey veins and a gold
+        // diamond lattice inlaid through them (own colors)
         static Texture2D MakeSanctumFloor() => Design("SanctumFloor", (u, v) =>
         {
             float x = u * 4f, y = v * 4f;
             float dia = Mathf.Min(ToLine((x + y) * 0.5f), ToLine((x - y) * 0.5f)) * 2.83f; // metres to the lattice
-            if (dia < 0.035f) return Rgb(0.95f, 0.72f, 0.35f);
+            if (dia < 0.03f) return Rgb(0.98f, 0.76f, 0.36f);
+            if (dia < 0.045f) return Rgb(0.78f, 0.6f, 0.3f);
             float seam = Mathf.Min(ToLine(x), ToLine(y)) * 2f;
-            if (seam < 0.012f) return Rgb(0.02f, 0.02f, 0.03f);
+            if (seam < 0.01f) return Rgb(0.72f, 0.7f, 0.68f);
             float n = Noise(u * 4f, v * 4f, 4, 271) * 0.6f + Noise(u * 16f, v * 16f, 16, 273) * 0.4f;
             float vein = Mathf.Pow(1f - Mathf.Abs(Mathf.Sin(Mathf.PI * 2f * (u + 2f * v) + n * 10f)), 24f);
-            float shade = 0.8f + 0.4f * Mottle(u, v, 275) + vein * 3f;
-            return Solid(Rgb(0.06f, 0.05f, 0.08f) * shade);
+            float shade = 0.95f + 0.05f * Mottle(u, v, 275) - vein * 0.22f;
+            return Rgb(shade * 0.98f, shade * 0.97f, shade * 0.95f);
         });
 
-        // Where that floor glows: the 2m tile seams, violet (emission mask)
+        // Where that floor glows: the 2m tile seams, a soft warm light (emission mask)
         static Texture2D MakeSanctumFloorGlow() => Design("SanctumFloorGlow", (u, v) =>
         {
             float seam = Mathf.Min(ToLine(u * 4f), ToLine(v * 4f)) * 2f;
-            return Grey(seam < 0.012f ? 1f : seam < 0.03f ? 0.25f : 0f);
+            return Grey(seam < 0.01f ? 1f : seam < 0.025f ? 0.2f : 0f);
         });
 
-        // Walls: violet-black stone with the same gothic arches as the Crimson Hall ahead,
-        // framed in gold (own colors)
+        // Walls: white stone carved with tall arches framed in gold (own colors)
         static Texture2D MakeSanctumWall() => Design("SanctumWall", (u, v) =>
         {
             float t = TraceryShade(u, v);
             float ax = ((u * 2f) % 1f - 0.5f) * 4f, ay = v * 8f;
             bool frame = !InArch(ax, ay, 1.3f, 0.6f, 5f) && InArch(ax, ay, 1.58f, 0.35f, 5f);
-            if (frame || t > 0.84f) return Rgb(0.85f, 0.62f, 0.3f) * t;
-            return Solid(Rgb(0.2f, 0.15f, 0.28f) * t);
+            if (frame || t > 0.84f) return Rgb(1f, 0.8f, 0.42f) * (0.75f + 0.25f * t);
+            // pale stone, the recesses a cool sky blue
+            return Solid(InArch(ax, ay, 1.3f, 0.6f, 5f) ? Rgb(0.72f, 0.8f, 0.92f) * (0.8f + 0.3f * t) : Rgb(0.95f, 0.94f, 0.9f) * (0.75f + 0.3f * t));
         });
     }
 }
