@@ -30,8 +30,8 @@ namespace VoidFlow
         // hooked blade sweeping left and curling down, flat side toward you
         // (the reverse-grip hold from the classic shooters: fist tilted in from the bottom right
         // corner, ring up by the index finger, the hooked blade curling down out of the fist)
-        static readonly Vector3 TalonIdlePos = new(0.11f, -0.1f, 0.3f);
-        static readonly Quaternion TalonIdle = FingersBack(new Vector3(-0.45f, 0.85f, 0.3f), new Vector3(-0.3f, -0.1f, 0.95f));
+        static readonly Vector3 TalonIdlePos = new(0.09f, -0.105f, 0.3f);
+        static readonly Quaternion TalonIdle = FingersBack(new Vector3(-0.1f, 0.35f, 0.93f), new Vector3(0.1f, 0.9f, -0.4f));
         // Talon inspect: the knife hangs from the finger ring in front of the raised glove, flat
         // side on, and spins round the finger there
         static readonly Vector3 TalonShowPos = TalonIdlePos; // the arm stays put: only the hand turns

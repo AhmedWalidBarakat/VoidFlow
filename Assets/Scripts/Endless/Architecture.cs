@@ -54,7 +54,7 @@ namespace VoidFlow
             _ => 12f,
         };
 
-        const float Roof = 64f, Margin = 85f; // roomy: walls 85m out from the ramp and a high roof, so every space reads big and distant
+        const float Roof = 90f, Margin = 100f; // roomy: walls 100m out from the ramp and a high roof, so big launches never touch the ceiling
 
         // How far the floor lies below the ramp: the rooms after Raphaelo have theirs close by
         // (you see it), the rest drop away into depth

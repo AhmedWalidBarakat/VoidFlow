@@ -214,7 +214,7 @@ namespace VoidFlow
         // The talon knife's own hold: the handle runs across the fist, the finger ring out one
         // side and the hooked blade sweeping the other way, its flat side facing away from the
         // back of the hand (so it shows to you when the palm does)
-        static readonly Quaternion TalonGrip = Quaternion.LookRotation(Vector3.back, Vector3.right);
+        static readonly Quaternion TalonGrip = Quaternion.LookRotation(Vector3.forward, Vector3.right);
         static readonly Vector3 TalonHandle = new(0f, -0.04f, 0f);
 
         static void SetTalonGrip(BlockArm arm) =>
