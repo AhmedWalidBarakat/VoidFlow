@@ -44,9 +44,9 @@
     var buildUrl = "Build";
     var config = {
       arguments: [],
-      dataUrl: buildUrl + "/vf-release.data.unityweb",
-      frameworkUrl: buildUrl + "/vf-release.framework.js.unityweb",
-      codeUrl: buildUrl + "/vf-release.wasm.unityweb",
+      dataUrl: buildUrl + "/docs.data.unityweb",
+      frameworkUrl: buildUrl + "/docs.framework.js.unityweb",
+      codeUrl: buildUrl + "/docs.wasm.unityweb",
       streamingAssetsUrl: "StreamingAssets",
       companyName: "Ahmed Barakat",
       productName: "VoidFlow",
@@ -57,7 +57,7 @@
       showBanner: function (msg, type) { if (type === "error") showError(msg); },
     };
     var script = document.createElement("script");
-    script.src = buildUrl + "/vf-release.loader.js";
+    script.src = buildUrl + "/docs.loader.js";
     script.onload = function () {
       createUnityInstance(document.querySelector("#unity-canvas"), config, function (progress) {
         var p = Math.round(progress * 100);
