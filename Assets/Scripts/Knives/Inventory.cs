@@ -323,7 +323,7 @@ namespace VoidFlow
             float grow = UiArt.BackOut(Mathf.Clamp01((t - 0.1f) / 0.4f));
             UiArt.Rounded(new Rect(panel.x + 36f, panel.y + 72f, 120f * grow, 4f), new Color(violet.r, violet.g, violet.b, fade), 2f);
             UiArt.Rounded(new Rect(panel.x + 36f + 120f * grow, panel.y + 72f, 90f * grow, 4f), new Color(pink.r, pink.g, pink.b, fade), 2f);
-            UiArt.Text(new Rect(panel.x + 36f, panel.y + 82f, 700f, 22f), "this session only   ·   clears when you reload the page", 14,
+            UiArt.Text(new Rect(panel.x + 36f, panel.y + 82f, 700f, 22f), "saved on this device   ·   kept when you reload the page", 14,
                 new Color(0.72f, 0.68f, 0.85f, fade), TextAnchor.MiddleLeft, false);
             var closeRect = new Rect(panel.xMax - 190f, panel.y + 28f, 156f, 34f);
             bool overClose = IsOpen && closeRect.Contains(e.mousePosition);
