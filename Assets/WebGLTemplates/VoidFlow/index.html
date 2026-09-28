@@ -54,7 +54,8 @@
       autoSyncPersistentDataPath: true,
       // Render at the page's own pixels, not the screen's (a laptop at 150% scaling would
       // otherwise draw over twice the pixels); the game sharpens and softens itself to keep smooth
-      devicePixelRatio: 1,
+      // the screen's full sharpness (capped at 2x); AutoQuality backs the 3D view off if it runs slow
+      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
       showBanner: function (msg, type) { if (type === "error") showError(msg); },
     };
     var script = document.createElement("script");

@@ -374,6 +374,25 @@ namespace VoidFlow
             return true;
         }
 
+        // A flat rectangle at height y under all of a ramp's frames, reaching `reach` out either
+        // side (and half that past each end), lined up with the ramp's overall direction
+        static void GroundSheet(Batch b, Material m, List<Frame> frames, float y, float reach)
+        {
+            if (frames.Count < 2) return;
+            Vector3 d = (frames[^1].p - frames[0].p).WithY(0f);
+            d = d.sqrMagnitude > 1f ? d.normalized : frames[0].f.WithY(0f).normalized;
+            Vector3 n = Vector3.Cross(Vector3.up, d);
+            float a0 = float.MaxValue, a1 = float.MinValue, c0 = float.MaxValue, c1 = float.MinValue;
+            foreach (var fr in frames)
+            {
+                float a = Vector3.Dot(fr.p, d), c = Vector3.Dot(fr.p, n);
+                a0 = Mathf.Min(a0, a); a1 = Mathf.Max(a1, a); c0 = Mathf.Min(c0, c); c1 = Mathf.Max(c1, c);
+            }
+            a0 -= reach * 0.5f; a1 += reach * 0.5f; c0 -= reach; c1 += reach;
+            Vector3 P(float a, float c) => (d * a + n * c).WithY(y);
+            b.Quad(m, P(a0, c0), P(a1, c0), P(a1, c1), P(a0, c1));
+        }
+
         static float GroundBelow(float fallback, float depth)
         {
             if (KeepOut.Count == 0) return fallback - depth;
@@ -395,6 +414,13 @@ namespace VoidFlow
             Material floor = kit.floor ? kit.floor : kit.slab;
             var style = biome.style;
             float wallFrac = WallTop(style);
+
+            // Open zones' ground far below is one flat sheet per ramp at one height (strips per
+            // slice fanned out on curves and fought each other at slightly different heights),
+            // nudged a little per ramp so two ramps' sheets never sit exactly level
+            float lowest = float.MaxValue;
+            foreach (var fl in frames) lowest = Mathf.Min(lowest, fl.bottom);
+            float groundNudge = frames.Count > 0 ? Mathf.Repeat(frames[0].p.x * 0.37f + frames[0].p.z * 0.61f, 4f) : 0f;
 
             for (int ribs = 0; ribs < frames.Count; ribs++)
             {
@@ -726,10 +752,8 @@ namespace VoidFlow
                     {
                         // Open mountains: a snowfield far below, pine forest on the slopes either
                         // side, and snowy peaks beyond
-                        float ground = GroundBelow(bottom, 80f);
-                        if (hasLast)
-                            b.Quad(kit.floor, (last.p - last.right * 420f).WithY(ground), (fr.p - right * 420f).WithY(ground),
-                                (fr.p + right * 420f).WithY(ground), (last.p + last.right * 420f).WithY(ground));
+                        float ground = GroundBelow(lowest, 80f) - groundNudge;
+                        if (ribs == 0) GroundSheet(b, kit.floor, frames, ground, 420f);
                         if (ribs % 2 == 0)
                             foreach (float side in new[] { -1f, 1f })
                                 for (int t = 0; t < 3; t++)
@@ -756,10 +780,8 @@ namespace VoidFlow
                     {
                         // A burning sunset over dark mesas: black ground far below, flat-topped
                         // mesas and ragged peaks in silhouette, an ember-lit hoop now and then
-                        float ground = GroundBelow(bottom, 90f);
-                        if (hasLast)
-                            b.Quad(kit.floor, (last.p - last.right * 450f).WithY(ground), (fr.p - right * 450f).WithY(ground),
-                                (fr.p + right * 450f).WithY(ground), (last.p + last.right * 450f).WithY(ground));
+                        float ground = GroundBelow(lowest, 90f) - groundNudge;
+                        if (ribs == 0) GroundSheet(b, kit.floor, frames, ground, 450f);
                         if (ribs % 4 == 1)
                         {
                             float side = Rand(0f, 1f) < 0.5f ? -1f : 1f, hgt = Rand(60f, 150f);
@@ -835,10 +857,8 @@ namespace VoidFlow
                     {
                         // Toy town: a bright green world far below, towers of chunky coloured
                         // blocks, white columns, puffy blocky clouds in a blue sky
-                        float ground = GroundBelow(bottom, 80f);
-                        if (hasLast)
-                            b.Quad(kit.floor, (last.p - last.right * 420f).WithY(ground), (fr.p - right * 420f).WithY(ground),
-                                (fr.p + right * 420f).WithY(ground), (last.p + last.right * 420f).WithY(ground));
+                        float ground = GroundBelow(lowest, 80f) - groundNudge;
+                        if (ribs == 0) GroundSheet(b, kit.floor, frames, ground, 420f);
                         var blocks = new[] { kit.accent, kit.slab, kit.scenery, kit.glowAlt };
                         if (ribs % 3 == 0)
                             foreach (float side in new[] { -1f, 1f })
