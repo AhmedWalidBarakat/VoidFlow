@@ -77,8 +77,6 @@ namespace VoidFlow
         [Header("Streaming")]
         public int rampsAhead = 3;
         public int rampsBehind = 1;
-        [Tooltip("A checkpoint every this many ramps: fall and you're put back at the last one.")]
-        public int checkpointEvery = 3;
         public float recenterDistance = 2000f;
         public int rampsPerBiome = 6;
         [Tooltip("0 makes a new random course every run")]
@@ -143,13 +141,18 @@ namespace VoidFlow
         static readonly Tier[] TierCycle = { Tier.Intermediate, Tier.Advanced, Tier.Technical, Tier.Beginner };
         public static Tier TierOf(int stage) => stage <= 0 ? Tier.Beginner : TierCycle[(stage - 1) % TierCycle.Length];
         public Tier CurrentTier => TierOf(CurrentStage);
-        public string CurrentTierName => InFinale(CurrentStage) ? "FINALE" : TierNames[(int)CurrentTier];
+        public string CurrentTierName => InLegend(CurrentStage) ? "LEGEND" : InFinale(CurrentStage) ? "FINALE" : TierNames[(int)CurrentTier];
 
         [Tooltip("Crystal material for Void Shards")]
         public Material shardMaterial;
         static Mesh shardMesh;
 
         public int CurrentStage => current / rampsPerBiome;
+        bool InLegend(int stage) => stage >= Biome.LegendFrom;
+        // A checkpoint where each stage (zone) begins, so every stage is ridden in one go
+        public bool IsCheckpoint(int ramp) => ramp > 0 && ramp % rampsPerBiome == 0;
+        // How far into the Legend zones a ramp is (0 at their start, 1 at the very end)
+        float Hardness(int ramp) => Mathf.Clamp01((ramp - Biome.LegendFrom * rampsPerBiome) / (float)Mathf.Max(1, FinalRamp - 1 - Biome.LegendFrom * rampsPerBiome));
         // The course ends after the last zone: the final ramp throws you onto the finish
         public int FinalRamp => Biome.All.Length * rampsPerBiome;
         bool InFinale(int stage) => stage >= Biome.FinaleFrom;
@@ -269,16 +272,125 @@ namespace VoidFlow
         void Update() => Step(Time.deltaTime);
 
         // Builds a fresh course from the start hall
-        public void ResetCourse() => Rebuild(0, 0f);
+        // The course is one fixed map (the same layout every time, zone after zone), built in
+        // full once, then only shown and hidden around you: nothing is built while you play, so
+        // no frame ever has to. In the game it builds behind a progress bar a slice per frame;
+        // tests (outside play mode) build it all at once.
+        public const int CourseSeed = 777;
+        public bool Ready { get; private set; }
+        public float BuildProgress { get; private set; }
+        int builtSeed = int.MinValue;
+        Vector3 totalShift; // how far the world has been recentred since it was built
+        Coroutine building;
+        double buildWork; // seconds spent building (logged once built)
+        int buildFrames;
 
-        // Carries on from a checkpoint reached before (after a refresh, or a restart): a new
-        // course whose first ramp drops in just before that checkpoint ramp, in the same zone
-        // and at the same difficulty, with the player put on the checkpoint's platform
+        int SeedToUse => seed != 0 ? seed : CourseSeed;
+
+        public void ResetCourse()
+        {
+            if (Ready && builtSeed == SeedToUse) { Restart(); return; }
+            if (!Application.isPlaying) { BeginBuild(); while (!BuildSlice(float.MaxValue)) { } return; }
+            if (building == null) building = StartCoroutine(BuildAll());
+        }
+
+        System.Collections.IEnumerator BuildAll()
+        {
+            BeginBuild();
+            // (you are held still while it builds, so each frame can spend a good while on it)
+            float started = Time.realtimeSinceStartup;
+            while (!BuildSlice(0.1f)) yield return null;
+            Debug.Log($"VoidFlow: course built, {FinalRamp} ramps, {buildWork:0.0}s of work over {buildFrames} frames, {Time.realtimeSinceStartup - started:0.0}s in all");
+            building = null;
+        }
+
+        void BeginBuild()
+        {
+            Ready = false;
+            BuildProgress = 0f;
+            buildWork = 0;
+            buildFrames = 0;
+            builtSeed = SeedToUse;
+            Rebuild(0, 0f, stream: false);
+            totalShift = Vector3.zero;
+        }
+
+        // Builds ramps (each with its building, scenery and collision) until the time is up;
+        // true once the whole course is built
+        bool BuildSlice(float seconds)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            buildFrames++;
+            while (nextIndex < FinalRamp)
+            {
+                Generate();
+                while (pending.Count > 0) pending.Dequeue()();
+                var seg = segments[^1];
+                // Only the last few stay active while building (later ramps check against them)
+                if (segments.Count > 8 && segments[^9].root) segments[^9].root.SetActive(false);
+                BuildProgress = nextIndex / (float)FinalRamp;
+                if (clock.Elapsed.TotalSeconds > seconds) { buildWork += clock.Elapsed.TotalSeconds; return false; }
+            }
+            TrimMeshes();
+            buildWork += clock.Elapsed.TotalSeconds;
+            Ready = true;
+            BuildProgress = 1f;
+            Restart();
+            return true;
+        }
+
+        // In the game, once the whole course is built, each ramp's own meshes keep only their
+        // copy on the graphics card. Shared meshes (the cube every piece is cut from, and the
+        // like) and meshes with collision (physics needs them) are left alone.
+        void TrimMeshes()
+        {
+            if (Application.isEditor) return;
+            var uses = new Dictionary<Mesh, int>();
+            var solid = new HashSet<Mesh>();
+            foreach (var seg in segments)
+            {
+                if (!seg.root) continue;
+                foreach (var c in seg.root.GetComponentsInChildren<MeshCollider>(true)) if (c.sharedMesh) solid.Add(c.sharedMesh);
+                foreach (var mf in seg.root.GetComponentsInChildren<MeshFilter>(true))
+                    if (mf.sharedMesh) uses[mf.sharedMesh] = uses.TryGetValue(mf.sharedMesh, out int n) ? n + 1 : 1;
+            }
+            foreach (var (mesh, n) in uses)
+                if (n == 1 && !solid.Contains(mesh) && mesh.isReadable && mesh != cube)
+                    mesh.UploadMeshData(true);
+        }
+
+        // Back to the start of the built course: the world moved back to where it was built,
+        // collected shards and used rings back, the start terrace's sky
+        void Restart()
+        {
+            ShiftWorld(-totalShift);
+            if (startHall) startHall.gameObject.SetActive(true);
+            current = 0;
+            checkpoint = 0;
+            Finished = false;
+            if (padInUse != null && padInUse.pad) { SetPadSolid(padInUse, false); padInUse.pad.gameObject.SetActive(false); }
+            padInUse = null;
+            Progress = 0f;
+            VoidShard.RestoreAll();
+            foreach (var r in FindObjectsByType<SpeedRing>(FindObjectsInactive.Include)) r.usedAt = -99f;
+            envFrom = envTo = Biome.Terrace;
+            envBlend = 1f;
+            inTerrace = true;
+            ApplyEnvironment(envTo, envTo, 1f);
+            Stream(all: false);
+        }
+
+        // Carries on from a checkpoint reached before (after a refresh, or a restart): the same
+        // course, straight onto that checkpoint's platform
         public bool ResumeAt(int ramp, float progress, PlayerMovement p)
         {
-            ramp = Mathf.Clamp(ramp / checkpointEvery * checkpointEvery, checkpointEvery, FinalRamp - 1);
-            Rebuild(ramp - 1, progress);
+            ramp = ramp / rampsPerBiome * rampsPerBiome; // (a save from mid-stage, before checkpoints moved to stage starts)
+            if (!Ready || !IsCheckpoint(ramp) || Seg(ramp) == null) return false;
+            Restart();
+            current = ramp;
             checkpoint = ramp;
+            inTerrace = false;
+            if (startHall) startHall.gameObject.SetActive(false);
             if (!RespawnAtCheckpoint(p)) return false;
             envFrom = envTo = Biome.All[BiomeOf(current)];
             envBlend = 1f;
@@ -290,7 +402,7 @@ namespace VoidFlow
         public int LastCheckpoint => checkpoint;
         public Biome BiomeAt(int ramp) => Biome.All[BiomeOf(Mathf.Clamp(ramp, 0, FinalRamp - 1))];
 
-        void Rebuild(int from, float progress)
+        void Rebuild(int from, float progress, bool stream = true)
         {
             foreach (var seg in segments) DestroySegment(seg);
             segments.Clear();
@@ -302,7 +414,7 @@ namespace VoidFlow
             }
             hallOffset = Vector3.zero;
 
-            rng = new System.Random(seed != 0 ? seed : Environment.TickCount);
+            rng = new System.Random(SeedToUse);
             nextIndex = from;
             current = from;
             checkpoint = 0;
@@ -332,14 +444,14 @@ namespace VoidFlow
             envBlend = 1f;
             inTerrace = from < 2;
             ApplyEnvironment(envTo, envTo, 1f);
-            Stream(all: true);
+            if (stream) Stream(all: true);
         }
 
         // Advances the course around the player. Called every frame; the surf bot calls it
         // directly when testing outside play mode.
         public void Step(float dt)
         {
-            if (!player) return;
+            if (!player || !Ready) return; // (still building the course behind the progress bar)
             UpdateCurrent(player.Position);
             UpdatePad(dt);
             Stream(all: false);
@@ -355,6 +467,12 @@ namespace VoidFlow
 
         Segment Seg(int index)
         {
+            // The course is built in order from its first ramp, so a ramp's place is its number
+            if (segments.Count > 0)
+            {
+                int k = index - segments[0].index;
+                if (k >= 0 && k < segments.Count && segments[k].index == index) return segments[k];
+            }
             foreach (var s in segments)
                 if (s.index == index) return s;
             return null;
@@ -379,16 +497,7 @@ namespace VoidFlow
                 while (pending.Count > 0) pending.Dequeue()();
             }
             if (all) { while (pending.Count > 0) pending.Dequeue()(); }
-            // Ramps behind you vanish. Those since the last checkpoint are only hidden, so a fall
-            // can bring them back; older ones go for good. (Any building still waiting is put up
-            // first: each building joins onto the one before it, so none may be skipped.)
-            if (pending.Count > 0 && segments.Count > 0 && segments[0].index < Mathf.Min(checkpoint, current - rampsBehind))
-                while (pending.Count > 0) pending.Dequeue()();
-            while (segments.Count > 0 && segments[0].index < Mathf.Min(checkpoint, current - rampsBehind))
-            {
-                DestroySegment(segments[0]);
-                segments.RemoveAt(0);
-            }
+            // (Ramps behind you are only hidden: the whole course stays built)
             // Only what's near is drawn: from the ramp behind to two ahead (built three ahead), and
             // from the start area just its own two white-and-gold ramps, not the course beyond
             foreach (var s in segments)
@@ -405,8 +514,9 @@ namespace VoidFlow
         {
             int stage = ramp / rampsPerBiome;
             // The finale climbs from hard to the hardest there is, zone by zone
+            if (InLegend(stage)) return 1f;
             if (InFinale(stage))
-                return Mathf.Lerp(0.8f, 1f, (ramp - Biome.FinaleFrom * rampsPerBiome) / (float)Mathf.Max(1, FinalRamp - 1 - Biome.FinaleFrom * rampsPerBiome));
+                return Mathf.Lerp(0.8f, 1f, (ramp - Biome.FinaleFrom * rampsPerBiome) / (float)Mathf.Max(1, Biome.LegendFrom * rampsPerBiome - 1 - Biome.FinaleFrom * rampsPerBiome));
             float within = (ramp % rampsPerBiome) / (float)Mathf.Max(1, rampsPerBiome - 1);
             // The first lap round the tiers eases you in; after that each tier is itself
             int lapIndex = Mathf.Max(0, stage - 1) / TierCycle.Length;
@@ -556,6 +666,19 @@ namespace VoidFlow
                 landing.shift *= shiftK;
                 landing.clearStart *= clearK;
 
+                // Legend zones: past anything before them, climbing to the very end: longer gaps
+                // with bigger sideways shifts onto short, narrow landings that need the exact line
+                // and speed (every flight is still proved possible below)
+                if (InLegend(stage))
+                {
+                    float h = Hardness(i);
+                    landing.gap *= 1.15f + 0.3f * h;
+                    landing.shift *= 1.25f + 0.45f * h;
+                    landing.length *= 0.78f - 0.2f * h;
+                    landing.clearStart *= 0.8f;
+                    m.width *= 0.9f - 0.2f * h;
+                }
+
                 // Each stage opens gently, like a map's stage start: a shorter hop onto a long,
                 // forgiving landing hill
                 if (stageStart)
@@ -665,7 +788,7 @@ namespace VoidFlow
             }
             // (Checkpoints and new stages have no gates to see: you just get the notice as you
             // reach the ramp)
-            if (i > 0 && i % checkpointEvery == 0) BuildPad(seg, path, landingEnd, kit);
+            if (IsCheckpoint(i)) BuildPad(seg, path, landingEnd, kit);
             if (ringCenter is Vector3 ring)
             {
                 AddPart(seg, "Ring", ring, RampShapes.RingMesh(ring, ringFacing, 6f, $"Ring {i}"), kit.glowAlt, solid: false);
@@ -716,8 +839,9 @@ namespace VoidFlow
         HolePlan? PlanHoleWall(int i, Tier tier, Move m, Biome biome, RampShapes.Landing landing, float flightSpeed)
         {
             if (i < 12 || tier == Tier.Beginner || m.bigAir || afterLaunch || afterTwin || !Architecture.Continuous(biome.style)) return null;
-            if (i - lastHoleWall < HoleWallSpacing || landing.gap < 40f) return null;
-            if ((unchecked((uint)i * 2654435761u) >> 8) % 100 >= 30) return null; // its own dice: the course itself isn't reshuffled
+            bool legend = InLegend(i / rampsPerBiome);
+            if (i - lastHoleWall < (legend ? 3 : HoleWallSpacing) || landing.gap < 40f) return null;
+            if ((unchecked((uint)i * 2654435761u) >> 8) % 100 >= (legend ? 55 : 30)) return null; // its own dice: the course itself isn't reshuffled
             float d = Mathf.Clamp(landing.gap * 0.3f, 18f, 32f), f = d / landing.gap;
             var (_, design, launch) = RampShapes.Flight(last, flightSpeed);
             var slow = RampShapes.Flight(last, SlowestLikelySpeed(flightSpeed)).height;
@@ -1145,7 +1269,7 @@ namespace VoidFlow
                 // A checkpoint counts once you're actually at its ramp: within reach of its riding
                 // line (there's no gate to hit or miss), and not flying in noclip
                 bool reached = off < CheckpointReach && !player.Flying;
-                if (current % checkpointEvery == 0 && current > checkpoint && reached)
+                if (IsCheckpoint(current) && current > checkpoint && reached)
                 {
                     checkpoint = current;
                     CheckpointReached?.Invoke();
@@ -1316,7 +1440,7 @@ namespace VoidFlow
             int from = current;
             current = checkpoint;
             foreach (var s in segments)
-                if (s.root) s.root.SetActive(s.index >= current - rampsBehind);
+                if (s.root) s.root.SetActive(s.index >= current - rampsBehind && s.index <= current + 2);
             if (Seg(from) is Segment was && was.biome != Seg(current).biome)
             {
                 envFrom = envTo = Biome.All[Seg(current).biome];
@@ -1354,6 +1478,15 @@ namespace VoidFlow
             Vector3 p = player.Position;
             if (p.magnitude < recenterDistance) return;
             Vector3 delta = -p;
+            ShiftWorld(delta);
+            player.ShiftOrigin(delta);
+            Physics.SyncTransforms();
+        }
+
+        void ShiftWorld(Vector3 delta)
+        {
+            if (delta == Vector3.zero) return;
+            totalShift += delta;
             foreach (var seg in segments)
             {
                 seg.root.transform.localPosition += delta;
@@ -1373,7 +1506,6 @@ namespace VoidFlow
                 startHall.position += delta;
                 hallOffset += delta;
             }
-            player.ShiftOrigin(delta);
             Physics.SyncTransforms();
         }
 

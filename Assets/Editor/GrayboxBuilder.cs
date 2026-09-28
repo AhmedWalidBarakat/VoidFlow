@@ -222,13 +222,40 @@ namespace VoidFlow.EditorTools
                 Surface.RampPro => MakeRampPro(),
                 Surface.WallCastle => MakeWallCastle(),
                 Surface.WallCopper => MakeWallCopper(),
+                Surface.RampLove => MakeRampLove(),
+                Surface.RampCornfield => MakeRampCornfield(),
+                Surface.RampNeonShapes => MakeRampNeonShapes(),
+                Surface.RampGlacier => MakeRampGlacier(),
+                Surface.RampRedLine => MakeRampRedLine(),
+                Surface.RampBunker => MakeRampBunker(),
+                Surface.RampCyanCrystal => MakeRampCyanCrystal(),
+                Surface.RampChromeWave => MakeRampChromeWave(),
+                Surface.RampStreak => MakeRampStreak(),
+                Surface.RampGreatWall => MakeRampGreatWall(),
+                Surface.RampArcade => MakeRampArcade(),
+                Surface.RampHazard => MakeRampHazard(),
+                Surface.RampHexJungle => MakeRampHexJungle(),
+                Surface.RampIndustrial => MakeRampIndustrial(),
+                Surface.RampQuarry => MakeRampQuarry(),
+                Surface.RampMauve => MakeRampMauve(),
+                Surface.RampSurfSchool => MakeRampSurfSchool(),
+                Surface.RampVapor => MakeRampVapor(),
+                Surface.RampFlags => MakeRampFlags(),
+                Surface.RampWarehouse => MakeRampWarehouse(),
+                Surface.RampSeaMine => MakeRampSeaMine(),
+                Surface.RampMoon => MakeRampMoon(),
+                Surface.RampStripe => MakeRampStripe(),
+                Surface.RampRaceTrack => MakeRampRaceTrack(),
+                Surface.RampFruit => MakeRampFruit(),
+                Surface.RampTown => MakeRampTown(),
+                Surface.RampHills => MakeRampHills(),
                 _ => grid,
             };
 
             // The designs cover 8m: ramps map 2m per UV, walls 4m. Ramp designs and the wood
             // carry their own colors, so they aren't tinted.
             bool IsDesign(Surface s) => s >= Surface.RampCrimson;
-            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s is Surface.WallWood or Surface.RampSpectrum or Surface.WallGrid or Surface.RampCelestial || s >= Surface.RampSnow && s <= Surface.RampSandstone || s == Surface.WallHedge || s >= Surface.RampCastle && s <= Surface.RampPro;
+            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s is Surface.WallWood or Surface.RampSpectrum or Surface.WallGrid or Surface.RampCelestial || s >= Surface.RampSnow && s <= Surface.RampSandstone || s == Surface.WallHedge || s >= Surface.RampCastle && s <= Surface.RampPro || s >= Surface.RampLove;
             // What glows: ramp masks carry their own colors, wall masks take the zone's glow
             var glowMade = new Dictionary<Surface, Texture2D>();
             Texture2D GlowOf(Surface s)
@@ -254,6 +281,17 @@ namespace VoidFlow.EditorTools
                     Surface.RampHell => MakeRampHellGlow(),
                     Surface.RampCorrupt => MakeRampCorruptGlow(),
                     Surface.RampPro => MakeRampProGlow(),
+                    Surface.RampLove => MakeRampLoveGlow(),
+                    Surface.RampNeonShapes => MakeRampNeonShapesGlow(),
+                    Surface.RampRedLine => MakeRampRedLineGlow(),
+                    Surface.RampStreak => MakeRampStreakGlow(),
+                    Surface.RampArcade => MakeRampArcadeGlow(),
+                    Surface.RampHazard => MakeRampHazardGlow(),
+                    Surface.RampHexJungle => MakeRampHexJungleGlow(),
+                    Surface.RampIndustrial => MakeRampIndustrialGlow(),
+                    Surface.RampVapor => MakeRampVaporGlow(),
+                    Surface.RampMoon => MakeRampMoonGlow(),
+                    Surface.RampRaceTrack => MakeRampRaceTrackGlow(),
                     Surface.WallGrid => MakeWallGridGlow(),
                     Surface.WallTracery => MakeWallTraceryGlow(),
                     Surface.WallHexVents => MakeWallHexVentsGlow(),

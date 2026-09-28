@@ -13,7 +13,7 @@
 
 ## What it is
 
-I grew up on CS surf maps, so I made my own take on it. You drop off a start terrace and surf a generated course of 192 ramps through 32 zones, with checkpoints along the way and a finish at the end. Movement is tuned to feel like classic Source surf (air strafing, ramp sliding, the whole thing).
+I grew up on CS surf maps, so I made my own take on it. You drop off a start terrace and surf one fixed course of 354 ramps through 59 zones, with a checkpoint at the start of each zone and a finish at the end. The last 27 zones are the Legend stretch, built to be as hard as the toughest surf maps. Movement is tuned to feel like classic Source surf (air strafing, ramp sliding, the whole thing).
 
 Along the way you grab Void Shards, which earn Void Cases, which drop knives, gloves and snipers with their own inspect animations. Your items and your last checkpoint are saved in the browser, so you can come back to them.
 

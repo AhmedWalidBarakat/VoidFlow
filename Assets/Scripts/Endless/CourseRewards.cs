@@ -7,7 +7,14 @@ namespace VoidFlow
     public class VoidShard : MonoBehaviour
     {
         public static readonly List<VoidShard> All = new();
+        public static readonly List<VoidShard> Taken = new(); // collected this run (hidden, back on a restart)
         public float phase;
+
+        public static void RestoreAll()
+        {
+            foreach (var s in Taken) if (s) s.gameObject.SetActive(true);
+            Taken.Clear();
+        }
         void OnEnable() { All.Add(this); phase = Random.value * 10f; }
         void OnDisable() => All.Remove(this);
     }
@@ -116,7 +123,8 @@ namespace VoidFlow
         void Collect(VoidShard s, float now)
         {
             Vector3 at = s.transform.position;
-            Destroy(s.gameObject);
+            s.gameObject.SetActive(false);
+            VoidShard.Taken.Add(s);
             shards++;
             stageShards++;
             combo = now - lastShard < 1.5f ? combo + 1 : 0;

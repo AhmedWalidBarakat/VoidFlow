@@ -106,6 +106,12 @@ namespace VoidFlow
             if (kb != null && kb.rKey.wasPressedThisFrame && !ViewModel.InputBlocked) { Restart(); return; }
 
             Vector3 p = player.Position;
+            if (!course.Ready)
+            {
+                // The course is still being built: stay on the spawn pad until it's done
+                if ((p - spawnPoint.position).sqrMagnitude > 1f) player.Teleport(spawnPoint.position, spawnPoint.eulerAngles.y);
+                return;
+            }
             if (!running && HasSave && kb != null && kb.cKey.wasPressedThisFrame && !ViewModel.InputBlocked)
             {
                 Continue();
@@ -186,6 +192,21 @@ namespace VoidFlow
                 bannerStyle = new GUIStyle(GUI.skin.label) { fontSize = 54, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             }
             float w = Screen.width, h = Screen.height;
+            if (!course.Ready)
+            {
+                // Building the course: a dark screen with a progress bar (once, when the game opens)
+                var old = GUI.color;
+                GUI.color = new Color(0.03f, 0.025f, 0.05f, 0.94f);
+                GUI.DrawTexture(new Rect(0, 0, w, h), Texture2D.whiteTexture);
+                GUI.color = new Color(0.25f, 0.2f, 0.35f);
+                GUI.DrawTexture(new Rect(w * 0.3f, h * 0.55f, w * 0.4f, 6f), Texture2D.whiteTexture);
+                GUI.color = new Color(0.85f, 0.55f, 1f);
+                GUI.DrawTexture(new Rect(w * 0.3f, h * 0.55f, w * 0.4f * course.BuildProgress, 6f), Texture2D.whiteTexture);
+                GUI.color = Color.white;
+                GUI.Label(new Rect(0, h * 0.45f, w, 40), $"Building the course  ·  {Mathf.RoundToInt(course.BuildProgress * 100f)}%", bigStyle);
+                GUI.color = old;
+                return;
+            }
 
             // The readouts are rebuilt ten times a second, not on every GUI pass (making new
             // strings every frame fed the garbage collector, whose pauses were hitches)
@@ -211,7 +232,7 @@ namespace VoidFlow
                 if (HasSave)
                 {
                     int ramp = PlayerPrefs.GetInt(SaveRamp, 0);
-                    GUI.Label(new Rect(0, 58, w, 30), $"or press C to continue from your last checkpoint  ·  ramp {ramp + 1}  ·  {course.BiomeAt(ramp).name}  ·  {Format(PlayerPrefs.GetFloat(SaveTime, 0f))}", bigStyle);
+                    GUI.Label(new Rect(0, 58, w, 30), $"or press C to continue from your last checkpoint  ·  stage {ramp / course.rampsPerBiome + 1}  ·  {course.BiomeAt(ramp).name}  ·  {Format(PlayerPrefs.GetFloat(SaveTime, 0f))}", bigStyle);
                 }
             }
 
