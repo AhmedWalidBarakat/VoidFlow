@@ -141,7 +141,10 @@ namespace VoidFlow
         static readonly Tier[] TierCycle = { Tier.Intermediate, Tier.Advanced, Tier.Technical, Tier.Beginner };
         public static Tier TierOf(int stage) => stage <= 0 ? Tier.Beginner : TierCycle[(stage - 1) % TierCycle.Length];
         public Tier CurrentTier => TierOf(CurrentStage);
-        public string CurrentTierName => InLegend(CurrentStage) ? "LEGEND" : InFinale(CurrentStage) ? "FINALE" : TierNames[(int)CurrentTier];
+        // The very last stage is the finale; the Legend zones before it, and the expert zones
+        // before those (hard, but not the end), carry their own names
+        public string CurrentTierName => CurrentStage == FinalRamp / rampsPerBiome - 1 ? "FINALE" : InLegend(CurrentStage) ? "LEGEND"
+            : InFinale(CurrentStage) ? "EXPERT" : TierNames[(int)CurrentTier];
 
         [Tooltip("Crystal material for Void Shards")]
         public Material shardMaterial;
@@ -331,12 +334,66 @@ namespace VoidFlow
                 BuildProgress = nextIndex / (float)FinalRamp;
                 if (clock.Elapsed.TotalSeconds > seconds) { buildWork += clock.Elapsed.TotalSeconds; return false; }
             }
+            SettleGround();
             TrimMeshes();
             buildWork += clock.Elapsed.TotalSeconds;
             Ready = true;
             BuildProgress = 1f;
             Restart();
             return true;
+        }
+
+        // Open zones' ground (snowfields, sunset plains, toy-town grass): once the whole course is
+        // built, each stage's ground sheets are put at one height, below every bit of course
+        // that can be on screen with them, so no sheet floats across the view or cuts through a ramp and they lie flat
+        // as one. The trees, peaks and towers standing on a sheet move with it.
+        void SettleGround()
+        {
+            const float Depth = 80f;
+            for (int stage = 0; stage * rampsPerBiome < FinalRamp; stage++)
+            {
+                // Only ramps that can be on screen with this stage's ground count: its own, and a
+                // few either side (the rest of the course is hidden while you're here)
+                int first = stage * rampsPerBiome - rampsBehind - 2, last = (stage + 1) * rampsPerBiome + 2;
+                var line = new List<Vector3>();
+                foreach (var sg in segments)
+                {
+                    if (sg.index < first || sg.index > last) continue;
+                    foreach (var p in sg.line) line.Add(transform.TransformPoint(p));
+                    foreach (var p in sg.flight) line.Add(transform.TransformPoint(p));
+                }
+                var sheets = new List<(Segment seg, Transform ground, float y)>();
+                Bounds area = default;
+                foreach (var sg in segments)
+                {
+                    if (sg.index / rampsPerBiome != stage || !sg.root) continue;
+                    var g = sg.root.transform.Find(Architecture.OpenGround);
+                    var r = g ? g.GetComponentInChildren<Renderer>(true) : null;
+                    if (!r) continue;
+                    if (sheets.Count == 0) area = r.bounds; else area.Encapsulate(r.bounds);
+                    sheets.Add((sg, g, r.bounds.center.y));
+                }
+                if (sheets.Count == 0) continue;
+                // Below every point of the course over the stage's ground, and a little apart
+                // from the stages either side, so two zones' grounds never sit exactly level
+                float low = float.MaxValue;
+                foreach (var p in line)
+                    if (p.x >= area.min.x && p.x <= area.max.x && p.z >= area.min.z && p.z <= area.max.z) low = Mathf.Min(low, p.y);
+                if (low == float.MaxValue) continue;
+                float target = low - Depth - (stage % 3) * 1.5f;
+                foreach (var (sg, g, y) in sheets)
+                {
+                    Vector3 delta = Vector3.up * (target - y);
+                    if (Mathf.Abs(delta.y) < 0.01f) continue;
+                    g.position += delta;
+                    foreach (Transform piece in sg.root.transform)
+                    {
+                        if (piece.name != Architecture.ScenePiece) continue;
+                        var pr = piece.GetComponentInChildren<Renderer>(true);
+                        if (pr && pr.bounds.min.y < y + 25f) piece.position += delta; // (stands on the ground: a tree, a peak)
+                    }
+                }
+            }
         }
 
         // In the game, once the whole course is built, each ramp's own meshes keep only their

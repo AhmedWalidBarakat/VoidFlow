@@ -85,7 +85,7 @@ namespace VoidFlow
             float time = Application.isPlaying ? Time.time : (float)Time.realtimeSinceStartupAsDouble;
             float dt = Application.isPlaying ? Time.deltaTime : 0.016f;
             shown = Mathf.MoveTowards(shown, boost, dt * 3f);
-            float roar = 1f + shown * 0.9f;
+            float roar = 1f + shown * 0.5f;
             var cam = Facing ? Facing : Camera.main;
             // Flames rise in the world, whichever way the weapon is turned
             Vector3 up = transform.InverseTransformDirection(Vector3.up);

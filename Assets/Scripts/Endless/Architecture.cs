@@ -77,6 +77,12 @@ namespace VoidFlow
                 float d = Mathf.Lerp(from, to, (float)n / count);
                 int k = Index(path, Mathf.Min(d, path.Length));
                 Vector3 p = path.ridge[k], right = path.right[k];
+                // The floor runs straight from one rib to the next, so it goes below the lowest
+                // point of the ramp anywhere around this rib (a dipping ramp, a rollercoaster's
+                // valleys, would otherwise poke down through a floor laid from its crests)
+                float low = p.y;
+                int k0 = Index(path, Mathf.Clamp(d - step, 0f, path.Length)), k1 = Index(path, Mathf.Clamp(d + step, 0f, path.Length));
+                for (int j = Mathf.Min(k0, k1); j <= Mathf.Max(k0, k1); j++) low = Mathf.Min(low, path.ridge[j].y);
                 // A is always the left wall and B the right, whichever way the ramp faces: if they
                 // swapped with the face, the building joining two ramps across a flight would
                 // sweep its walls right across the jump
@@ -84,7 +90,7 @@ namespace VoidFlow
                 {
                     p = p, f = path.forward[k], right = right,
                     A = p - right * (s > 0f ? near : far), B = p + right * (s > 0f ? far : near),
-                    level = p.y, top = p.y + Roof, bottom = p.y - path.Depth - depth,
+                    level = p.y, top = p.y + Roof, bottom = low - path.Depth - depth,
                 });
             }
             return frames;
@@ -361,6 +367,7 @@ namespace VoidFlow
         // of it, so a ramp that loops back never runs into a tree, tower or the ground.
         public static readonly List<Vector3> KeepOut = new();
         public const string ScenePiece = "ScenePiece";
+        public const string OpenGround = "OpenGround";
         const float KeepClear = 30f;
 
         static bool Clear(Vector3 p, float radius)
@@ -411,6 +418,7 @@ namespace VoidFlow
 
             float Rand(float a, float b) => a + (float)rng.NextDouble() * (b - a);
             var b = new Batch(cube);
+            Batch ground0 = null; // an open zone's ground sheet: its own object, levelled per stage once the course is built
             Material floor = kit.floor ? kit.floor : kit.slab;
             var style = biome.style;
             float wallFrac = WallTop(style);
@@ -753,13 +761,13 @@ namespace VoidFlow
                         // Open mountains: a snowfield far below, pine forest on the slopes either
                         // side, and snowy peaks beyond
                         float ground = GroundBelow(lowest, 80f) - groundNudge;
-                        if (ribs == 0) GroundSheet(b, kit.floor, frames, ground, 420f);
+                        if (ribs == 0) GroundSheet(ground0 ??= new Batch(cube), kit.floor, frames, ground, 420f);
                         if (ribs % 2 == 0)
                             foreach (float side in new[] { -1f, 1f })
                                 for (int t = 0; t < 3; t++)
                                 {
                                     float dist = Rand(55f, 180f);
-                                    Vector3 at = (fr.p + right * (side * dist) + f * Rand(-6f, 6f)).WithY(ground + (dist - 55f) * 0.35f);
+                                    Vector3 at = (fr.p + right * (side * dist) + f * Rand(-6f, 6f)).WithY(ground);
                                     float tall = Rand(14f, 28f);
                                     if (Clear(at, tall * 0.3f)) Pine(Piece(), kit.accent, kit.slab, kit.floor, at, tall);
                                 }
@@ -781,7 +789,7 @@ namespace VoidFlow
                         // A burning sunset over dark mesas: black ground far below, flat-topped
                         // mesas and ragged peaks in silhouette, an ember-lit hoop now and then
                         float ground = GroundBelow(lowest, 90f) - groundNudge;
-                        if (ribs == 0) GroundSheet(b, kit.floor, frames, ground, 450f);
+                        if (ribs == 0) GroundSheet(ground0 ??= new Batch(cube), kit.floor, frames, ground, 450f);
                         if (ribs % 4 == 1)
                         {
                             float side = Rand(0f, 1f) < 0.5f ? -1f : 1f, hgt = Rand(60f, 150f);
@@ -858,7 +866,7 @@ namespace VoidFlow
                         // Toy town: a bright green world far below, towers of chunky coloured
                         // blocks, white columns, puffy blocky clouds in a blue sky
                         float ground = GroundBelow(lowest, 80f) - groundNudge;
-                        if (ribs == 0) GroundSheet(b, kit.floor, frames, ground, 420f);
+                        if (ribs == 0) GroundSheet(ground0 ??= new Batch(cube), kit.floor, frames, ground, 420f);
                         var blocks = new[] { kit.accent, kit.slab, kit.scenery, kit.glowAlt };
                         if (ribs % 3 == 0)
                             foreach (float side in new[] { -1f, 1f })
@@ -1040,6 +1048,12 @@ namespace VoidFlow
                 var go = new GameObject(ScenePiece);
                 go.transform.SetParent(parent, false);
                 piece.Build(go.transform, meshes, true);
+            }
+            if (ground0 != null)
+            {
+                var go = new GameObject(OpenGround);
+                go.transform.SetParent(parent, false);
+                ground0.Build(go.transform, meshes, true);
             }
             b.Build(parent, meshes, style != SceneryStyle.Palace);
         }

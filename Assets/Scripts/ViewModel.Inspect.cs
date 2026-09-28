@@ -38,6 +38,9 @@ namespace VoidFlow
         static readonly Quaternion TalonShowArm = FingersBack(new Vector3(-0.12f, 0.9f, 0.42f), new Vector3(0.1f, -0.4f, 0.9f));
         static readonly Quaternion TalonShow = Quaternion.Euler(0f, 0f, -42f);
         static readonly Quaternion ForwardIdle = FingersBack(new Vector3(-0.3f, 0.5f, 1f), new Vector3(0.6f, 0.5f, -0.6f));
+        // Butterfly knife at rest, as in CS2: the fist low right, thumb up, the knife pointing
+        // forward and up to the left with the flat of the handles and blade toward you
+        static readonly Quaternion ButterflyIdle = Quaternion.AngleAxis(-35f, Vector3.forward) * Quaternion.AngleAxis(45f, new Vector3(-0.6f, 0.45f, 0.65f)) * ForwardIdle;
         static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.3f, 0.5f, 1f), new Vector3(-0.1f, 0.6f, -0.7f));
         static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
 
@@ -144,7 +147,7 @@ namespace VoidFlow
             Quaternion R1 = FB(-0.55f, 0.45f, 0.7f, 0.7f, 0f, 0.55f), R2 = FB(-0.85f, 0.4f, 0.3f, 0.35f, 0f, 0.95f), R3 = FB(-0.2f, 0.45f, 0.9f, 1f, 0f, 0.2f);
             Quaternion showA = Quaternion.Euler(0f, 0f, -28f) * FB(-0.5f, 0.3f, 0.8f, 0.71f, -0.31f, 0.56f), showB = Quaternion.Euler(0f, 0f, -16f) * FB(-0.6f, 0.2f, 0.75f, 0.73f, -0.13f, 0.62f);
             var ks = new List<Key>();
-            var k = IdleKey(false); ks.Add(k);
+            var k = IdleKey(false); k.rq = ButterflyIdle; ks.Add(k);
             k = k.At(0.3f); k.rp = up; k.rq = R1; k.flips = 2f; k.rOpen = 0.25f; ks.Add(k);
             k = k.At(0.6f); k.rq = R2; k.flips = 3f; ks.Add(k);
             k = k.At(0.85f); k.rq = R3; k.flips = 4f; ks.Add(k);
@@ -153,12 +156,12 @@ namespace VoidFlow
             k.rp = up + new Vector3(0f, -0.01f, 0f); k.rq = R1; ks.Add(k);
             // ...and is caught into the show, the loose handle swinging wide open
             k = k.At(1.3f); k.hold = Hold.Right; k.rp = show; k.rq = showA; k.spin = new(720f, 0f, 0f); k.rOpen = 0.1f; ks.Add(k);
-            k = k.At(1.55f); k.fan = -45f; ks.Add(k);
+            k = k.At(1.55f); k.fan = 50f; ks.Add(k); // the loose handle swung open, away from the other: a V round the fingers
             k = k.At(2.2f); k.rq = showB; ks.Add(k);
             k = k.At(2.8f); k.rq = showA; ks.Add(k);
             // Flipped shut and home
             k = k.At(3.05f); k.fan = 0f; k.flips = 6f; k.rq = R2; k.rp = up; ks.Add(k);
-            k = k.At(3.4f); k.rp = RightIdle; k.rq = ForwardIdle; k.rOpen = 0f; ks.Add(k);
+            k = k.At(3.4f); k.rp = RightIdle; k.rq = ButterflyIdle; k.rOpen = 0f; ks.Add(k);
             return new Routine
             {
                 keys = ks.ToArray(), sustainAt = 2.2f,
@@ -506,7 +509,7 @@ namespace VoidFlow
             leftHand.open = 0.3f; // a loose fist at rest, as in CS2
             SetHandGrip(leftHand, Fist);
             hand.localPosition = (talon ? TalonIdlePos : RightIdle) + pos;
-            hand.localRotation = Quaternion.Euler(rot) * (talon ? TalonIdle : ForwardIdle);
+            hand.localRotation = Quaternion.Euler(rot) * (talon ? TalonIdle : knife.model == KnifeModel.Butterfly ? ButterflyIdle : ForwardIdle);
             SetArmAlpha(1f);
             // The left arm dips out of the way of cuts that cross the body
             float slashAway = slashTime >= 0f && slashSide < 0f ? Plateau(slashTime, 0f, 0.1f, 0.3f, 0.45f) : 0f;

@@ -254,7 +254,7 @@ namespace VoidFlow
                 Vector3 to = parts.tip ? parts.root.InverseTransformPoint(parts.tip.position) : new Vector3(0f, 0.22f, 0f);
                 if (parts.model == KnifeModel.Reaper) from = new Vector3(0f, 0.14f, 0f);
                 for (int k = 0; k < 5; k++) at.Add(Vector3.Lerp(from, to, (k + 0.5f) / 5f));
-                AddFlames(parts, at, 0.085f, 0.09f);
+                AddFlames(parts, at, 0.04f, 0.03f); // small and close to the blade, out of the way of the view
             }
             if (KnifeFinishes.Get(skin.finish).photo) CoverAndSparkle(parts, skin.finish, finish, 6);
             // Skins flow across the whole knife as one piece, from the heel to the point
@@ -317,48 +317,103 @@ namespace VoidFlow
             }
         }
 
-        // A butterfly knife: two skeletonized "bite" handles with rounded ends and a latch, pins
-        // at the pivot, and a clip-point blade with a swedge; one handle swings free for flips
+        // A butterfly knife (balisong), after the classic shooter one: two long, gently curved
+        // channel handles side by side, each swinging on its own pivot pin at the blade's tang
+        // (screw heads on both faces). Each handle is a pair of plates with the blade's slot
+        // between them, cut with round holes at both ends and a long pill-shaped window showing
+        // a satin inlay; the swing handle carries the wire latch at its end. The blade is long
+        // and narrow with a clip point, jimping notches on the spine by the pivot and a hooked
+        // kicker on the edge side. The finish covers the handles and blade as one piece.
         void Butterfly(WeaponParts parts, Material finish)
         {
             var t = parts.root;
-            Material steel = Mat(new Color(0.72f, 0.74f, 0.78f), 0.9f, 0.95f);
-            Material dark = Mat(new Color(0.05f, 0.05f, 0.06f), 0.3f, 0.2f);
-            Transform Handle(string name, float side)
+            Material steel = Mat(new Color(0.78f, 0.79f, 0.82f), 0.85f, 0.95f);
+            Material satin = Mat(new Color(0.6f, 0.61f, 0.64f), 0.55f, 0.9f);
+            Material dark = Mat(new Color(0.04f, 0.04f, 0.045f), 0.35f, 0.3f);
+            const float Pin = 0.0065f, L = 0.125f, W = 0.0062f, Bend = 0.0035f, PlateZ = 0.0036f;
+            // The handle's centre line (handle space: its pin at the origin, running down -y),
+            // bowed gently toward the edge side like the real thing
+            float Cx(float y) => -Bend * Mathf.Sin(Mathf.PI * Mathf.Clamp01(-y / L));
+            Vector2[] Capsule(float y0, float y1, float r, int n = 10)
+            {
+                var pts = new List<Vector2>();
+                for (int k = 0; k <= n; k++) { float a = Mathf.PI * k / n; pts.Add(new Vector2(Cx(y0) + Mathf.Cos(a) * r, y0 + Mathf.Sin(a) * r)); }
+                for (int k = 0; k <= n; k++) { float a = Mathf.PI + Mathf.PI * k / n; pts.Add(new Vector2(Cx(y1) + Mathf.Cos(a) * r, y1 + Mathf.Sin(a) * r)); }
+                return pts.ToArray();
+            }
+            Vector2[] HandleOutline()
+            {
+                var pts = new List<Vector2>();
+                const int n = 20;
+                for (int k = 0; k <= n; k++) { float y = -L * k / n; pts.Add(new Vector2(Cx(y) + W, y)); }         // one side, down
+                for (int k = 1; k < 12; k++) { float a = -Mathf.PI * k / 12f; pts.Add(new Vector2(Cx(-L) + Mathf.Cos(a) * W, -L + Mathf.Sin(a) * W)); } // round end
+                for (int k = n; k >= 0; k--) { float y = -L * k / n; pts.Add(new Vector2(Cx(y) - W, y)); }         // other side, up
+                for (int k = 1; k < 12; k++) { float a = Mathf.PI - Mathf.PI * k / 12f; pts.Add(new Vector2(Mathf.Cos(a) * W, Mathf.Sin(a) * W)); } // round top, about the pin
+                return pts.ToArray();
+            }
+            var holes = new[]
+            {
+                Circle(new Vector2(Cx(-0.014f), -0.014f), 0.0019f, 14), Circle(new Vector2(Cx(-0.0225f), -0.0225f), 0.0019f, 14),
+                Capsule(-0.034f, -0.083f, 0.0026f),
+                Circle(new Vector2(Cx(-0.095f), -0.095f), 0.0019f, 14), Circle(new Vector2(Cx(-0.104f), -0.104f), 0.0019f, 14),
+            };
+            Transform Handle(string name, float pinX, bool latch)
             {
                 var pivot = new GameObject(name).transform;
                 pivot.SetParent(t, false);
-                Part(pivot, PrimitiveType.Cube, steel, new Vector3(0f, -0.06f, side * 0.0095f), new Vector3(0.024f, 0.112f, 0.006f));
-                Part(pivot, PrimitiveType.Cylinder, steel, new Vector3(0f, -0.116f, side * 0.0095f), new Vector3(0.024f, 0.003f, 0.024f), Quaternion.Euler(90f, 0f, 0f));
-                // Skeleton cutouts: a row of slots
-                for (int k = 0; k < 5; k++)
-                    Part(pivot, PrimitiveType.Cube, dark, new Vector3(0f, -0.018f - k * 0.02f, side * 0.0126f), new Vector3(0.011f, 0.013f, 0.0012f));
-                Part(pivot, PrimitiveType.Cylinder, dark, new Vector3(0f, -0.004f, side * 0.0095f), new Vector3(0.008f, 0.0045f, 0.008f), Quaternion.Euler(90f, 0f, 0f));
-                Part(pivot, PrimitiveType.Cylinder, steel, new Vector3(0f, -0.004f, side * 0.0128f), new Vector3(0.005f, 0.0012f, 0.005f), Quaternion.Euler(90f, 0f, 0f));
+                pivot.localPosition = new Vector3(pinX, 0f, 0f);
+                foreach (float z in new[] { -PlateZ, PlateZ })
+                {
+                    var plate = new GameObject("Plate").transform;
+                    plate.SetParent(pivot, false);
+                    plate.localPosition = new Vector3(0f, 0f, z);
+                    Flat(plate, finish, HandleOutline(), holes, 0.0011f, 0.0004f, "Handle");
+                    // Screw heads on the pin and at the far end
+                    Part(pivot, PrimitiveType.Cylinder, steel, new Vector3(0f, 0f, z * 1.36f), new Vector3(0.0068f, 0.0007f, 0.0068f), Quaternion.Euler(90f, 0f, 0f));
+                    Part(pivot, PrimitiveType.Cylinder, dark, new Vector3(0f, 0f, z * 1.47f), new Vector3(0.0028f, 0.0002f, 0.0028f), Quaternion.Euler(90f, 0f, 0f));
+                    Part(pivot, PrimitiveType.Cylinder, steel, new Vector3(Cx(-L + 0.0045f), -L + 0.0045f, z * 1.36f), new Vector3(0.0042f, 0.0006f, 0.0042f), Quaternion.Euler(90f, 0f, 0f));
+                }
+                // The satin inlay seen through the long window, and the channel's dark back
+                var inlay = new GameObject("Inlay").transform;
+                inlay.SetParent(pivot, false);
+                Flat(inlay, satin, Capsule(-0.036f, -0.081f, 0.0021f), null, 0.0044f, 0.0003f, "Inlay");
+                for (int k = 0; k < 6; k++)
+                {
+                    float y0 = -0.03f - k * 0.016f, y1 = y0 - 0.016f;
+                    Rod(pivot, dark, new Vector3(Cx(y0) - W * 0.8f, y0, 0f), new Vector3(Cx(y1) - W * 0.8f, y1, 0f), 0.0036f);
+                }
+                if (latch)
+                {
+                    Rod(pivot, dark, new Vector3(Cx(-L) + 0.002f, -L + 0.003f, 0f), new Vector3(Cx(-L) + 0.006f, -L - 0.011f, 0f), 0.0012f);
+                    Rod(pivot, dark, new Vector3(Cx(-L) + 0.006f, -L - 0.011f, 0f), new Vector3(Cx(-L) + 0.0035f, -L - 0.015f, 0f), 0.0012f);
+                }
                 return pivot;
             }
-            Handle("Handle", 1f);
-            parts.swingHandle = Handle("Swing Handle", -1f);
-            // Latch at the bottom of the swing handle
-            Part(parts.swingHandle, PrimitiveType.Cube, steel, new Vector3(0f, -0.118f, -0.0095f), new Vector3(0.008f, 0.014f, 0.004f), Quaternion.Euler(0f, 0f, 20f));
+            Handle("Handle", -Pin, false);
+            parts.swingHandle = Handle("Swing Handle", Pin, true);
 
             parts.blade = new GameObject("Blade").transform;
             parts.blade.SetParent(t, false);
-            parts.blade.localPosition = new Vector3(0f, 0.002f, 0f);
-            Part(parts.blade, PrimitiveType.Cube, steel, new Vector3(0f, -0.004f, 0f), new Vector3(0.022f, 0.012f, 0.005f));
-            Part(parts.blade, PrimitiveType.Cube, dark, new Vector3(0.006f, -0.001f, 0f), new Vector3(0.004f, 0.004f, 0.0055f)); // kicker pin
-            const int n = 18;
+            // The tang: rounded round both pins, jimping on the spine, the hooked kicker on the edge side
+            var tang = new List<Vector2> { new(-0.0115f, 0.0105f) };
+            tang.AddRange(new Vector2[] { new(-0.0115f, 0.0075f), new(-0.0168f, 0.0048f), new(-0.0192f, 0.0022f), new(-0.0188f, -0.0012f), new(-0.0172f, 0.0016f), new(-0.0148f, 0.0026f), new(-0.0105f, 0.0005f) });
+            for (int k = 0; k <= 8; k++) { float a = Mathf.PI + Mathf.PI * 0.5f * k / 8f; tang.Add(new Vector2(-Pin + Mathf.Cos(a) * 0.0042f, Mathf.Sin(a) * 0.0042f)); }
+            for (int k = 0; k <= 8; k++) { float a = Mathf.PI * 1.5f + Mathf.PI * 0.5f * k / 8f; tang.Add(new Vector2(Pin + Mathf.Cos(a) * 0.0042f, Mathf.Sin(a) * 0.0042f)); }
+            for (int k = 0; k < 4; k++) { float y = 0.0035f + k * 0.0018f; tang.Add(new Vector2(0.0107f, y)); tang.Add(new Vector2(0.0124f, y + 0.0006f)); tang.Add(new Vector2(0.0107f, y + 0.0012f)); }
+            tang.Add(new Vector2(0.0107f, 0.0105f));
+            Flat(parts.blade, finish, tang.ToArray(), null, 0.0023f, 0.0004f, "Tang");
+            const int n = 28;
             var spine = new Vector2[n + 1];
             var edge = new Vector2[n + 1];
             for (int i = 0; i <= n; i++)
             {
-                float y = 0.13f * i / n;
-                // Spine runs straight, then a swedge dips it down to the clip point
-                spine[i] = new Vector2(y < 0.08f ? 0.0115f : Mathf.Lerp(0.0115f, 0.0005f, Mathf.Pow((y - 0.08f) / 0.05f, 0.8f)), y);
-                float k = Mathf.Clamp01((y - 0.055f) / 0.075f);
-                edge[i] = new Vector2(-0.0125f * (1f - k * k), y);
+                float y = 0.009f + 0.12f * i / n;
+                // Straight spine, then the clip sweeping down to a point in line with the upper blade
+                spine[i] = new Vector2(y < 0.082f ? 0.0107f : 0.0107f - 0.0072f * Mathf.Pow((y - 0.082f) / 0.047f, 1.6f), y);
+                float k = Mathf.Clamp01((y - 0.058f) / 0.071f);
+                edge[i] = new Vector2(-0.0115f + 0.015f * Mathf.Pow(k, 2.2f), y);
             }
-            MeshPart(parts.blade, finish, RailBlade(spine, edge, 0.0024f, 0.0003f), Vector3.zero, Quaternion.identity);
+            MeshPart(parts.blade, finish, RailBlade(spine, edge, 0.0023f, 0.0003f), Vector3.zero, Quaternion.identity);
             parts.tip = Tip(parts.blade, spine[^1]);
         }
 
@@ -1647,7 +1702,7 @@ namespace VoidFlow
             keep.Add(red);
             if (skin.finish != KnifeFinish.Polished) CoverAndSparkle(parts, skin.finish, chassis, KnifeFinishes.Get(skin.finish).photo ? 14 : 8);
             if (skin.finish != KnifeFinish.Polished && skin.rarity != SkinRarity.Void) LayFinish(parts, skin.finish, Vector3.forward, Vector3.up);
-            if (burn.Count > 0) AddFlames(parts, burn, 0.1f, 0.1f);
+            if (burn.Count > 0) AddFlames(parts, burn, 0.05f, 0.04f);
             parts.Animate(0f, -1f);
             return parts;
         }
