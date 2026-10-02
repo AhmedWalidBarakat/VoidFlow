@@ -71,7 +71,7 @@ namespace VoidFlow
             or KnifeModel.Prism or KnifeModel.Bone or KnifeModel.Lance or KnifeModel.Seraph
             || (m >= KnifeModel.Crescent && m <= KnifeModel.Glitch);
 
-        public static bool IsGlove(KnifeModel m) => m >= KnifeModel.Glove;
+        public static bool IsGlove(KnifeModel m) => m >= KnifeModel.Glove && m <= KnifeModel.GloveWraps;
 
         public static Skin[] Pool(ItemSlot slot) => slot switch { ItemSlot.Primary => Snipers, ItemSlot.Hands => Gloves, _ => Knives };
         public static string SlotName(ItemSlot slot) => slot switch { ItemSlot.Primary => "PRIMARY", ItemSlot.Hands => "HANDS", _ => "SECONDARY" };
@@ -131,6 +131,9 @@ namespace VoidFlow
             KnifeModel.Sai => "VOID SAI",
             KnifeModel.Spear => "VOID SPEAR",
             KnifeModel.Kris => "VOID KRIS",
+            KnifeModel.ModelScythe => "VOID SCYTHE",
+            KnifeModel.ModelDual => "VOID TWIN BLADES",
+            KnifeModel.ModelRifle => "VOID SNIPER",
             _ => IsRifle(skin.model) ? "VOID RIFLE" : "VOID BLADE",
         };
 

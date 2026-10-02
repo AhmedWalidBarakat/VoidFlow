@@ -12,6 +12,8 @@ namespace VoidFlow
     // never switches back and forth: every change rebuilds
     // the render buffers, which is a hitch of its own. Web player only; the editor and desktop
     // builds keep full quality (and changing the pipeline asset in the editor would save it).
+    // Frames while the course is still being built at load (slow on purpose, behind the
+    // progress bar) don't count, or every player would start at the lowest resolution.
     public class AutoQuality : MonoBehaviour
     {
         const float Low = 48f;      // frames per second that count as struggling
@@ -20,6 +22,7 @@ namespace VoidFlow
         static readonly float[] Scales = { 1f, 0.9f, 0.8f, 0.7f, 0.6f, 0.5f };
 
         UniversalRenderPipelineAsset urp;
+        EndlessCourse course;
         int notch;
         float frames, time, sinceChange;
 
@@ -46,6 +49,12 @@ namespace VoidFlow
 
         void Update()
         {
+            if (!course) course = FindAnyObjectByType<EndlessCourse>();
+            if (course && !course.Ready)
+            {
+                frames = time = sinceChange = 0f;
+                return;
+            }
             frames++;
             time += Time.unscaledDeltaTime;
             sinceChange += Time.unscaledDeltaTime;
