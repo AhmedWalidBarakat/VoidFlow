@@ -84,7 +84,7 @@ namespace VoidFlow.EditorTools
             var source = AssetDatabase.LoadAssetAtPath<GameObject>($"{Sources}/{fit.folder}/scene.gltf");
             if (!source) return $"{fit.folder}: not imported";
             if (!AssetDatabase.IsValidFolder(dir)) AssetDatabase.CreateFolder(Root, fit.folder);
-            foreach (var old in AssetDatabase.FindAssets("t:Mesh", new[] { dir })) AssetDatabase.DeleteAsset(AssetDatabase.GUIDToAssetPath(old));
+            foreach (var old in AssetDatabase.FindAssets("t:Mesh t:Material", new[] { dir })) AssetDatabase.DeleteAsset(AssetDatabase.GUIDToAssetPath(old));
             var model = (GameObject)Object.Instantiate(source);
             model.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
             model.transform.localScale = Vector3.one;
@@ -223,6 +223,7 @@ namespace VoidFlow.EditorTools
                 r.receiveShadows = false;
             }
             SaveMeshes(root, dir);
+            SaveMaterials(root, dir);
             string path = $"{dir}/fitted.prefab";
             PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
@@ -382,6 +383,56 @@ namespace VoidFlow.EditorTools
                 }
                 mf.sharedMesh = copy;
             }
+        }
+
+        // Gives the weapon its own copies of its materials, made solid all round: every face drawn
+        // from both sides (thin parts and single sheets otherwise vanish from behind), and lit
+        // see-through ("blend") surfaces turned solid with cut-out edges (see-through bodies
+        // sort wrongly and look hollow); unlit see-through glows stay see-through
+        static void SaveMaterials(GameObject root, string dir)
+        {
+            int n = 0;
+            var made = new Dictionary<Material, Material>();
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    var src = mats[i];
+                    if (!src) continue;
+                    if (!made.TryGetValue(src, out var m))
+                    {
+                        m = new Material(src) { name = src.name };
+                        SetFloat(m, "_Cull", 0f);
+                        SetFloat(m, "_BUILTIN_CullMode", 0f);
+                        bool glow = src.shader.name.Contains("unlit");
+                        if (src.renderQueue >= 3000 && !glow)
+                        {
+                            SetFloat(m, "_Surface", 0f); SetFloat(m, "_BUILTIN_Surface", 0f);
+                            SetFloat(m, "_Blend", 0f);
+                            SetFloat(m, "_SrcBlend", 1f); SetFloat(m, "_DstBlend", 0f);
+                            SetFloat(m, "_SrcBlendAlpha", 1f); SetFloat(m, "_DstBlendAlpha", 0f);
+                            SetFloat(m, "_ZWrite", 1f); SetFloat(m, "_BUILTIN_ZWrite", 1f);
+                            SetFloat(m, "_AlphaClip", 1f); SetFloat(m, "_BUILTIN_AlphaClip", 1f);
+                            SetFloat(m, "alphaCutoff", 0.5f);
+                            m.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                            m.DisableKeyword("_TRANSMISSION");
+                            m.EnableKeyword("_ALPHATEST_ON");
+                            m.SetOverrideTag("RenderType", "TransparentCutout");
+                            m.renderQueue = 2450;
+                        }
+                        AssetDatabase.CreateAsset(m, $"{dir}/mat{n++}.mat");
+                        made[src] = m;
+                    }
+                    mats[i] = m;
+                }
+                r.sharedMaterials = mats;
+            }
+        }
+
+        static void SetFloat(Material m, string name, float value)
+        {
+            if (m.HasProperty(name)) m.SetFloat(name, value);
         }
 
         // Scales and moves a renderer's object so it covers the given world bounds again (baking a
