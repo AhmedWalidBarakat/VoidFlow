@@ -46,7 +46,7 @@ namespace VoidFlow.EditorTools
             new("09_jade_sword", Kind.Blade, 0.62f),
             new("10_shattered_crystal", Kind.Blade, 0.58f),
             new("11_demon_sword", Kind.Blade, 0.68f),
-            new("12_soulsucker", Kind.Blade, 0.58f),
+            new("12_soulsucker", Kind.Blade, 0.58f) { drop = new[] { "vfx" } },
             new("13_primordial_lance", Kind.Blade, 0.6f) { drop = new[] { "gear" } },
             new("14_gradient_sword", Kind.Blade, 0.62f),
             new("15_cyber_blade", Kind.Blade, 0.58f),
@@ -103,7 +103,9 @@ namespace VoidFlow.EditorTools
                 var b = r.bounds;
                 float lo = Mathf.Min(b.size.x, Mathf.Min(b.size.y, b.size.z)), hi = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
                 float mid = b.size.x + b.size.y + b.size.z - lo - hi;
-                bool flatProp = lo < extent * 0.004f && mid > extent * 0.25f;
+                // a stand or backdrop is a wide flat piece that fills its outline; a blade modelled
+                // as one flat sheet (even a curved one, whose outline is squarish) covers little of it
+                bool flatProp = lo < extent * 0.004f && mid > extent * 0.25f && Coverage(r) > 0.5f;
                 bool named = System.Array.Exists(fit.drop, d => r.name.Contains(d));
                 if (flatProp || named) { Object.DestroyImmediate(r.gameObject); dropped++; continue; }
                 Mesh mesh = null;
@@ -390,6 +392,24 @@ namespace VoidFlow.EditorTools
             float k = was.size.magnitude / Mathf.Max(now.size.magnitude, 1e-9f);
             t.localScale *= k;
             t.position += was.center - r.bounds.center;
+        }
+
+        // How much of its bounding box's largest face a renderer's surface covers (one side)
+        static float Coverage(Renderer r)
+        {
+            Mesh mesh = r is SkinnedMeshRenderer smr ? smr.sharedMesh : r.TryGetComponent(out MeshFilter mf) ? mf.sharedMesh : null;
+            if (!mesh) return 1f;
+            var v = mesh.vertices; var tri = mesh.triangles;
+            var t = r.transform;
+            float area = 0f;
+            for (int i = 0; i < tri.Length; i += 3)
+            {
+                Vector3 a = t.TransformPoint(v[tri[i]]), b = t.TransformPoint(v[tri[i + 1]]), c = t.TransformPoint(v[tri[i + 2]]);
+                area += Vector3.Cross(b - a, c - a).magnitude * 0.5f;
+            }
+            var s = r.bounds.size;
+            float hi = Mathf.Max(s.x, Mathf.Max(s.y, s.z)), lo = Mathf.Min(s.x, Mathf.Min(s.y, s.z)), mid = s.x + s.y + s.z - hi - lo;
+            return area / Mathf.Max(hi * mid, 1e-9f);
         }
 
         // The dominant axis of a symmetric 3x3 matrix, orthogonal to the given ones

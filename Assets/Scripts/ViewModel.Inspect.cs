@@ -281,10 +281,7 @@ namespace VoidFlow
         {
             KnifeModel.Talon => TalonRoutine(),
             KnifeModel.Butterfly => ButterflyRoutine(),
-            // Real-model Void weapons: swords and daggers shown off like the fixed blades, scythes
-            // like the reaper
-            KnifeModel.ModelBlade or KnifeModel.ModelDual => FixedBladeRoutine(parts.model),
-            KnifeModel.ModelScythe => ReaperRoutine(),
+            KnifeModel.ModelBlade or KnifeModel.ModelDual or KnifeModel.ModelScythe => VoidModelRoutine(parts.model),
             KnifeModel.Bayonet or KnifeModel.Skeleton or KnifeModel.KukriKnife => FixedBladeRoutine(parts.model),
             KnifeModel.Reaper => ReaperRoutine(),
             KnifeModel.Saber => SaberRoutine(),
@@ -295,6 +292,77 @@ namespace VoidFlow
             KnifeModel.HollowMoon or KnifeModel.Tidebreaker or KnifeModel.Colossus => FixedBladeRoutine(parts.model),
             _ => SwordRoutine(),
         };
+
+        // Real-model Void weapons: each its own take on the Void specials, the trick, spin
+        // direction, number of turns and height of the toss all picked from its name
+        Routine VoidModelRoutine(KnifeModel model)
+        {
+            uint h = NameHash(Skins.Knives[knifeSkin].name);
+            var r = model switch
+            {
+                KnifeModel.ModelScythe => ReaperRoutine(),
+                KnifeModel.ModelDual => h % 2 == 0 ? SaberRoutine() : ReaperRoutine(), // (the left hand keeps its own blade)
+                _ => (h % 3) switch { 0 => SaberRoutine(), 1 => ShardRoutine(), _ => ReaperRoutine() },
+            };
+            // whole turns stay whole, so it still lands back in the grip
+            float turns = (((h >> 2) & 1) == 0 ? 1f : -1f) * (((h >> 3) & 1) == 0 ? 1f : 2f);
+            float lift = ((h >> 4) & 1) == 0 ? 1f : 1.35f;
+            foreach (var k in r.keys)
+            {
+                k.spin *= turns;
+                if (k.hold == Hold.Air) k.ap.y *= lift;
+            }
+            r.sustainSpeed *= turns;
+            return r;
+        }
+
+        static uint NameHash(string s)
+        {
+            uint h = 2166136261;
+            foreach (char c in s) { h ^= c; h *= 16777619; }
+            return h ^ (h >> 15);
+        }
+
+        static float BackOut(float a)
+        {
+            const float c1 = 1.70158f, c3 = c1 + 1f;
+            float x = a - 1f;
+            return 1f + c3 * x * x * x + c1 * x * x;
+        }
+
+        // Drawing a real-model Void weapon: it's called out of the void, growing into the fist
+        // from nothing with a flourish of its own (a twirl about the blade, a cartwheel or a
+        // propeller turn, once or twice, picked from its name) in a burst of dark flames
+        public const float VoidDrawTime = 0.75f;
+        static bool IsVoidModel(KnifeModel m) => m is KnifeModel.ModelBlade or KnifeModel.ModelScythe or KnifeModel.ModelDual;
+        bool voidWhoosh;
+
+        void VoidDraw(float time)
+        {
+            if (!IsVoidModel(knife.model)) return;
+            float a = current == KnifeSlot ? Mathf.Clamp01(drawTime / VoidDrawTime) : 1f;
+            uint h = NameHash(Skins.Knives[knifeSkin].name);
+            float turns = 1f + ((h >> 5) & 1);
+            Vector3 axis = ((h >> 6) % 3) switch { 0 => Vector3.up, 1 => Vector3.forward, _ => Vector3.right };
+            float angle = -360f * turns * Mathf.Pow(1f - a, 3f); // unwinding to the hold
+            float grow = a >= 1f ? 1f : Mathf.Max(0.02f, BackOut(a));
+            PlaceInFist(knife.root, Quaternion.AngleAxis(angle, axis), grow);
+            if (offhand != null) PlaceInFist(offhand.root, Quaternion.AngleAxis(-angle, axis) * offhandRest, grow);
+            if (a < 1f)
+            {
+                if (a < 0.1f) voidWhoosh = false;
+                else if (!voidWhoosh) { voidWhoosh = true; Play(WeaponSounds.Slash, 0.35f); }
+                UpdateFlames(hand.parent.InverseTransformPoint(rightHand.grip.TransformPoint(KnifeHandle)), Quaternion.identity, Mathf.Sin(a * Mathf.PI), time);
+            }
+        }
+
+        // A knife turned (about the middle of the fist) and sized in its hand
+        void PlaceInFist(Transform t, Quaternion turn, float grow)
+        {
+            float s = knifeScale * grow;
+            t.localScale = Vector3.one * s;
+            t.SetLocalPositionAndRotation(KnifeHandle - turn * (s * KnifeHandle), turn);
+        }
 
         // The Void specials all start the same way: the arm comes up and the weapon starts to
         // whirl in front of you, faster and faster, the flames roaring (hold F to keep it going)
@@ -525,6 +593,7 @@ namespace VoidFlow
             knife.ringSpin = 0f;
             knife.root.localScale = Vector3.one * knifeScale;
             if (knife.model != KnifeModel.Talon) knife.root.localPosition = (1f - knifeScale) * KnifeHandle;
+            VoidDraw(time);
             knife.Animate(time, -1f, current == KnifeSlot ? drawTime : 99f);
         }
 

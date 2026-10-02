@@ -152,7 +152,7 @@ namespace VoidFlow
             sniperSkin = Skins.EquippedSniper;
             weapons = new[]
             {
-                new Weapon { speed = 250f, root = BuildKnifeRig(), drawTime = knife.IsSword ? SwordDrawTime : 0.6f, restPosition = Vector3.zero, restRotation = Quaternion.identity,
+                new Weapon { speed = 250f, root = BuildKnifeRig(), drawTime = KnifeDrawTime, restPosition = Vector3.zero, restRotation = Quaternion.identity,
                     sway = 0.75f, swaySmooth = 0.06f, inertia = 0.6f, spring = 20f, holster = 0.12f, drawVisual = 0.42f, drawKeys = KnifeDrawKeys },
                 new Weapon { speed = 200f, drawTime = 1.1f, root = BuildSniper(), restPosition = SniperRest, restRotation = SniperRestRotation,
                     sway = 1.25f, swaySmooth = 0.13f, inertia = 1.5f, spring = 12f, holster = 0.22f, drawVisual = 0.85f, drawKeys = SniperDrawKeys },
@@ -514,8 +514,11 @@ namespace VoidFlow
         BlockArm rightHand, leftHand;
         float knifeScale = 1f;
         WeaponParts offhand; // the left hand's blade, for twin blades
+        Quaternion offhandRest = Quaternion.identity; // its turn in the left fist
         RunTimer runTimer;
         static readonly Vector3 KnifeHandle = new(0f, -0.055f, 0f);
+
+        float KnifeDrawTime => knife.IsSword ? SwordDrawTime : IsVoidModel(knife.model) ? VoidDrawTime : 0.6f;
 
         void BuildKnifeModel()
         {
@@ -541,7 +544,7 @@ namespace VoidFlow
                 offhand.root.localPosition = (1f - knifeScale) * KnifeHandle;
             }
             BuildSheath(Skins.Knives[knifeSkin], builder);
-            if (weapons != null) weapons[KnifeSlot].drawTime = knife.IsSword ? SwordDrawTime : 0.6f;
+            if (weapons != null) weapons[KnifeSlot].drawTime = KnifeDrawTime;
             UpdateSheath();
             PoseKnife(Vector3.zero, Vector3.zero, -1f);
             if (offhand != null) AimOffhand();
@@ -558,8 +561,8 @@ namespace VoidFlow
                 return transform.TransformDirection(new Vector3(-v.x, v.y, v.z));
             }
             Quaternion want = Quaternion.LookRotation(Mirror(knife.root.forward), Mirror(knife.root.up));
-            Quaternion local = Quaternion.Inverse(leftHand.grip.rotation) * want;
-            offhand.root.SetLocalPositionAndRotation(KnifeHandle - local * (knifeScale * KnifeHandle), local);
+            offhandRest = Quaternion.Inverse(leftHand.grip.rotation) * want;
+            offhand.root.SetLocalPositionAndRotation(KnifeHandle - offhandRest * (knifeScale * KnifeHandle), offhandRest);
         }
 
         void Part(Transform parent, PrimitiveType shape, Material mat, Vector3 position, Vector3 scale) =>

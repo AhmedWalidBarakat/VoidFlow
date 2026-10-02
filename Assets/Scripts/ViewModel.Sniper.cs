@@ -479,6 +479,26 @@ namespace VoidFlow
             (3.2f, Vector3.zero, Vector3.zero),
         };
 
+        // Real-model Void snipers: drawn rolling in along the barrel as they grow into the hands,
+        // and spun once round the barrel while held side-on in the inspect (direction by name)
+        const float VoidRifleDraw = 0.8f;
+
+        void VoidRifleFlourish()
+        {
+            if (rifle == null || rifle.model != KnifeModel.ModelRifle) return;
+            float dir = (NameHash(Skins.Snipers[sniperSkin].name) & 1) == 0 ? 1f : -1f;
+            float roll = 0f, grow = 1f;
+            if (current == SniperSlot && drawTime < VoidRifleDraw)
+            {
+                float a = Mathf.Clamp01(drawTime / VoidRifleDraw);
+                roll = -360f * dir * Mathf.Pow(1f - a, 3f);
+                grow = Mathf.Max(0.02f, BackOut(a));
+            }
+            if (sniperInspect >= 0f) roll += 360f * dir * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.15f, 1.95f, sniperInspect));
+            rifle.root.SetLocalPositionAndRotation(rifle.root.localPosition, Quaternion.AngleAxis(roll, Vector3.forward));
+            rifle.root.localScale = Vector3.one * grow;
+        }
+
         void PoseSniper()
         {
             var (pos, rot) = (Vector3.zero, Vector3.zero);
@@ -501,6 +521,7 @@ namespace VoidFlow
             else if (sniperInspect >= 0f) (pos, rot) = Sample(SniperInspectKeys, sniperInspect);
 
             gun.SetLocalPositionAndRotation(pos, Quaternion.Euler(rot));
+            VoidRifleFlourish();
             bolt.SetLocalPositionAndRotation(boltRest + slide, Quaternion.Euler(lift));
             magazine.localPosition = magRest + magOffset;
 
