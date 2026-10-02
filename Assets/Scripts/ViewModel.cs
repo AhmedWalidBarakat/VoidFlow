@@ -534,8 +534,9 @@ namespace VoidFlow
             // the middle of the screen; it's scaled about its handle, so the grip stays put
             float length = WeaponBuilder.MeshSize(knife).magnitude;
             // (twin blades shorter still, so the pair doesn't cross in the middle of the screen)
-            bool twin = knife.model == KnifeModel.ModelDual;
-            knifeScale = length > 0.01f ? Mathf.Clamp((twin ? 0.2f : 0.3f) / length, twin ? 0.3f : 0.6f, 1f) : 1f;
+            // (scythes a little longer and smaller, so the curved head shows above the hand)
+            bool twin = knife.model == KnifeModel.ModelDual, scythe = knife.model == KnifeModel.ModelScythe;
+            knifeScale = length > 0.01f ? Mathf.Clamp((twin ? 0.2f : scythe ? 0.38f : 0.3f) / length, twin || scythe ? 0.3f : 0.6f, 1f) : 1f;
             // Twin blades: the second one in the left fist, sized and held the same way
             if (knife.model == KnifeModel.ModelDual)
             {

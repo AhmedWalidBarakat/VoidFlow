@@ -26,6 +26,7 @@ namespace VoidFlow.EditorTools
             public float length;          // overall length in weapon space
             public bool flip;             // swap the ends the measuring picked
             public float roll;            // turn about the long axis (degrees)
+            public string recolor;        // a repainted colour texture in the model's textures folder, worn as polished metal
             public float grip = -1f;      // where the guard / trigger is, 0..1 from the back end (when the measuring misses it)
             public string[] drop = new string[0]; // parts to leave out (name contains)
             public float isolate;         // > 0: keep only the main connected piece and the pieces along its axis within this share of its length
@@ -36,12 +37,12 @@ namespace VoidFlow.EditorTools
         public static readonly Fit[] Fits =
         {
             new("01_gold_skull_glory_sword", Kind.Blade, 0.62f),
-            new("02_desolate_devil_scythe", Kind.Scythe, 0.85f),
+            new("02_desolate_devil_scythe", Kind.Scythe, 0.85f) { grip = 0.3f },
             new("03_bloody_rose_sword", Kind.Blade, 0.62f),
             new("04_monster_fantasy_sword", Kind.Blade, 0.62f) { isolate = 0.05f },
             new("05_abyssal_heart", Kind.Blade, 0.62f),
             new("06_demonic_twinblades", Kind.Blade, 0.4f) { isolate = 0.08f, isolateStraight = true, flip = true, grip = 0.45f },
-            new("07_golden_blood", Kind.Blade, 0.66f),
+            new("07_golden_blood", Kind.Blade, 0.66f) { recolor = "GoldCrimson_baseColor.png" }, // gold and crimson, as the name says
             new("08_steampunk_sword", Kind.Blade, 0.66f),
             new("09_jade_sword", Kind.Blade, 0.62f),
             new("10_shattered_crystal", Kind.Blade, 0.58f),
@@ -50,7 +51,7 @@ namespace VoidFlow.EditorTools
             new("13_primordial_lance", Kind.Blade, 0.6f) { drop = new[] { "gear" } },
             new("14_gradient_sword", Kind.Blade, 0.62f),
             new("15_cyber_blade", Kind.Blade, 0.58f),
-            new("16_divine_reaper", Kind.Scythe, 0.85f),
+            new("16_divine_reaper", Kind.Scythe, 0.85f) { grip = 0.3f },
             new("17_squid_dagger", Kind.Blade, 0.36f),
             new("18_autumn_sword", Kind.Blade, 0.6f),
             new("19_scifi_sniper", Kind.Rifle, 1.15f),
@@ -223,7 +224,7 @@ namespace VoidFlow.EditorTools
                 r.receiveShadows = false;
             }
             SaveMeshes(root, dir);
-            SaveMaterials(root, dir);
+            SaveMaterials(root, dir, fit);
             string path = $"{dir}/fitted.prefab";
             PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
@@ -389,8 +390,9 @@ namespace VoidFlow.EditorTools
         // from both sides (thin parts and single sheets otherwise vanish from behind), and lit
         // see-through ("blend") surfaces turned solid with cut-out edges (see-through bodies
         // sort wrongly and look hollow); unlit see-through glows stay see-through
-        static void SaveMaterials(GameObject root, string dir)
+        static void SaveMaterials(GameObject root, string dir, Fit fit)
         {
+            var paint = fit.recolor != null ? AssetDatabase.LoadAssetAtPath<Texture2D>($"{Sources}/{fit.folder}/textures/{fit.recolor}") : null;
             int n = 0;
             var made = new Dictionary<Material, Material>();
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
@@ -420,6 +422,13 @@ namespace VoidFlow.EditorTools
                             m.EnableKeyword("_ALPHATEST_ON");
                             m.SetOverrideTag("RenderType", "TransparentCutout");
                             m.renderQueue = 2450;
+                        }
+                        if (paint)
+                        {
+                            m.SetTexture("baseColorTexture", paint);
+                            m.SetColor("baseColorFactor", Color.white);
+                            SetFloat(m, "metallicFactor", 1f);
+                            SetFloat(m, "roughnessFactor", 0.28f);
                         }
                         AssetDatabase.CreateAsset(m, $"{dir}/mat{n++}.mat");
                         made[src] = m;
