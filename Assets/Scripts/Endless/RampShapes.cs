@@ -63,6 +63,7 @@ namespace VoidFlow
             public float width;       // prism: how far each face reaches out; slab: face width
             public float side = -1f;  // which way the face you ride points: -1 left, +1 right
             public bool taper = true; // start as a wedge (landing hills), or full size (drop-ins)
+            public float bank = SlabBank; // slabs: how steeply the face leans (spins lean further, to hold the turn at speed)
             public readonly List<Vector3> ridge = new();    // prism ridge / slab top edge
             public readonly List<Vector3> forward = new();  // horizontal travel direction
             public readonly List<Vector3> right = new();    // horizontal right of travel
@@ -83,15 +84,15 @@ namespace VoidFlow
             // How far below the ridge the bottom of the face is
             public float Depth => kind == Kind.Prism
                 ? FaceDepth(width, width)
-                : width * Mathf.Sin(SlabBank * Mathf.Deg2Rad);
+                : width * Mathf.Sin(bank * Mathf.Deg2Rad);
 
             // A point `fraction` of the way down the face you ride, at sample i
             public Vector3 FacePoint(int i, float fraction)
             {
                 if (kind == Kind.Prism)
                     return ridge[i] + right[i] * (side * fraction * width) + Vector3.down * FaceDepth(width, fraction * width);
-                float bank = SlabBank * Mathf.Deg2Rad;
-                return ridge[i] + (right[i] * (side * Mathf.Cos(bank)) + Vector3.down * Mathf.Sin(bank)) * (fraction * width);
+                float lean = bank * Mathf.Deg2Rad;
+                return ridge[i] + (right[i] * (side * Mathf.Cos(lean)) + Vector3.down * Mathf.Sin(lean)) * (fraction * width);
             }
 
             // Where you'd ride at sample i: the middle line, rising toward the top over the
@@ -178,7 +179,7 @@ namespace VoidFlow
         // shape, measured from the end of the landing hill. You ride the face you arrive on:
         // shifted right, you come in over its left face. Slabs bend toward their face.
         public static RampPath LandingRamp(RampPath from, Landing landing, Kind kind, float width,
-            (float s, float v)[] shape, (float s, float v)[] bend)
+            (float s, float v)[] shape, (float s, float v)[] bend, float bank = SlabBank)
         {
             var (arcSlope, arcY, launch) = Flight(from, landing.speed);
             float side = landing.shift > 0f ? -1f : 1f;
@@ -186,7 +187,7 @@ namespace VoidFlow
             Vector3 right = new Vector3(fwd.z, 0f, -fwd.x);
 
             // Where the riding line sits relative to the ridge / top edge
-            var probe = new RampPath { kind = kind, width = width, side = side };
+            var probe = new RampPath { kind = kind, width = width, side = side, bank = bank };
             probe.ridge.Add(Vector3.zero);
             probe.right.Add(Vector3.right);
             Vector3 line = probe.FacePoint(0, RideFraction);
@@ -210,7 +211,9 @@ namespace VoidFlow
                 foreach (var (d, degrees) in bend) list.Add((landing.length + d, degrees * side));
                 bends = list.ToArray();
             }
-            return Lay(kind, width, side, start, fwd, slopes.ToArray(), bends, landing.length);
+            var path = Lay(kind, width, side, start, fwd, slopes.ToArray(), bends, landing.length);
+            path.bank = bank;
+            return path;
         }
 
         // A twin of a ramp: moved sideways by `offset` metres and down by `drop`, covering only
@@ -218,7 +221,7 @@ namespace VoidFlow
         // never in the way of the flight in or the launch out
         public static RampPath Offset(RampPath main, float offset, float drop, float startAt, float endBefore)
         {
-            var copy = new RampPath { kind = main.kind, width = main.width, side = main.side };
+            var copy = new RampPath { kind = main.kind, width = main.width, side = main.side, bank = main.bank };
             for (int i = 0; i < main.ridge.Count; i++)
             {
                 float d = main.distance[i];
@@ -229,6 +232,22 @@ namespace VoidFlow
                 copy.distance.Add(d - startAt);
             }
             return copy.ridge.Count >= 2 ? copy : null;
+        }
+
+        // The part of a ramp from `from` to `to` metres along it, ending square (no wedge)
+        public static RampPath Slice(RampPath main, float from, float to)
+        {
+            var piece = new RampPath { kind = main.kind, width = main.width, side = main.side, bank = main.bank, taper = from <= 0f && main.taper };
+            for (int i = 0; i < main.ridge.Count; i++)
+            {
+                float d = main.distance[i];
+                if (d < from || d > to) continue;
+                piece.ridge.Add(main.ridge[i]);
+                piece.forward.Add(main.forward[i]);
+                piece.right.Add(main.right[i]);
+                piece.distance.Add(d - from);
+            }
+            return piece.ridge.Count >= 2 ? piece : null;
         }
 
         // A glowing gate (visual only) standing over a point on a ramp: two posts and a beam,
@@ -261,7 +280,7 @@ namespace VoidFlow
         // the launch out.
         public static RampPath HoleWall(RampPath main, float bottomGap, float startAt, float endBefore)
         {
-            float bank = SlabBank * Mathf.Deg2Rad;
+            float bank = main.bank * Mathf.Deg2Rad;
             float separation = 2f * main.width * Mathf.Cos(bank) + bottomGap;
             var wall = new RampPath { kind = Kind.Slab, width = main.width, side = -main.side };
             for (int i = 0; i < main.ridge.Count; i++)
@@ -482,7 +501,7 @@ namespace VoidFlow
 
         static void SlabEdges(RampPath path, Vector3[] top, Vector3[] bottom, Vector3[] normal)
         {
-            float bank = SlabBank * Mathf.Deg2Rad;
+            float bank = path.bank * Mathf.Deg2Rad;
             for (int i = 0; i < path.ridge.Count; i++)
             {
                 Vector3 down = path.right[i] * (path.side * Mathf.Cos(bank)) + Vector3.down * Mathf.Sin(bank);

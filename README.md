@@ -13,7 +13,7 @@
 
 ## What it is
 
-I grew up on CS surf maps, so I made my own take on it. You drop off a start terrace and surf one fixed course of 354 ramps through 59 zones, with a checkpoint at the start of each zone and a finish at the end. The last 27 zones are the Legend stretch, built to be as hard as the toughest surf maps. Movement is tuned to feel like classic Source surf (air strafing, ramp sliding, the whole thing).
+I grew up on CS surf maps, so I made my own take on it. You drop off a start terrace and surf one fixed course of 648 ramps through 108 stages, with a checkpoint at the start of each stage and a finish at the end. Along the way are recreations of real surf maps (utopia, summer and mesa early on, then the hardest maps there are: corruption, deity, anubis, essentia, trofle, spin, before, frags_nightmare and ten more tier 7 maps), laid out ramp by ramp after watching their record runs, and a final stage that is almost impossible. They are my own rebuilds from video, not the original map files. Movement is tuned to feel like classic Source surf (air strafing, ramp sliding, the whole thing).
 
 Along the way you grab Void Shards, which earn Void Cases, which drop knives, gloves and snipers with their own inspect animations. Your items and your last checkpoint are saved in the browser, so you can come back to them.
 

@@ -222,6 +222,11 @@ namespace VoidFlow.EditorTools
                 Surface.RampPro => MakeRampPro(),
                 Surface.WallCastle => MakeWallCastle(),
                 Surface.WallCopper => MakeWallCopper(),
+                Surface.RampUtopia => MakeRampUtopia(),
+                Surface.WallUtopia => MakeWallUtopia(),
+                Surface.RampMesa => MakeRampMesa(),
+                Surface.RampFunhouse => MakeRampFunhouse(),
+                Surface.RampDevGrid => MakeRampDevGrid(),
                 Surface.RampLove => MakeRampLove(),
                 Surface.RampCornfield => MakeRampCornfield(),
                 Surface.RampNeonShapes => MakeRampNeonShapes(),
@@ -255,7 +260,7 @@ namespace VoidFlow.EditorTools
             // The designs cover 8m: ramps map 2m per UV, walls 4m. Ramp designs and the wood
             // carry their own colors, so they aren't tinted.
             bool IsDesign(Surface s) => s >= Surface.RampCrimson;
-            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s is Surface.WallWood or Surface.RampSpectrum or Surface.WallGrid or Surface.RampCelestial || s >= Surface.RampSnow && s <= Surface.RampSandstone || s == Surface.WallHedge || s >= Surface.RampCastle && s <= Surface.RampPro || s >= Surface.RampLove;
+            bool Baked(Surface s) => s >= Surface.RampCrimson && s <= Surface.RampLibrary || s is Surface.WallWood or Surface.RampSpectrum or Surface.WallGrid or Surface.RampCelestial || s >= Surface.RampSnow && s <= Surface.RampSandstone || s == Surface.WallHedge || s >= Surface.RampCastle && s <= Surface.RampPro || s >= Surface.RampUtopia && s <= Surface.RampDevGrid || s >= Surface.RampLove;
             // What glows: ramp masks carry their own colors, wall masks take the zone's glow
             var glowMade = new Dictionary<Surface, Texture2D>();
             Texture2D GlowOf(Surface s)
@@ -281,6 +286,8 @@ namespace VoidFlow.EditorTools
                     Surface.RampHell => MakeRampHellGlow(),
                     Surface.RampCorrupt => MakeRampCorruptGlow(),
                     Surface.RampPro => MakeRampProGlow(),
+                    Surface.RampMesa => MakeRampMesaGlow(),
+                    Surface.RampFunhouse => MakeRampFunhouseGlow(),
                     Surface.RampLove => MakeRampLoveGlow(),
                     Surface.RampNeonShapes => MakeRampNeonShapesGlow(),
                     Surface.RampRedLine => MakeRampRedLineGlow(),
@@ -318,6 +325,8 @@ namespace VoidFlow.EditorTools
             for (int i = 0; i < kits.Length; i++)
             {
                 Biome b = i < Biome.All.Length ? Biome.All[i] : Biome.Terrace;
+                // The next stage of the same real map: the same look, the same materials
+                if (i > 0 && i < Biome.All.Length && b.continues) { kits[i] = kits[i - 1]; continue; }
                 string name = b.name.Replace(" ", "");
                 Material Save(Material m, string part)
                 {

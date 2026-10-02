@@ -79,6 +79,24 @@ namespace VoidFlow
             Note("CONTINUING FROM YOUR LAST CHECKPOINT");
         }
 
+        // From the stage menu: a fresh run from the start of a stage you've reached before (its
+        // checkpoint platform), saving as you go like any run. Stage 0 is the start hall.
+        public bool StartAtStage(int stage)
+        {
+            if (!course.Ready) return false;
+            if (stage <= 0) { Restart(); Note("BACK TO THE START"); return true; }
+            if (!course.ResumeAt(stage * course.rampsPerBiome, 0f, player)) return false;
+            running = true;
+            startTime = Time.time;
+            falls = 0;
+            Practice = false;
+            finishTime = -99f;
+            runStage = course.CurrentStage;
+            banner = $"{course.CurrentBiome.name}\nSTAGE {course.CurrentStage + 1}  ·  {course.CurrentTierName}  ·  {course.CurrentStageName}";
+            bannerTime = Time.time;
+            return true;
+        }
+
         // The end of the course: the time stops, the congratulations go up, and every item in
         // the game is yours
         float finishTime = -99f, finalTime;
@@ -278,7 +296,7 @@ namespace VoidFlow
             if (player.Flying)
                 GUI.Label(new Rect(0, 84, w, 24), "NOCLIP   ·   WASD fly · Space up · Ctrl down · Shift fast · double tap Space to land", centeredStyle);
             string help = Cursor.lockState == CursorLockMode.Locked
-                ? "WASD move · Space jump (hold to bhop) · R restart the run · double tap Space noclip · Esc release mouse\n1 sniper · 2 knife · Q last weapon · Click fire · Right click scope · F inspect · E use · I inventory\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
+                ? "WASD move · Space jump (hold to bhop) · R restart the run · double tap Space noclip · Esc release mouse\n1 sniper · 2 knife · Q last weapon · Click fire · Right click scope · F inspect · E use · I inventory · M stages\nOn ramps: let go of W, hold A or D toward the ramp, and steer with the mouse"
                 : "Click to capture the mouse";
             // The controls only show in the hall; once you drop in the screen is clear for the run
             if (!running || Cursor.lockState != CursorLockMode.Locked) GUI.Label(new Rect(12, h - 66, w - 24, 62), help, smallStyle);

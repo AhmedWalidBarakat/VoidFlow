@@ -143,19 +143,19 @@ namespace VoidFlow
         public Tier CurrentTier => TierOf(CurrentStage);
         // The very last stage is the finale; the Legend zones before it, and the expert zones
         // before those (hard, but not the end), carry their own names
-        public string CurrentTierName => CurrentStage == FinalRamp / rampsPerBiome - 1 ? "FINALE" : InLegend(CurrentStage) ? "LEGEND"
-            : InFinale(CurrentStage) ? "EXPERT" : TierNames[(int)CurrentTier];
+        public string CurrentTierName => CurrentStage == FinalRamp / rampsPerBiome - 1 ? "FINALE" : CurrentBiome.tier ?? (InLegend(CurrentStage) ? "LEGEND"
+            : InFinale(CurrentStage) ? "EXPERT" : TierNames[(int)CurrentTier]);
 
         [Tooltip("Crystal material for Void Shards")]
         public Material shardMaterial;
         static Mesh shardMesh;
 
         public int CurrentStage => current / rampsPerBiome;
-        bool InLegend(int stage) => stage >= Biome.LegendFrom;
+        bool InLegend(int stage) => stage >= Biome.LegendFrom && stage < Biome.MapsFrom;
         // A checkpoint where each stage (zone) begins, so every stage is ridden in one go
-        public bool IsCheckpoint(int ramp) => ramp > 0 && ramp % rampsPerBiome == 0;
+        public bool IsCheckpoint(int ramp) => ramp > 0 && ramp % rampsPerBiome == 0 && !Biome.All[BiomeOf(ramp)].noCheckpoint;
         // How far into the Legend zones a ramp is (0 at their start, 1 at the very end)
-        float Hardness(int ramp) => Mathf.Clamp01((ramp - Biome.LegendFrom * rampsPerBiome) / (float)Mathf.Max(1, FinalRamp - 1 - Biome.LegendFrom * rampsPerBiome));
+        float Hardness(int ramp) => Mathf.Clamp01((ramp - Biome.LegendFrom * rampsPerBiome) / (float)Mathf.Max(1, Biome.MapsFrom * rampsPerBiome - 1 - Biome.LegendFrom * rampsPerBiome));
         // The course ends after the last zone: the final ramp throws you onto the finish
         public int FinalRamp => Biome.All.Length * rampsPerBiome;
         bool InFinale(int stage) => stage >= Biome.FinaleFrom;
@@ -164,7 +164,7 @@ namespace VoidFlow
         public Vector3 FinishSpawn => finish ? finish.position + Vector3.up * 1.5f : Vector3.zero;
         public float FinishYaw => finish ? finish.eulerAngles.y : 0f;
         public event Action CourseFinished;
-        public string CurrentStageName => ThemeOf(CurrentStage);
+        public string CurrentStageName => CurrentBiome.section ?? ThemeOf(CurrentStage);
 
         // Each stage's theme: the first is always Classic; later ones are picked from those the
         // difficulty has unlocked, never the same twice in a row
@@ -487,6 +487,7 @@ namespace VoidFlow
             stageTurn.Clear();
             RebuiltRamps = 0;
             ImpossibleRamps = 0;
+            ScriptFixes.Clear();
 
             if (!cube)
             {
@@ -571,7 +572,7 @@ namespace VoidFlow
         {
             int stage = ramp / rampsPerBiome;
             // The finale climbs from hard to the hardest there is, zone by zone
-            if (InLegend(stage)) return 1f;
+            if (InLegend(stage) || Biome.All[BiomeOf(ramp)].script != null) return 1f;
             if (InFinale(stage))
                 return Mathf.Lerp(0.8f, 1f, (ramp - Biome.FinaleFrom * rampsPerBiome) / (float)Mathf.Max(1, Biome.LegendFrom * rampsPerBiome - 1 - Biome.FinaleFrom * rampsPerBiome));
             float within = (ramp % rampsPerBiome) / (float)Mathf.Max(1, rampsPerBiome - 1);
@@ -683,7 +684,9 @@ namespace VoidFlow
             else
             {
                 var tier = TierOf(stage);
-                var m = ChooseMove(i, t, theme, tier);
+                // A real map's ramps are laid out by hand; the rest are picked by theme
+                var def = biome.script != null ? biome.script[i % rampsPerBiome] : null;
+                var m = def != null ? FromDef(def) : ChooseMove(i, t, theme, tier);
                 move = m.name;
                 // Every ramp is enclosed; twin and canyon ramps get a wider building so the second
                 // ramp or the canyon wall is inside it too
@@ -700,9 +703,11 @@ namespace VoidFlow
                     shift = Mathf.Lerp(10f, 22f, t) * Rand(0.85f, 1.1f) * ShiftSign(i, theme, stage),
                 };
 
+                if (def != null)
+                    landing = new RampShapes.Landing { speed = flightSpeed, gap = def.gap, length = def.land, clearStart = def.clear, clearEnd = 0f, shift = def.shift };
                 // Off a launch ramp's kicker you fly high and far: the next ramp waits well down
                 // the arc, past its peak
-                if (afterLaunch)
+                else if (afterLaunch)
                 {
                     landing.gap *= 2.3f;
                     landing.length *= 1.2f;
@@ -718,15 +723,18 @@ namespace VoidFlow
                     Tier.Advanced => (1.05f, 0.85f, 1f, 0.85f),
                     _ => (1f, 0.95f, 1.05f, 0.9f),
                 };
-                landing.gap *= gapK;
-                landing.length *= lengthK;
-                landing.shift *= shiftK;
-                landing.clearStart *= clearK;
+                if (def == null)
+                {
+                    landing.gap *= gapK;
+                    landing.length *= lengthK;
+                    landing.shift *= shiftK;
+                    landing.clearStart *= clearK;
+                }
 
                 // Legend zones: past anything before them, climbing to the very end: longer gaps
                 // with bigger sideways shifts onto short, narrow landings that need the exact line
                 // and speed (every flight is still proved possible below)
-                if (InLegend(stage))
+                if (InLegend(stage) && def == null)
                 {
                     float h = Hardness(i);
                     landing.gap *= 1.15f + 0.3f * h;
@@ -738,7 +746,7 @@ namespace VoidFlow
 
                 // Each stage opens gently, like a map's stage start: a shorter hop onto a long,
                 // forgiving landing hill
-                if (stageStart)
+                if (stageStart && def == null)
                 {
                     landing.gap *= 0.8f;
                     landing.length *= 1.4f;
@@ -747,18 +755,20 @@ namespace VoidFlow
 
                 // Prove the flight can be landed; if not, shorten the gap and shift and retry
                 float slowest = SlowestLikelySpeed(flightSpeed);
-                path = RampShapes.LandingRamp(last, landing, m.kind, m.width, m.shape, m.bend);
+                path = RampShapes.LandingRamp(last, landing, m.kind, m.width, m.shape, m.bend, m.bank > 0f ? m.bank : RampShapes.SlabBank);
                 for (int attempt = 0; !FlightCheck.Possible(last, path, slowest, landing.length + 20f); attempt++)
                 {
                     if (attempt == MaxRebuilds) { ImpossibleRamps++; break; }
                     RebuiltRamps++;
+                    if (def != null && attempt == 0) ScriptFixes.Add($"ramp {i} ({biome.name}, {def.name}): gap {def.gap:0} shift {def.shift:0} too far");
                     landing.gap *= 0.85f;
                     landing.shift *= 0.8f;
-                    path = RampShapes.LandingRamp(last, landing, m.kind, m.width, m.shape, m.bend);
+                    path = RampShapes.LandingRamp(last, landing, m.kind, m.width, m.shape, m.bend, m.bank > 0f ? m.bank : RampShapes.SlabBank);
                 }
                 flightArc = RampShapes.Flight(last, flightSpeed).height;
                 flightGap = landing.gap;
-                holePlan = PlanHoleWall(i, tier, m, biome, landing, flightSpeed);
+                holePlan = def != null ? (def.window ? PlanHoleWall(i, tier, m, biome, landing, flightSpeed, forced: true) : null)
+                    : PlanHoleWall(i, tier, m, biome, landing, flightSpeed);
                 {
                     var (_, arcY, launch) = RampShapes.Flight(last, flightSpeed);
                     Vector3 fwd = last.EndForward, side = new Vector3(fwd.z, 0f, -fwd.x);
@@ -805,6 +815,7 @@ namespace VoidFlow
                 nextProgress += landing.gap;
             }
             last = path;
+            brokenInto = biome.script != null && last != null ? biome.script[i % rampsPerBiome].pieces : 0;
             afterLaunch = move.StartsWith("launch");
             afterTwin = twin != null;
 
@@ -831,8 +842,31 @@ namespace VoidFlow
             seg.root.transform.SetParent(transform, false);
 
             Material surface = kit.ramp;
-            AddPart(seg, "Surface", path.ridge[0], RampShapes.BuildMesh(path, $"Ramp {i}"), surface, solid: true);
-            AddPart(seg, "Trim", path.ridge[0], RampShapes.TrimMesh(path, $"Trim {i}"), kit.trim, solid: false);
+            if (brokenInto > 1 && i > 0)
+            {
+                // Broken into separate pieces with gaps between (ramp strafes): each one ridden
+                // by itself
+                const float Gap = 2.2f;
+                for (int k = 0; k < brokenInto; k++)
+                {
+                    float d0 = path.Length * k / brokenInto + (k > 0 ? Gap * 0.5f : 0f);
+                    float d1 = path.Length * (k + 1) / brokenInto - (k < brokenInto - 1 ? Gap * 0.5f : 0f);
+                    var piece = RampShapes.Slice(path, d0, d1);
+                    if (piece == null) continue;
+                    // Each piece after the first starts a little low and blends up to the line, so
+                    // across the gap you drop onto it instead of meeting its square end
+                    if (k > 0)
+                        for (int j = 0; j < piece.ridge.Count; j++)
+                            piece.ridge[j] += Vector3.down * (0.5f * Mathf.Max(0f, 1f - piece.distance[j] / 8f));
+                    AddPart(seg, $"Surface {k}", piece.ridge[0], RampShapes.BuildMesh(piece, $"Ramp {i}.{k}"), surface, solid: true);
+                    AddPart(seg, $"Trim {k}", piece.ridge[0], RampShapes.TrimMesh(piece, $"Trim {i}.{k}"), kit.trim, solid: false);
+                }
+            }
+            else
+            {
+                AddPart(seg, "Surface", path.ridge[0], RampShapes.BuildMesh(path, $"Ramp {i}"), surface, solid: true);
+                AddPart(seg, "Trim", path.ridge[0], RampShapes.TrimMesh(path, $"Trim {i}"), kit.trim, solid: false);
+            }
             if (holeWall != null)
             {
                 AddPart(seg, "HoleWall", holeWall.ridge[0], RampShapes.BuildMesh(holeWall, $"Hole {i}"), kit.slab, solid: true);
@@ -893,18 +927,23 @@ namespace VoidFlow
         // a twin, where you could take off from either ramp; only indoors) the flight into this ramp goes through a hole in a wall. The wall stands
         // early in the flight, where fast and slow riders are still close together, and the hole
         // is sized to take both, with room to spare.
-        HolePlan? PlanHoleWall(int i, Tier tier, Move m, Biome biome, RampShapes.Landing landing, float flightSpeed)
+        // `forced`: a real map's window or doorway, wherever its layout has one
+        HolePlan? PlanHoleWall(int i, Tier tier, Move m, Biome biome, RampShapes.Landing landing, float flightSpeed, bool forced = false)
         {
-            if (i < 12 || tier == Tier.Beginner || m.bigAir || afterLaunch || afterTwin || !Architecture.Continuous(biome.style)) return null;
-            bool legend = InLegend(i / rampsPerBiome);
-            if (i - lastHoleWall < (legend ? 3 : HoleWallSpacing) || landing.gap < 40f) return null;
-            if ((unchecked((uint)i * 2654435761u) >> 8) % 100 >= (legend ? 55 : 30)) return null; // its own dice: the course itself isn't reshuffled
+            if (!Architecture.Continuous(biome.style) || afterTwin) return null;
+            if (!forced)
+            {
+                if (i < 12 || tier == Tier.Beginner || m.bigAir || afterLaunch) return null;
+                bool legend = InLegend(i / rampsPerBiome);
+                if (i - lastHoleWall < (legend ? 3 : HoleWallSpacing) || landing.gap < 40f) return null;
+                if ((unchecked((uint)i * 2654435761u) >> 8) % 100 >= (legend ? 55 : 30)) return null; // its own dice: the course itself isn't reshuffled
+            }
             float d = Mathf.Clamp(landing.gap * 0.3f, 18f, 32f), f = d / landing.gap;
             var (_, design, launch) = RampShapes.Flight(last, flightSpeed);
             var slow = RampShapes.Flight(last, SlowestLikelySpeed(flightSpeed)).height;
             var fast = RampShapes.Flight(last, Mathf.Max(flightSpeed * 1.8f, 3000f * PlayerMovement.SourceUnit)).height;
             float lo = Mathf.Min(slow(d), Mathf.Min(fast(d), design(d))), hi = Mathf.Max(slow(d), Mathf.Max(fast(d), design(d)));
-            if (hi - lo > 16f) return null; // too spread out to make a fair hole
+            if (hi - lo > (forced ? 26f : 16f)) return null; // too spread out to make a fair hole
             Vector3 fwd = last.EndForward, side = new Vector3(fwd.z, 0f, -fwd.x);
             Vector3 center = launch + fwd * d + side * (landing.shift * f * f);
             center.y = (lo + hi) * 0.5f + 1f; // the body rides above the arc of the feet
@@ -914,7 +953,7 @@ namespace VoidFlow
                 center = center,
                 facing = (fwd + side * (2f * landing.shift * f / landing.gap)).normalized,
                 hw = 12f,
-                hh = Mathf.Clamp((hi - lo) * 0.5f + 7f, 9f, 16f),
+                hh = Mathf.Clamp((hi - lo) * 0.5f + 7f, 9f, forced ? 21f : 16f),
             };
         }
 
@@ -1101,6 +1140,15 @@ namespace VoidFlow
             }
         }
 
+        int brokenInto; // the ramp being built is in this many pieces (0 = whole)
+        public readonly List<string> ScriptFixes = new(); // hand-made ramps the flight check had to bring closer
+
+        static Move FromDef(RampDef d) => new()
+        {
+            name = d.name, kind = d.kind, width = d.width, shape = d.shape, bend = d.bend,
+            bigAir = d.bigAir, twin = d.twin, bank = d.bank,
+        };
+
         struct Move
         {
             public string name;
@@ -1108,6 +1156,7 @@ namespace VoidFlow
             public float width;
             public (float, float)[] shape, bend;
             public bool hole, bigAir, twin;
+            public float bank; // slabs (0 = the usual)
         }
 
         // Which way the next flight shifts sideways: Classic stages zig-zag left and right, Spiral
@@ -1263,6 +1312,16 @@ namespace VoidFlow
         }
 
         public string CurrentMove => Seg(current)?.move ?? "";
+        // (for the test bot: banked slabs, spins among them, are ridden with feathered strafes)
+        public bool CurrentIsSlab => Seg(current)?.path.kind == RampShapes.Kind.Slab;
+        // (for the test bot: how far above (+) or below (-) the riding line you are, right here)
+        public float HeightOverLine(Vector3 p)
+        {
+            Segment seg = Seg(current);
+            if (seg == null) return 0f;
+            DistanceToLine(seg, p, out int nearest);
+            return p.y - seg.line[nearest].y;
+        }
 
         // For testing: where the current and next ramps' riding lines are relative to `p`
         // (nearest point, as offset right/up/forward in that ramp's frame)
