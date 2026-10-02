@@ -28,6 +28,7 @@ Along the way you grab Void Shards, which earn Void Cases, which drop knives, gl
 | F | Inspect |
 | I | Inventory |
 | E | Use |
+| M | Stages you've reached (teleport) and volume |
 | C | Continue from your last checkpoint (in the start area) |
 | R | Restart the run |
 | Esc | Release the mouse |
@@ -35,9 +36,9 @@ Along the way you grab Void Shards, which earn Void Cases, which drop knives, gl
 ## Built with
 
 - Unity 6 (URP), C#, built for WebGL
-- Everything in the game is procedurally generated in code: the course, the zones, the weapons and their skins
+- Almost everything in the game is generated in code: the course, the zones, the weapons and their skins. The exception is the Void rarity knives and snipers, which are real 3D models from Sketchfab (CC-BY 4.0, each author credited in [CREDITS.md](CREDITS.md) and on the item's card)
 - Free CC0 assets: arm model from [Quaternius](https://quaternius.com), leather, fabric and stone textures from [ambientCG](https://ambientcg.com), particle sprites from [Kenney](https://kenney.nl)
 
 ## License
 
-MIT for the code. The CC0 assets are public domain; their license files are in the project next to them.
+MIT for the code. The CC0 assets are public domain; their license files are in the project next to them. The Void weapon models stay under their authors' CC-BY 4.0 licences, see [CREDITS.md](CREDITS.md).

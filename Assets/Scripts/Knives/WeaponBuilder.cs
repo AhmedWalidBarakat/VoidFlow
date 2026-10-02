@@ -173,6 +173,7 @@ namespace VoidFlow
         readonly Material template;
         readonly int layer;
         readonly bool shadows;
+        public bool pairs = true; // twin blades built as the pair (the view builds one per hand instead)
         readonly List<Material> materials;
         readonly HashSet<Material> keep = new(); // materials a skin never covers (lenses, glows)
 
@@ -214,6 +215,7 @@ namespace VoidFlow
 
         public WeaponParts Knife(Skins.Skin skin, Transform parent)
         {
+            if (skin.asset != null) return FromModel(skin, parent);
             var root = new GameObject(skin.name).transform;
             root.SetParent(parent, false);
             var parts = new WeaponParts { root = root, model = skin.model, rarity = skin.rarity, hue = HueOf(skin.finish) };
@@ -415,6 +417,52 @@ namespace VoidFlow
             }
             MeshPart(parts.blade, finish, RailBlade(spine, edge, 0.0023f, 0.0003f), Vector3.zero, Quaternion.identity);
             parts.tip = Tip(parts.blade, spine[^1]);
+        }
+
+        // A Void weapon made from a real model (Sketchfab, CC-BY, see CREDITS.md): the fitted
+        // prefab (VoidModelFit put it in this weapon space), on the view's layer, its point marked
+        // for trails
+        WeaponParts FromModel(Skins.Skin skin, Transform parent)
+        {
+            var t = new GameObject(skin.name).transform;
+            t.SetParent(parent, false);
+            var parts = new WeaponParts { root = t, model = skin.model, rarity = skin.rarity, hue = new Color(0.75f, 0.4f, 1f) };
+            var prefab = Resources.Load<GameObject>($"VoidModels/{skin.asset}/fitted");
+            if (!prefab) { Debug.LogWarning($"VoidFlow: model missing for {skin.name}"); return parts; }
+            var model = Object.Instantiate(prefab, t, false);
+            model.name = "Model";
+            if (skin.model == KnifeModel.ModelDual && pairs)
+            {
+                // both blades, splayed from the handles like a V
+                model.transform.localRotation = Quaternion.Euler(0f, 0f, -22f);
+                var twin = Object.Instantiate(prefab, t, false);
+                twin.name = "Twin";
+                twin.transform.SetLocalPositionAndRotation(new Vector3(0.03f, 0f, 0f), Quaternion.Euler(0f, 180f, -22f));
+            }
+            float top = 0f;
+            foreach (var tr in model.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = layer;
+            foreach (var r in model.GetComponentsInChildren<Renderer>(true))
+            {
+                r.shadowCastingMode = shadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = shadows;
+                top = Mathf.Max(top, t.InverseTransformPoint(r.bounds.center + Vector3.up * r.bounds.extents.y).y);
+            }
+            if (!Skins.IsRifle(skin.model)) parts.tip = Tip(t, new Vector2(0f, top));
+            else
+            {
+                // the model's own bolt and magazine don't move: empty stand-ins where the hand
+                // works the bolt and the reload drops the magazine
+                parts.magazine = new GameObject("Magazine").transform;
+                parts.magazine.SetParent(t, false);
+                parts.magRest = new Vector3(0f, -0.03f, 0.1f);
+                parts.magazine.localPosition = parts.magRest;
+                parts.bolt = new GameObject("Bolt").transform;
+                parts.bolt.SetParent(t, false);
+                parts.boltRest = new Vector3(0.022f, 0.032f, -0.035f);
+                parts.bolt.localPosition = parts.boltRest;
+            }
+            parts.Animate(0f, -1f);
+            return parts;
         }
 
         // A flat part cut from its side outline in the knife's own plane (x across the blade,
@@ -1490,6 +1538,7 @@ namespace VoidFlow
         // The heavy bolt-action rifle. The skin's finish goes on the stock and chassis.
         public WeaponParts Rifle(Skins.Skin skin, Transform parent)
         {
+            if (skin.asset != null) return FromModel(skin, parent);
             var t = new GameObject(skin.name).transform;
             t.SetParent(parent, false);
             var parts = new WeaponParts { root = t, model = skin.model, rarity = skin.rarity, hue = HueOf(skin.finish) };

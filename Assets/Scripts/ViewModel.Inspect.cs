@@ -43,6 +43,9 @@ namespace VoidFlow
         static readonly Quaternion ButterflyIdle = Quaternion.AngleAxis(-35f, Vector3.forward) * Quaternion.AngleAxis(45f, new Vector3(-0.6f, 0.45f, 0.65f)) * ForwardIdle;
         static readonly Quaternion LeftIdleRotation = FingersBack(new Vector3(0.3f, 0.5f, 1f), new Vector3(-0.1f, 0.6f, -0.7f));
         static readonly Vector3 LeftHandAway = new(-0.04f, -0.14f, -0.05f);
+        // Twin blades: the left fist the mirror image of the right one, holding the second blade
+        static readonly Vector3 DualLeftIdle = new(-RightIdle.x, RightIdle.y, RightIdle.z);
+        static readonly Quaternion DualLeftRotation = FingersBack(new Vector3(0.3f, 0.5f, 1f), new Vector3(-0.6f, 0.5f, -0.6f));
 
         // The sheath still on the left hip but brought up a little into view for the sword
         // routine (its +Y runs from the mouth back into the scabbard), and how the left hand
@@ -278,6 +281,10 @@ namespace VoidFlow
         {
             KnifeModel.Talon => TalonRoutine(),
             KnifeModel.Butterfly => ButterflyRoutine(),
+            // Real-model Void weapons: swords and daggers shown off like the fixed blades, scythes
+            // like the reaper
+            KnifeModel.ModelBlade or KnifeModel.ModelDual => FixedBladeRoutine(parts.model),
+            KnifeModel.ModelScythe => ReaperRoutine(),
             KnifeModel.Bayonet or KnifeModel.Skeleton or KnifeModel.KukriKnife => FixedBladeRoutine(parts.model),
             KnifeModel.Reaper => ReaperRoutine(),
             KnifeModel.Saber => SaberRoutine(),
@@ -506,14 +513,15 @@ namespace VoidFlow
                 return;
             }
             rightHand.open = 0f; rightHand.keepIndex = false;
-            leftHand.open = 0.3f; // a loose fist at rest, as in CS2
+            leftHand.open = offhand != null ? 0f : 0.3f; // a loose fist at rest, as in CS2 (closed on a second blade)
             SetHandGrip(leftHand, Fist);
             hand.localPosition = (talon ? TalonIdlePos : RightIdle) + pos;
             hand.localRotation = Quaternion.Euler(rot) * (talon ? TalonIdle : knife.model == KnifeModel.Butterfly ? ButterflyIdle : ForwardIdle);
             SetArmAlpha(1f);
             // The left arm dips out of the way of cuts that cross the body
             float slashAway = slashTime >= 0f && slashSide < 0f ? Plateau(slashTime, 0f, 0.1f, 0.3f, 0.45f) : 0f;
-            leftHand.root.SetLocalPositionAndRotation(LeftIdle + LeftHandAway * slashAway, LeftIdleRotation);
+            if (offhand != null) leftHand.root.SetLocalPositionAndRotation(DualLeftIdle, DualLeftRotation);
+            else leftHand.root.SetLocalPositionAndRotation(LeftIdle + LeftHandAway * slashAway, LeftIdleRotation);
             knife.ringSpin = 0f;
             knife.root.localScale = Vector3.one * knifeScale;
             if (knife.model != KnifeModel.Talon) knife.root.localPosition = (1f - knifeScale) * KnifeHandle;
@@ -674,6 +682,8 @@ namespace VoidFlow
             bool leftHolds = a.hold == Hold.Left || b.hold == Hold.Left;
             SetHandGrip(leftHand, leftHolds ? Fist : Relaxed);
             leftHand.open = Lerp(a.lOpen, b.lOpen);
+            // twin blades: the left fist keeps its blade where it rests while the right shows off
+            if (offhand != null) { SetHandGrip(leftHand, Fist); leftHand.open = 0f; left = new Pose(DualLeftIdle, DualLeftRotation); }
 
             hand.SetLocalPositionAndRotation(right.p, right.q);
             leftHand.root.gameObject.SetActive(true);

@@ -5,7 +5,10 @@ namespace VoidFlow
     public enum KnifeModel { Talon, Butterfly, HollowMoon, Tidebreaker, Colossus, Rifle, Reaper, Saber, Shardfang, Railgun, Hellfire, Kukri, Claws, Axe, Sai, Spear, Kris, Prism, Bone, Lance, Seraph,
         Crescent, Leviathan, Storm, Clockwork, Orbit, Serpent, ScytheRifle, BlackHole, Glitch,
         Bayonet, Skeleton, KukriKnife,
-        Glove, GloveArmor, GloveClaws, GloveRunes, GloveScales, GloveKnuckles, GloveBone, GloveCrystal, GloveWings, GloveStorm, GloveWraps }
+        Glove, GloveArmor, GloveClaws, GloveRunes, GloveScales, GloveKnuckles, GloveBone, GloveCrystal, GloveWings, GloveStorm, GloveWraps,
+        // Void weapons built from real models (Sketchfab, CC-BY)
+        ModelBlade, ModelScythe, ModelRifle,
+        ModelDual } // a real-model blade held in each hand
 
     // Finishes. Most are painted in code (our own takes on the classic flashy knife finishes,
     // and the glowing Void ones); the stone, carbon and metal ones use CC0 photo textures from
@@ -41,6 +44,7 @@ namespace VoidFlow
             public readonly KnifeModel model;
             public readonly KnifeFinish finish;
             public readonly SkinRarity rarity;
+            public readonly string asset, credit; // real-model Void weapons only
 
             public Skin(string name, KnifeModel model, KnifeFinish finish, SkinRarity rarity)
             {
@@ -48,10 +52,22 @@ namespace VoidFlow
                 this.model = model;
                 this.finish = finish;
                 this.rarity = rarity;
+                asset = credit = null;
+            }
+
+            // A Void weapon made from a real model: Resources/VoidModels/<asset>/fitted, by <credit>
+            public Skin(string name, KnifeModel model, string asset, string credit)
+            {
+                this.name = name;
+                this.model = model;
+                finish = KnifeFinish.Polished;
+                rarity = SkinRarity.Void;
+                this.asset = asset;
+                this.credit = credit;
             }
         }
 
-        public static bool IsRifle(KnifeModel m) => m is KnifeModel.Rifle or KnifeModel.Railgun or KnifeModel.Hellfire
+        public static bool IsRifle(KnifeModel m) => m is KnifeModel.ModelRifle or KnifeModel.Rifle or KnifeModel.Railgun or KnifeModel.Hellfire
             or KnifeModel.Prism or KnifeModel.Bone or KnifeModel.Lance or KnifeModel.Seraph
             || (m >= KnifeModel.Crescent && m <= KnifeModel.Glitch);
 
@@ -60,6 +76,29 @@ namespace VoidFlow
         public static Skin[] Pool(ItemSlot slot) => slot switch { ItemSlot.Primary => Snipers, ItemSlot.Hands => Gloves, _ => Knives };
         public static string SlotName(ItemSlot slot) => slot switch { ItemSlot.Primary => "PRIMARY", ItemSlot.Hands => "HANDS", _ => "SECONDARY" };
         public static string Noun(ItemSlot slot) => slot switch { ItemSlot.Primary => "SNIPER", ItemSlot.Hands => "GLOVES", _ => "KNIFE" };
+        // Items are saved by name, so the lists can change without mixing up what people own;
+        // saves from before (by place in the list) are read through the old lists' names
+        public static int IndexOf(ItemSlot slot, string name)
+        {
+            var pool = Pool(slot);
+            for (int i = 0; i < pool.Length; i++)
+                if (pool[i].name == name) return i;
+            return -1;
+        }
+
+        public static string LegacyName(ItemSlot slot, int index)
+        {
+            var names = LegacySkinNames.Of(slot);
+            return index >= 0 && index < names.Length ? names[index] : null;
+        }
+
+        static int Saved(string key, ItemSlot slot)
+        {
+            string name = PlayerPrefs.GetString(key + "Name", null);
+            if (string.IsNullOrEmpty(name)) name = LegacyName(slot, PlayerPrefs.GetInt(key, 0));
+            return Mathf.Max(0, name != null ? IndexOf(slot, name) : 0);
+        }
+
         public static int Equipped(ItemSlot slot) => slot switch { ItemSlot.Primary => EquippedSniper, ItemSlot.Hands => EquippedGlove, _ => EquippedKnife };
 
         // What kind of item a skin is, for cards
@@ -95,7 +134,7 @@ namespace VoidFlow
             _ => IsRifle(skin.model) ? "VOID RIFLE" : "VOID BLADE",
         };
 
-        // Gloves: the default black pair, Mythic finishes, and Void gloves with their own add-ons
+        // Gloves: the default black pair and Mythic finishes (no Void gloves: Void is weapons from real models)
         public static readonly Skin[] Gloves =
         {
             new("Gloves", KnifeModel.Glove, KnifeFinish.Polished, SkinRarity.Default),
@@ -121,22 +160,12 @@ namespace VoidFlow
             new("Gloves | Amethyst", KnifeModel.Glove, KnifeFinish.Amethyst, SkinRarity.Mythic),
             new("Gloves | Obsidian", KnifeModel.Glove, KnifeFinish.Obsidian, SkinRarity.Mythic),
             new("Gloves | Confetti", KnifeModel.Glove, KnifeFinish.Confetti, SkinRarity.Mythic),
-            new("Inferno Gauntlet", KnifeModel.GloveArmor, KnifeFinish.InfernoGauntlet, SkinRarity.Void),
-            new("Frost Talons", KnifeModel.GloveClaws, KnifeFinish.FrostTalons, SkinRarity.Void),
-            new("Void Runes", KnifeModel.GloveRunes, KnifeFinish.VoidRunes, SkinRarity.Void),
-            new("Dragonscale", KnifeModel.GloveScales, KnifeFinish.Dragonscale, SkinRarity.Void),
-            new("Plasma Knuckles", KnifeModel.GloveKnuckles, KnifeFinish.PlasmaKnuckles, SkinRarity.Void),
-            new("Bonehand", KnifeModel.GloveBone, KnifeFinish.Bonehand, SkinRarity.Void),
-            new("Crystal Gauntlet", KnifeModel.GloveCrystal, KnifeFinish.CrystalGauntlet, SkinRarity.Void),
-            new("Seraph Wraps", KnifeModel.GloveWings, KnifeFinish.SeraphWraps, SkinRarity.Void),
-            new("Storm Gauntlet", KnifeModel.GloveStorm, KnifeFinish.StormGauntlet, SkinRarity.Void),
-            new("Reaper Wraps", KnifeModel.GloveWraps, KnifeFinish.ReaperWraps, SkinRarity.Void),
         };
 
         public static int EquippedGlove
         {
-            get => Mathf.Clamp(PlayerPrefs.GetInt("VoidFlow.Glove", 0), 0, Gloves.Length - 1);
-            set { PlayerPrefs.SetInt("VoidFlow.Glove", value); PlayerPrefs.Save(); }
+            get => Saved("VoidFlow.Glove", ItemSlot.Hands);
+            set { PlayerPrefs.SetString("VoidFlow.GloveName", Pool(ItemSlot.Hands)[Mathf.Clamp(value, 0, Gloves.Length - 1)].name); PlayerPrefs.Save(); }
         }
 
         public static readonly Skin[] Knives =
@@ -148,24 +177,6 @@ namespace VoidFlow
             new("Butterfly | Sunset Fade", KnifeModel.Butterfly, KnifeFinish.SunsetFade, SkinRarity.Mythic),
             new("Butterfly | Candy Swirl", KnifeModel.Butterfly, KnifeFinish.CandySwirl, SkinRarity.Mythic),
             new("Butterfly | Emerald Nebula", KnifeModel.Butterfly, KnifeFinish.EmeraldNebula, SkinRarity.Mythic),
-            new("Hollow Moon", KnifeModel.HollowMoon, KnifeFinish.HollowMoon, SkinRarity.Void),
-            new("Tidebreaker", KnifeModel.Tidebreaker, KnifeFinish.Tidebreaker, SkinRarity.Void),
-            new("Colossus", KnifeModel.Colossus, KnifeFinish.Colossus, SkinRarity.Void),
-            new("Soul Reaper", KnifeModel.Reaper, KnifeFinish.SoulReaper, SkinRarity.Void),
-            new("Frost Reaper", KnifeModel.Reaper, KnifeFinish.FrostReaper, SkinRarity.Void),
-            new("Nova Saber", KnifeModel.Saber, KnifeFinish.NovaSaber, SkinRarity.Void),
-            new("Crimson Saber", KnifeModel.Saber, KnifeFinish.CrimsonSaber, SkinRarity.Void),
-            new("Shardfang", KnifeModel.Shardfang, KnifeFinish.Shardfang, SkinRarity.Void),
-            new("Serpent Fang", KnifeModel.Kukri, KnifeFinish.SerpentFang, SkinRarity.Void),
-            new("Dragon Claw", KnifeModel.Claws, KnifeFinish.DragonClaw, SkinRarity.Void),
-            new("Doom Axe", KnifeModel.Axe, KnifeFinish.DoomAxe, SkinRarity.Void),
-            new("Storm Sai", KnifeModel.Sai, KnifeFinish.StormSai, SkinRarity.Void),
-            new("Starlance", KnifeModel.Spear, KnifeFinish.Starlance, SkinRarity.Void),
-            new("Wraith Kris", KnifeModel.Kris, KnifeFinish.WraithKris, SkinRarity.Void),
-            new("Inferno Reaper", KnifeModel.Reaper, KnifeFinish.InfernoReaper, SkinRarity.Void),
-            new("Void Saber", KnifeModel.Saber, KnifeFinish.VoidSaber, SkinRarity.Void),
-            new("Solar Saber", KnifeModel.Saber, KnifeFinish.SolarSaber, SkinRarity.Void),
-            new("Emerald Shard", KnifeModel.Shardfang, KnifeFinish.EmeraldShard, SkinRarity.Void),
             new("Talon Knife | Tidewater Onyx", KnifeModel.Talon, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
             new("Talon Knife | Carbon", KnifeModel.Talon, KnifeFinish.Carbon, SkinRarity.Mythic),
             new("Butterfly | Black Marble", KnifeModel.Butterfly, KnifeFinish.BlackMarble, SkinRarity.Mythic),
@@ -237,11 +248,25 @@ namespace VoidFlow
             new("Skeleton Knife | Black Marble", KnifeModel.Skeleton, KnifeFinish.BlackMarble, SkinRarity.Mythic),
             new("Skeleton Knife | 24K Gold", KnifeModel.Skeleton, KnifeFinish.Gold, SkinRarity.Mythic),
             // Void versions of the classics: damascus steel burning at the edge, an aura and flames
-            new("Abyss Talon", KnifeModel.Talon, KnifeFinish.AbyssTalon, SkinRarity.Void),
-            new("Inferno Butterfly", KnifeModel.Butterfly, KnifeFinish.InfernoButterfly, SkinRarity.Void),
-            new("Frost Bayonet", KnifeModel.Bayonet, KnifeFinish.FrostBayonet, SkinRarity.Void),
-            new("Phantom Skeleton", KnifeModel.Skeleton, KnifeFinish.PhantomSkeleton, SkinRarity.Void),
-            new("Bloodmoon Kukri", KnifeModel.KukriKnife, KnifeFinish.BloodmoonKukri, SkinRarity.Void),
+            // Void: real models from Sketchfab (CC-BY 4.0, credited in CREDITS.md)
+            new("Gold Skull Glory Sword", KnifeModel.ModelBlade, "01_gold_skull_glory_sword", "nodgerty"),
+            new("Desolate Devil Scythe", KnifeModel.ModelScythe, "02_desolate_devil_scythe", "nodgerty"),
+            new("Bloody Rose Sword", KnifeModel.ModelBlade, "03_bloody_rose_sword", "nodgerty"),
+            new("Monster Fantasy Sword", KnifeModel.ModelBlade, "04_monster_fantasy_sword", "nodgerty"),
+            new("Abyssal Heart", KnifeModel.ModelBlade, "05_abyssal_heart", "nodgerty"),
+            new("Demonic Twinblades", KnifeModel.ModelDual, "06_demonic_twinblades", "nodgerty"),
+            new("Sword of Golden Blood", KnifeModel.ModelBlade, "07_golden_blood", "nodgerty"),
+            new("Da Vinci's Sword", KnifeModel.ModelBlade, "08_steampunk_sword", "nodgerty"),
+            new("Jade Sword", KnifeModel.ModelBlade, "09_jade_sword", "Ole Gunnar Isager"),
+            new("Shattered Crystal Sword", KnifeModel.ModelBlade, "10_shattered_crystal", "WizOfFab"),
+            new("Demon Sword", KnifeModel.ModelBlade, "11_demon_sword", "kyrylyushkov"),
+            new("Soulsucker", KnifeModel.ModelBlade, "12_soulsucker", "tuomaspaul"),
+            new("Lance of the Primordials", KnifeModel.ModelBlade, "13_primordial_lance", "vervoortward"),
+            new("Gradient Fantasy Sword", KnifeModel.ModelBlade, "14_gradient_sword", "Mikolaj Michalak"),
+            new("Cyber Blade", KnifeModel.ModelBlade, "15_cyber_blade", "jordanger88"),
+            new("Divine Reaper", KnifeModel.ModelScythe, "16_divine_reaper", "amunozs"),
+            new("Squid Dagger", KnifeModel.ModelBlade, "17_squid_dagger", "DigitalBirb"),
+            new("Autumn Sword", KnifeModel.ModelBlade, "18_autumn_sword", "SimberGI"),
         };
 
         public static readonly Skin[] Snipers =
@@ -252,21 +277,6 @@ namespace VoidFlow
             new("Longreach | Candy Swirl", KnifeModel.Rifle, KnifeFinish.CandySwirl, SkinRarity.Mythic),
             new("Longreach | Red Web", KnifeModel.Rifle, KnifeFinish.RedWeb, SkinRarity.Mythic),
             // Void snipers: every one its own design (Spectrum cycles through every color)
-            new("Spectrum", KnifeModel.Railgun, KnifeFinish.Singularity, SkinRarity.Void),
-            new("Crescent", KnifeModel.Crescent, KnifeFinish.HollowMoon, SkinRarity.Void),
-            new("Leviathan", KnifeModel.Leviathan, KnifeFinish.Tidebreaker, SkinRarity.Void),
-            new("Hellfire", KnifeModel.Hellfire, KnifeFinish.Hellfire, SkinRarity.Void),
-            new("Stormcaller", KnifeModel.Storm, KnifeFinish.TempestRail, SkinRarity.Void),
-            new("Clockwork", KnifeModel.Clockwork, KnifeFinish.Inferno, SkinRarity.Void),
-            new("Nebula Core", KnifeModel.Orbit, KnifeFinish.FrostRail, SkinRarity.Void),
-            new("Viper", KnifeModel.Serpent, KnifeFinish.SerpentFang, SkinRarity.Void),
-            new("Grim Harvest", KnifeModel.ScytheRifle, KnifeFinish.AbyssalFire, SkinRarity.Void),
-            new("Event Horizon", KnifeModel.BlackHole, KnifeFinish.EventHorizon, SkinRarity.Void),
-            new("Glitch", KnifeModel.Glitch, KnifeFinish.CrimsonLance, SkinRarity.Void),
-            new("Prism", KnifeModel.Prism, KnifeFinish.PrismRifle, SkinRarity.Void),
-            new("Deathwhisper", KnifeModel.Bone, KnifeFinish.Deathwhisper, SkinRarity.Void),
-            new("Plasma Lance", KnifeModel.Lance, KnifeFinish.PlasmaLance, SkinRarity.Void),
-            new("Seraph", KnifeModel.Seraph, KnifeFinish.Seraph, SkinRarity.Void),
             new("Longreach | Tidewater Onyx", KnifeModel.Rifle, KnifeFinish.TidewaterOnyx, SkinRarity.Mythic),
             new("Longreach | Carbon", KnifeModel.Rifle, KnifeFinish.Carbon, SkinRarity.Mythic),
             new("Longreach | Diamond Plate", KnifeModel.Rifle, KnifeFinish.DiamondPlate, SkinRarity.Mythic),
@@ -299,6 +309,15 @@ namespace VoidFlow
             new("Longreach | Copper", KnifeModel.Rifle, KnifeFinish.Copper, SkinRarity.Mythic),
             new("Longreach | Antique Gold", KnifeModel.Rifle, KnifeFinish.AntiqueGold, SkinRarity.Mythic),
             new("Longreach | Holographic", KnifeModel.Rifle, KnifeFinish.Holographic, SkinRarity.Mythic),
+            // Void: real models from Sketchfab (CC-BY 4.0, credited in CREDITS.md)
+            new("Sci-Fi Sniper", KnifeModel.ModelRifle, "19_scifi_sniper", "Matija Svaco"),
+            new("M13-Gaus", KnifeModel.ModelRifle, "20_m13_gaus", "DigitalTales"),
+            new("Futuristic Sniper", KnifeModel.ModelRifle, "21_futuristic_sniper", "trolosqlfod"),
+            new("Energy Rifle", KnifeModel.ModelRifle, "22_energy_rifle", "Michael Wright"),
+            new("Stillpiercer", KnifeModel.ModelRifle, "23_stillpiercer", "Artem Goyko"),
+            new("Renegade Railgun", KnifeModel.ModelRifle, "24_renegade_railgun", "Bl4ckGh0st"),
+            new("Nexus Railgun", KnifeModel.ModelRifle, "26_nexus_railgun", "Bl4ckGh0st"),
+            new("Laser Rifle", KnifeModel.ModelRifle, "27_laser_rifle", "Fred Drabble"),
         };
 
         // Picks a case drop: Void 6% of the time, otherwise a Mythic, evenly within each
@@ -307,6 +326,11 @@ namespace VoidFlow
             var wanted = Random.value < VoidChance ? SkinRarity.Void : SkinRarity.Mythic;
             int count = 0;
             foreach (var s in pool) if (s.rarity == wanted) count++;
+            if (count == 0) // (no Void items of this kind: a Mythic one)
+            {
+                wanted = SkinRarity.Mythic;
+                foreach (var s in pool) if (s.rarity == wanted) count++;
+            }
             int pick = Random.Range(0, count);
             for (int i = 0; i < pool.Length; i++)
                 if (pool[i].rarity == wanted && pick-- == 0) return i;
@@ -331,14 +355,14 @@ namespace VoidFlow
         // Equipped skins, remembered between sessions
         public static int EquippedKnife
         {
-            get => Mathf.Clamp(PlayerPrefs.GetInt("VoidFlow.Knife", 0), 0, Knives.Length - 1);
-            set { PlayerPrefs.SetInt("VoidFlow.Knife", value); PlayerPrefs.Save(); }
+            get => Saved("VoidFlow.Knife", ItemSlot.Secondary);
+            set { PlayerPrefs.SetString("VoidFlow.KnifeName", Pool(ItemSlot.Secondary)[Mathf.Clamp(value, 0, Knives.Length - 1)].name); PlayerPrefs.Save(); }
         }
 
         public static int EquippedSniper
         {
-            get => Mathf.Clamp(PlayerPrefs.GetInt("VoidFlow.Sniper", 0), 0, Snipers.Length - 1);
-            set { PlayerPrefs.SetInt("VoidFlow.Sniper", value); PlayerPrefs.Save(); }
+            get => Saved("VoidFlow.Sniper", ItemSlot.Primary);
+            set { PlayerPrefs.SetString("VoidFlow.SniperName", Pool(ItemSlot.Primary)[Mathf.Clamp(value, 0, Snipers.Length - 1)].name); PlayerPrefs.Save(); }
         }
     }
 }

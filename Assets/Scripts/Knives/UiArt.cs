@@ -275,7 +275,7 @@ namespace VoidFlow
             string kind = top ?? (fancy ? "★ " : "") + Skins.KindName(skin);
             Text(new Rect(9f, 6f, w - 18f, 16f * fs), kind, Mathf.RoundToInt(11f * fs), new Color(1f, 1f, 1f, 0.85f * alpha));
             Text(new Rect(9f, h - 40f * fs, w - 18f, 21f * fs), FinishName(skin), Mathf.RoundToInt(16f * fs), new Color(1f, 1f, 1f, alpha));
-            Text(new Rect(9f, h - 20f * fs, w - 18f, 15f * fs), Skins.RarityName(skin.rarity).ToUpper(), Mathf.RoundToInt(11f * fs), new Color(rar.r, rar.g, rar.b, alpha));
+            Text(new Rect(9f, h - 20f * fs, w - 18f, 15f * fs), Skins.RarityName(skin.rarity).ToUpper() + (skin.credit != null ? "  model by " + skin.credit : ""), Mathf.RoundToInt(11f * fs), new Color(rar.r, rar.g, rar.b, alpha));
             GUI.EndGroup();
 
             Rounded(r, new Color(rar.r, rar.g, rar.b, (0.45f + 0.5f * hover) * alpha), radius, 1.5f + 1.5f * hover);

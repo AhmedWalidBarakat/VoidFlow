@@ -513,26 +513,53 @@ namespace VoidFlow
 
         BlockArm rightHand, leftHand;
         float knifeScale = 1f;
+        WeaponParts offhand; // the left hand's blade, for twin blades
         RunTimer runTimer;
         static readonly Vector3 KnifeHandle = new(0f, -0.055f, 0f);
 
         void BuildKnifeModel()
         {
             if (knife != null) Kill(knife.root.gameObject);
+            if (offhand != null) { Kill(offhand.root.gameObject); offhand = null; }
             foreach (var m in knifeMaterials) Kill(m);
             knifeMaterials.Clear();
             if (Skins.Knives[knifeSkin].model == KnifeModel.Talon) SetTalonGrip(rightHand);
             else SetGrip(rightHand, false);
-            var builder = new WeaponBuilder(template, Layer, false, knifeMaterials);
+            var builder = new WeaponBuilder(template, Layer, false, knifeMaterials) { pairs = false };
             knife = builder.Knife(Skins.Knives[knifeSkin], rightHand.grip);
             // Every knife is sized like the talon knife (about 0.3 long), so none reaches across
             // the middle of the screen; it's scaled about its handle, so the grip stays put
             float length = WeaponBuilder.MeshSize(knife).magnitude;
-            knifeScale = length > 0.01f ? Mathf.Clamp(0.3f / length, 0.6f, 1f) : 1f;
+            // (twin blades shorter still, so the pair doesn't cross in the middle of the screen)
+            bool twin = knife.model == KnifeModel.ModelDual;
+            knifeScale = length > 0.01f ? Mathf.Clamp((twin ? 0.2f : 0.3f) / length, twin ? 0.3f : 0.6f, 1f) : 1f;
+            // Twin blades: the second one in the left fist, sized and held the same way
+            if (knife.model == KnifeModel.ModelDual)
+            {
+                offhand = builder.Knife(Skins.Knives[knifeSkin], leftHand.grip);
+                offhand.root.localScale = Vector3.one * knifeScale;
+                offhand.root.localPosition = (1f - knifeScale) * KnifeHandle;
+            }
             BuildSheath(Skins.Knives[knifeSkin], builder);
             if (weapons != null) weapons[KnifeSlot].drawTime = knife.IsSword ? SwordDrawTime : 0.6f;
             UpdateSheath();
             PoseKnife(Vector3.zero, Vector3.zero, -1f);
+            if (offhand != null) AimOffhand();
+        }
+
+        // Turns the left hand's blade, about the middle of the fist, into the mirror image of the
+        // right one at rest (the left fist is posed as the right's mirror image, but its grip
+        // frame isn't); it keeps that turn in the fist from then on
+        void AimOffhand()
+        {
+            Vector3 Mirror(Vector3 world)
+            {
+                var v = transform.InverseTransformDirection(world);
+                return transform.TransformDirection(new Vector3(-v.x, v.y, v.z));
+            }
+            Quaternion want = Quaternion.LookRotation(Mirror(knife.root.forward), Mirror(knife.root.up));
+            Quaternion local = Quaternion.Inverse(leftHand.grip.rotation) * want;
+            offhand.root.SetLocalPositionAndRotation(KnifeHandle - local * (knifeScale * KnifeHandle), local);
         }
 
         void Part(Transform parent, PrimitiveType shape, Material mat, Vector3 position, Vector3 scale) =>

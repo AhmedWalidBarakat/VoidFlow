@@ -42,29 +42,51 @@ namespace VoidFlow
         }
 
         // Saved as "slot:index:count;..." plus the number of unopened cases
-        const string ItemsKey = "VoidFlow.inventory", CasesKey = "VoidFlow.voidCases";
+        const string ItemsKey = "VoidFlow.inventory2", LegacyItemsKey = "VoidFlow.inventory", CasesKey = "VoidFlow.voidCases";
         static bool loaded;
 
         static void EnsureLoaded()
         {
             if (loaded) return;
             loaded = true;
-            foreach (var entry in PlayerPrefs.GetString(ItemsKey, "").Split(';'))
+            // Saved as "slot:count:name;" (by name, so the item lists can change). An item that
+            // isn't in the game any more (the old Void items) comes back as a Void Case.
+            int retired = 0;
+            void Load(ItemSlot slot, string name, int count)
             {
-                var bits = entry.Split(':');
-                if (bits.Length != 3 || !int.TryParse(bits[0], out int slot) || !int.TryParse(bits[1], out int index) || !int.TryParse(bits[2], out int count)) continue;
-                if (slot < 0 || slot > 2 || index <= 0 || index >= Skins.Pool((ItemSlot)slot).Length || count <= 0) continue;
-                var item = items.Find(i => i.slot == (ItemSlot)slot && i.index == index);
-                if (item == null) items.Add(item = new Item { slot = (ItemSlot)slot, index = index, order = ++order });
+                if (count <= 0 || string.IsNullOrEmpty(name)) return;
+                int index = Skins.IndexOf(slot, name);
+                if (index <= 0) { if (index < 0) retired += count; return; }
+                var item = items.Find(i => i.slot == slot && i.index == index);
+                if (item == null) items.Add(item = new Item { slot = slot, index = index, order = ++order });
                 item.count = Mathf.Max(item.count, count);
             }
+            bool legacy = !PlayerPrefs.HasKey(ItemsKey);
+            foreach (var entry in PlayerPrefs.GetString(legacy ? LegacyItemsKey : ItemsKey, "").Split(';'))
+            {
+                var bits = entry.Split(new[] { ':' }, 3);
+                if (bits.Length != 3 || !int.TryParse(bits[0], out int slot) || slot < 0 || slot > 2) continue;
+                if (legacy)
+                {
+                    // the old "slot:index:count", by place in the list
+                    if (int.TryParse(bits[1], out int oldIndex) && int.TryParse(bits[2], out int oldCount))
+                        Load((ItemSlot)slot, Skins.LegacyName((ItemSlot)slot, oldIndex), oldCount);
+                }
+                else if (int.TryParse(bits[1], out int saved)) Load((ItemSlot)slot, bits[2], saved);
+            }
             VoidCases = Mathf.Max(VoidCases, PlayerPrefs.GetInt(CasesKey, 0));
+            if (retired > 0)
+            {
+                VoidCases += retired;
+                Save();
+            }
+            else if (legacy && PlayerPrefs.HasKey(LegacyItemsKey)) Save();
         }
 
         static void Save()
         {
             var sb = new System.Text.StringBuilder();
-            foreach (var it in items) sb.Append((int)it.slot).Append(':').Append(it.index).Append(':').Append(it.count).Append(';');
+            foreach (var it in items) sb.Append((int)it.slot).Append(':').Append(it.count).Append(':').Append(Skins.Pool(it.slot)[it.index].name).Append(';');
             PlayerPrefs.SetString(ItemsKey, sb.ToString());
             PlayerPrefs.SetInt(CasesKey, VoidCases);
             PlayerPrefs.Save();
