@@ -329,6 +329,7 @@ namespace VoidFlow
                 Generate();
                 while (pending.Count > 0) pending.Dequeue()();
                 var seg = segments[^1];
+                ClearBuildings(seg);
                 // Only the last few stay active while building (later ramps check against them)
                 if (segments.Count > 8 && segments[^9].root) segments[^9].root.SetActive(false);
                 BuildProgress = nextIndex / (float)FinalRamp;
@@ -343,6 +344,45 @@ namespace VoidFlow
             return true;
         }
 
+        // Buildings give way to ramps (see RampClearance): the new ramp's building against its
+        // own ramp and the few before, and those ramps' buildings against the new ramp
+        public int ClearedFaces { get; private set; }
+        public double ClearSeconds { get; private set; }
+        readonly Dictionary<Segment, RampClearance.Ramps> rampTris = new();
+
+        RampClearance.Ramps RampsOf(Segment s)
+        {
+            if (s?.root == null) return null;
+            if (!rampTris.TryGetValue(s, out var r))
+                rampTris[s] = r = RampClearance.Prepare(System.Array.FindAll(s.root.GetComponentsInChildren<MeshFilter>(true),
+                    mf => mf.name.StartsWith("Surface") || mf.name.StartsWith("Trim") || mf.name == "Twin" || mf.name == "TwinTrim"));
+            return r;
+        }
+
+        static List<MeshFilter> BuildingsOf(Segment s)
+        {
+            var list = new List<MeshFilter>();
+            if (s?.root)
+                foreach (var mf in s.root.GetComponentsInChildren<MeshFilter>(true))
+                    if (mf.name == "Architecture" && mf.transform.parent && mf.transform.parent.name != "HoleWall") list.Add(mf);
+            return list;
+        }
+
+        void ClearBuildings(Segment seg)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            const int Back = 5; // long, deep flights can pass under buildings a few ramps back
+            var near = new List<RampClearance.Ramps> { RampsOf(seg) };
+            var older = new List<MeshFilter>();
+            for (int k = 1; k <= Back; k++)
+                if (Seg(seg.index - k) is Segment o) { near.Add(RampsOf(o)); older.AddRange(BuildingsOf(o)); }
+            ClearedFaces += RampClearance.Cut(BuildingsOf(seg), near);
+            ClearedFaces += RampClearance.Cut(older, new List<RampClearance.Ramps> { RampsOf(seg) });
+            // ramps further back are done with
+            if (Seg(seg.index - Back - 1) is Segment gone) rampTris.Remove(gone);
+            ClearSeconds += clock.Elapsed.TotalSeconds;
+        }
+
         // Open zones' ground (snowfields, sunset plains, toy-town grass): once the whole course is
         // built, each stage's ground sheets are put at one height, below every bit of course
         // that can be on screen with them, so no sheet floats across the view or cuts through a ramp and they lie flat
@@ -354,7 +394,7 @@ namespace VoidFlow
             {
                 // Only ramps that can be on screen with this stage's ground count: its own, and a
                 // few either side (the rest of the course is hidden while you're here)
-                int first = stage * rampsPerBiome - rampsBehind - 2, last = (stage + 1) * rampsPerBiome + 2;
+                int first = stage * rampsPerBiome - rampsBehind - 2, last = (stage + 1) * rampsPerBiome + 6; // (long flights reach well into the next stage)
                 var line = new List<Vector3>();
                 foreach (var sg in segments)
                 {
@@ -393,6 +433,16 @@ namespace VoidFlow
                         if (pr && pr.bounds.min.y < y + 25f) piece.position += delta; // (stands on the ground: a tree, a peak)
                     }
                 }
+                // What moved down with the ground gives way to any ramp it now runs into
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var near = new List<RampClearance.Ramps>();
+                foreach (var sg in segments)
+                    if (sg.index >= first && sg.index <= last) near.Add(RampsOf(sg));
+                var moved = new List<MeshFilter>();
+                foreach (var (sg, _, _) in sheets) moved.AddRange(BuildingsOf(sg));
+                ClearedFaces += RampClearance.Cut(moved, near);
+                rampTris.Clear();
+                ClearSeconds += clock.Elapsed.TotalSeconds;
             }
         }
 
@@ -744,9 +794,22 @@ namespace VoidFlow
                     m.width *= 0.9f - 0.2f * h;
                 }
 
-                // Each stage opens gently, like a map's stage start: a shorter hop onto a long,
-                // forgiving landing hill
-                if (stageStart && def == null)
+                // Hard all the way, after the hardest maps (sinsane and the classics stitched into
+                // it): longer gaps and bigger sideways shifts onto shorter, narrower landings with
+                // less room to board, from the very first stages and climbing to the real maps
+                if (def == null)
+                {
+                    float b = Brutal(i);
+                    landing.gap *= 1.18f + 0.22f * b;
+                    landing.shift *= 1.3f + 0.35f * b;
+                    landing.length *= 0.8f - 0.12f * b;
+                    landing.clearStart *= 0.8f;
+                    m.width = Mathf.Max(m.width * (0.9f - 0.1f * b), 11f);
+                }
+
+                // The first stages open gently, like a map's stage start: a shorter hop onto a
+                // long, forgiving landing hill
+                if (stageStart && def == null && stage <= 2)
                 {
                     landing.gap *= 0.8f;
                     landing.length *= 1.4f;
@@ -815,7 +878,7 @@ namespace VoidFlow
                 nextProgress += landing.gap;
             }
             last = path;
-            brokenInto = biome.script != null && last != null ? biome.script[i % rampsPerBiome].pieces : 0;
+            brokenInto = biome.script != null && last != null ? biome.script[i % rampsPerBiome].pieces : BrokenPieces(i, move, twin != null);
             afterLaunch = move.StartsWith("launch");
             afterTwin = twin != null;
 
@@ -880,6 +943,7 @@ namespace VoidFlow
             // (Checkpoints and new stages have no gates to see: you just get the notice as you
             // reach the ramp)
             if (IsCheckpoint(i)) BuildPad(seg, path, landingEnd, kit);
+            if (biome.script == null && twin == null) BuildGates(seg, path, i, kit);
             if (ringCenter is Vector3 ring)
             {
                 AddPart(seg, "Ring", ring, RampShapes.RingMesh(ring, ringFacing, 6f, $"Ring {i}"), kit.glowAlt, solid: false);
@@ -933,10 +997,10 @@ namespace VoidFlow
             if (!Architecture.Continuous(biome.style) || afterTwin) return null;
             if (!forced)
             {
-                if (i < 12 || tier == Tier.Beginner || m.bigAir || afterLaunch) return null;
+                if (i < 6 || m.bigAir || afterLaunch) return null;
                 bool legend = InLegend(i / rampsPerBiome);
-                if (i - lastHoleWall < (legend ? 3 : HoleWallSpacing) || landing.gap < 40f) return null;
-                if ((unchecked((uint)i * 2654435761u) >> 8) % 100 >= (legend ? 55 : 30)) return null; // its own dice: the course itself isn't reshuffled
+                if (i - lastHoleWall < (legend ? 2 : 3) || landing.gap < 36f) return null;
+                if ((unchecked((uint)i * 2654435761u) >> 8) % 100 >= (legend ? 80 : 60)) return null; // its own dice: the course itself isn't reshuffled
             }
             float d = Mathf.Clamp(landing.gap * 0.3f, 18f, 32f), f = d / landing.gap;
             var (_, design, launch) = RampShapes.Flight(last, flightSpeed);
@@ -952,8 +1016,8 @@ namespace VoidFlow
             {
                 center = center,
                 facing = (fwd + side * (2f * landing.shift * f / landing.gap)).normalized,
-                hw = 12f,
-                hh = Mathf.Clamp((hi - lo) * 0.5f + 7f, 9f, forced ? 21f : 16f),
+                hw = forced ? 12f : Mathf.Lerp(11f, 8.5f, Brutal(i)), // smaller and smaller windows to thread
+                hh = Mathf.Clamp((hi - lo) * 0.5f + (forced ? 7f : 5.5f), forced ? 9f : 7.5f, forced ? 21f : 16f),
             };
         }
 
@@ -1141,6 +1205,82 @@ namespace VoidFlow
         }
 
         int brokenInto; // the ramp being built is in this many pieces (0 = whole)
+
+        // How far along the generated course a ramp is, 0 at the start to 1 where the real
+        // maps begin (how hard the hard-everywhere changes bite)
+        float Brutal(int ramp) => Mathf.Clamp01(ramp / (float)Mathf.Max(1, Biome.MapsFrom * rampsPerBiome));
+
+        // Each ramp's own dice (the rest of the course isn't reshuffled by them)
+        static float Dice(int ramp, uint salt) => (unchecked(((uint)ramp + salt * 7919u) * 2654435761u) >> 8) % 1000 / 1000f;
+
+        // Generated ramps break into pieces more and more often (ramp strafes: ride each piece
+        // and drop onto the next across the gap), never the opening ramps, a stage's first
+        // ramp (its checkpoint), a launch or a twin
+        int BrokenPieces(int i, string move, bool twin)
+        {
+            if (i < 4 || i % rampsPerBiome == 0 || twin || move.StartsWith("launch") || move.Contains("big air")) return 0;
+            float b = Brutal(i);
+            if (Dice(i, 3) >= 0.15f + 0.35f * b) return 0;
+            return 2 + (int)(Dice(i, 4) * (b < 0.4f ? 2f : 3f)); // 2-3 pieces, up to 4 later
+        }
+
+        // Gates on the face you ride (after the obstacle runs in the hardest maps): pairs of
+        // solid blocks standing on the ramp above and below the line, leaving a narrow lane to
+        // thread. Ride high or low and you smack into one. They start well after the landing
+        // and stop before the launch swing, so you board and launch as ever.
+        void BuildGates(Segment seg, RampShapes.RampPath path, int i, BiomeKit kit)
+        {
+            if (i < 3 || i % rampsPerBiome == 0) return;
+            float b = Brutal(i);
+            if (Dice(i, 9) >= 0.25f + 0.45f * b) return;
+            float from = 40f, to = path.Length - RampShapes.SwingLength - 15f;
+            if (to - from < 20f) return;
+            float spacing = Mathf.Lerp(45f, 28f, b), lane = Mathf.Lerp(7f, 4.5f, b); // half the lane, across the face
+            const float Thick = 1.6f, Tall = 3.2f;
+            var gates = new GameObject("Gates").transform;
+            gates.SetParent(seg.root.transform, false);
+            int made = 0;
+            for (float d = from + spacing * 0.5f * Dice(i, 10); d <= to; d += spacing)
+            {
+                int k = Mathf.Clamp(Mathf.RoundToInt(d / path.Length * (path.ridge.Count - 1)), 0, path.ridge.Count - 2);
+                // only where the ramp runs fairly straight: in a hard turn you ride higher or lower
+                // on the face to hold it, and a lane round the middle line would be a wall
+                int k0 = Mathf.Max(0, k - 8), k1 = Mathf.Min(path.ridge.Count - 1, k + 8);
+                if (Vector3.Angle(path.forward[k0], path.forward[k1]) > 8f) continue;
+                Vector3 along = (path.ridge[k + 1] - path.ridge[k]).normalized;
+                Vector3 top = path.FacePoint(k, 0f), bottom = path.FacePoint(k, 1f);
+                Vector3 across = (bottom - top).normalized;
+                float faceLen = Vector3.Distance(top, bottom);
+                Vector3 normal = Vector3.Cross(along, across).normalized;
+                if (Vector3.Dot(normal, Vector3.up + path.right[k] * path.side) < 0f) normal = -normal;
+                float line = RampShapes.RideFraction, laneFrac = lane / Mathf.Max(faceLen, 1f);
+                foreach (var (f0, f1) in new[] { (0.03f, line - laneFrac), (line + laneFrac, 0.97f) })
+                {
+                    if ((f1 - f0) * faceLen < 1.5f) continue;
+                    Vector3 a = path.FacePoint(k, f0), c = path.FacePoint(k, f1);
+                    Vector3 center = (a + c) * 0.5f + normal * (Tall * 0.5f);
+                    var block = new GameObject("Gate");
+                    block.transform.SetParent(gates, false);
+                    block.transform.SetLocalPositionAndRotation(center, Quaternion.LookRotation(along, normal));
+                    block.transform.localScale = new Vector3(Vector3.Distance(a, c), Tall, Thick);
+                    block.AddComponent<MeshFilter>().sharedMesh = cube;
+                    block.AddComponent<MeshRenderer>().sharedMaterial = kit.slab;
+                    block.AddComponent<BoxCollider>();
+                    // a glowing cap, so you read the lane from the landing
+                    var cap = new GameObject("GateGlow");
+                    cap.transform.SetParent(block.transform, false);
+                    cap.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+                    cap.transform.localScale = new Vector3(1.02f, 0.06f, 1.1f);
+                    cap.AddComponent<MeshFilter>().sharedMesh = cube;
+                    var cr = cap.AddComponent<MeshRenderer>();
+                    cr.sharedMaterial = kit.glow;
+                    cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    made++;
+                }
+            }
+            if (made == 0) Kill(gates.gameObject);
+            else seg.move += $" + gates ({made} blocks)";
+        }
         public readonly List<string> ScriptFixes = new(); // hand-made ramps the flight check had to bring closer
 
         static Move FromDef(RampDef d) => new()
