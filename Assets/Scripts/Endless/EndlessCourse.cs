@@ -312,6 +312,7 @@ namespace VoidFlow
         {
             Ready = false;
             BuildProgress = 0f;
+            hallPlans = null;
             buildWork = 0;
             buildFrames = 0;
             builtSeed = SeedToUse;
@@ -335,11 +336,29 @@ namespace VoidFlow
                 if (Seg(seg.index - 32) is Segment done) Trim(done);
                 // Only the last few stay active while building (later ramps check against them)
                 if (segments.Count > 8 && segments[^9].root) segments[^9].root.SetActive(false);
-                BuildProgress = nextIndex / (float)FinalRamp;
+                BuildProgress = 0.85f * nextIndex / FinalRamp;
                 if (clock.Elapsed.TotalSeconds > seconds) { buildWork += clock.Elapsed.TotalSeconds; return false; }
             }
-            BuildHalls();
-            SettleGround();
+            // Then the halls and the open zones' ground, a stage at a time over frames: in the
+            // browser, what a frame sets aside can only be freed once the frame is over, so all
+            // of it in one frame ran out of memory
+            int stages = FinalRamp / rampsPerBiome;
+            if (hallPlans == null) { PlanHalls(); hallNext = 0; settleNext = 0; }
+            while (hallNext < stages)
+            {
+                BuildHall(hallNext++);
+                BuildProgress = 0.85f + 0.1f * hallNext / stages;
+                if (clock.Elapsed.TotalSeconds > seconds) { buildWork += clock.Elapsed.TotalSeconds; return false; }
+            }
+            while (settleNext < stages)
+            {
+                SettleStage(settleNext++);
+                BuildProgress = 0.95f + 0.05f * settleNext / stages;
+                if (clock.Elapsed.TotalSeconds > seconds) { buildWork += clock.Elapsed.TotalSeconds; return false; }
+            }
+            hallPlans = null;
+            rampTris.Clear();
+            ShowHalls();
             TrimMeshes();
             buildWork += clock.Elapsed.TotalSeconds;
             Ready = true;
@@ -400,13 +419,17 @@ namespace VoidFlow
         readonly List<(StageHalls.Volume v, GameObject go)> halls = new();
         Vector3 hallShift; // how far the world has moved since the halls were built
 
-        void BuildHalls()
+        StageHalls.Volume[] hallPlans;
+        int hallNext, settleNext;
+
+        // Every hall's room first (each leaves out what stands inside its neighbours)
+        void PlanHalls()
         {
             foreach (var (_, go) in halls) Kill(go);
             halls.Clear();
             hallShift = Vector3.zero;
             int stages = FinalRamp / rampsPerBiome;
-            var plans = new StageHalls.Volume[stages];
+            var plans = hallPlans = new StageHalls.Volume[stages];
             for (int st = 0; st < stages; st++)
             {
                 var biome = Biome.All[BiomeOf(st * rampsPerBiome)];
@@ -421,9 +444,24 @@ namespace VoidFlow
                 }
                 if (pts.Count > 0) plans[st] = StageHalls.Plan(st, pts, Mathf.Max(30f, Architecture.DepthFor(biome.style)), Architecture.OpenTop(biome.style), kits[BiomeOf(st * rampsPerBiome)]);
             }
-            for (int st = 0; st < stages; st++)
+        }
+
+        static Vector3[] Every(Vector3[] pts, int n)
+        {
+            if (pts.Length <= 2) return pts;
+            var list = new List<Vector3>();
+            for (int i = 0; i < pts.Length; i += n) list.Add(pts[i]);
+            if ((pts.Length - 1) % n != 0) list.Add(pts[^1]);
+            return list.ToArray();
+        }
+
+        // Then each hall, built and opened up wherever the course passes through it
+        void BuildHall(int st)
+        {
+            var plans = hallPlans;
+            int stages = plans.Length;
             {
-                if (plans[st] == null) continue;
+                if (plans[st] == null) { ReleaseStage(st - 1); return; }
                 var near = new List<StageHalls.Volume>();
                 for (int o = st - 2; o <= st + 2; o++)
                     if (o != st && o >= 0 && o < stages && plans[o] != null) near.Add(plans[o]);
@@ -436,9 +474,13 @@ namespace VoidFlow
                 {
                     int sst = sg.index / rampsPerBiome;
                     if (sst < st - 1 || sst > st + 1) continue;
-                    cutters.Add(RampsOf(sg));
-                    tube.AddRange(StageHalls.FlightTube(sg.line, 16f));
-                    tube.AddRange(StageHalls.FlightTube(sg.extra, 16f));
+                    // The ramps' own faces only where stages meet (the last ramps of the stage
+                    // before and the first of the next can reach into this hall); the hall's own
+                    // ramps are all well inside its walls
+                    int within = sg.index % rampsPerBiome;
+                    if ((sst == st - 1 && within >= rampsPerBiome - 2) || (sst == st + 1 && within <= 1)) cutters.Add(RampsOf(sg));
+                    tube.AddRange(StageHalls.FlightTube(Every(sg.line, 3), 16f, false)); // (a ring of lines 12m apart: no 30m panel slips between)
+                    tube.AddRange(StageHalls.FlightTube(Every(sg.extra, 3), 16f, false));
                     tube.AddRange(StageHalls.FlightTube(sg.flight, 36f));
                 }
                 cutters.Add(RampClearance.FromTriangles(tube));
@@ -453,9 +495,16 @@ namespace VoidFlow
                     if (!Application.isEditor) mf.sharedMesh.UploadMeshData(true); // (its collision is already cooked)
                 }
                 halls.Add((plans[st], go));
+                go.SetActive(false); // (shown when you get near)
             }
-            rampTris.Clear();
-            ShowHalls();
+            ReleaseStage(st - 1); // no hall still to build reaches back that far
+        }
+
+        // Drops the cached triangles of a stage's ramps
+        void ReleaseStage(int stage)
+        {
+            foreach (var sg in segments)
+                if (sg.index / rampsPerBiome == stage) rampTris.Remove(sg);
         }
 
         // The halls of the stage you're on and the ones either side (they share open sides)
@@ -487,10 +536,9 @@ namespace VoidFlow
         // built, each stage's ground sheets are put at one height, below every bit of course
         // that can be on screen with them, so no sheet floats across the view or cuts through a ramp and they lie flat
         // as one. The trees, peaks and towers standing on a sheet move with it.
-        void SettleGround()
+        void SettleStage(int stage)
         {
             const float Depth = 80f;
-            for (int stage = 0; stage * rampsPerBiome < FinalRamp; stage++)
             {
                 // Only ramps that can be on screen with this stage's ground count: its own, and a
                 // few either side (the rest of the course is hidden while you're here)
@@ -514,13 +562,13 @@ namespace VoidFlow
                     if (sheets.Count == 0) area = r.bounds; else area.Encapsulate(r.bounds);
                     sheets.Add((sg, g, r.bounds.center.y));
                 }
-                if (sheets.Count == 0) continue;
+                if (sheets.Count == 0) return;
                 // Below every point of the course over the stage's ground, and a little apart
                 // from the stages either side, so two zones' grounds never sit exactly level
                 float low = float.MaxValue;
                 foreach (var p in line)
                     if (p.x >= area.min.x && p.x <= area.max.x && p.z >= area.min.z && p.z <= area.max.z) low = Mathf.Min(low, p.y);
-                if (low == float.MaxValue) continue;
+                if (low == float.MaxValue) return;
                 float target = low - Depth - (stage % 3) * 1.5f;
                 foreach (var (sg, g, y) in sheets)
                 {
@@ -1158,7 +1206,7 @@ namespace VoidFlow
             foreach (var p in seg.extra) pts.Add(transform.TransformPoint(p));
             foreach (var other in segments)
             {
-                if (!other.root) continue;
+                if (!other.root || other.index < seg.index - 40) continue; // (only ramps near enough to reach)
                 foreach (Transform piece in other.root.transform)
                 {
                     if (piece.name != Architecture.ScenePiece) continue;
@@ -1267,7 +1315,7 @@ namespace VoidFlow
         {
             foreach (var other in segments)
             {
-                if (other == seg || !other.root) continue;
+                if (other == seg || !other.root || other.index < seg.index - 40) continue; // (only ramps near enough to reach)
                 foreach (Transform child in other.root.transform)
                     if (child.name == "HoleWall" && (!Sweeps(seg.line, child.gameObject) || !Sweeps(seg.flight, child.gameObject)))
                         Kill(child.gameObject);
@@ -1348,7 +1396,7 @@ namespace VoidFlow
             r.sharedMaterial = mat;
             // Its collision comes a frame later, in a frame of its own (cooking it is costly),
             // long before anyone reaches a ramp built three ahead
-            if (solid) pending.Enqueue(() => { if (go) { go.AddComponent<MeshCollider>().sharedMesh = mesh; Physics.SyncTransforms(); } });
+            if (solid) pending.Enqueue(() => { if (go) go.AddComponent<MeshCollider>().sharedMesh = mesh; }); // (static: no transforms to sync)
             else
             {
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -1391,6 +1439,21 @@ namespace VoidFlow
                 block.AddComponent<MeshFilter>().sharedMesh = cube;
                 block.AddComponent<MeshRenderer>().sharedMaterial = kit.slab;
                 block.AddComponent<BoxCollider>();
+                // a sloped lip on the front edge: come in a little low and you run up onto it
+                // instead of into a wall (fall short of it and you're still in the gap)
+                {
+                    const float LipLength = 7f, LipDrop = 2.2f;
+                    var lip = new GameObject("PlatformLip");
+                    lip.transform.SetParent(group, false);
+                    float angle = Mathf.Atan2(LipDrop, LipLength) * Mathf.Rad2Deg;
+                    Vector3 front = launch + fwd * a; front.y = top;
+                    Vector3 lipMid = front - fwd * (LipLength * 0.5f) + Vector3.down * (LipDrop * 0.5f + 0.4f);
+                    lip.transform.SetLocalPositionAndRotation(lipMid, rot * Quaternion.Euler(-angle, 0f, 0f));
+                    lip.transform.localScale = new Vector3(Width, 0.8f, Mathf.Sqrt(LipLength * LipLength + LipDrop * LipDrop));
+                    lip.AddComponent<MeshFilter>().sharedMesh = cube;
+                    lip.AddComponent<MeshRenderer>().sharedMaterial = kit.slab;
+                    lip.AddComponent<BoxCollider>();
+                }
                 // a glowing rim round the top, so you read where to land
                 foreach (var (off, size) in new[] { (new Vector3(-0.5f, 0.5f, 0f), new Vector3(0.04f, 0.05f, 1f)), (new Vector3(0.5f, 0.5f, 0f), new Vector3(0.04f, 0.05f, 1f)),
                                                     (new Vector3(0f, 0.5f, -0.5f), new Vector3(1f, 0.05f, 0.04f)), (new Vector3(0f, 0.5f, 0.5f), new Vector3(1f, 0.05f, 0.04f)) })

@@ -259,7 +259,7 @@ namespace VoidFlow
         // A tube round a flight path, for clearing the panels it passes through (a doorway
         // between halls, a window onto the next one): a bundle of lines filling its section
         // (each as a flat triangle), close enough together that no panel it crosses is missed
-        public static List<Vector3> FlightTube(IList<Vector3> path, float radius)
+        public static List<Vector3> FlightTube(IList<Vector3> path, float radius, bool dense = true)
         {
             var tris = new List<Vector3>();
             for (int i = 0; i + 1 < path.Count; i++)
@@ -273,7 +273,7 @@ namespace VoidFlow
                 Vector3 u = Vector3.Cross(f, s);
                 void Line(Vector3 o) { tris.Add(a + o); tris.Add(b + o); tris.Add(b + o); }
                 Line(Vector3.zero);
-                foreach (float r in new[] { radius * 0.5f, radius })
+                foreach (float r in dense ? new[] { radius * 0.5f, radius } : new[] { radius })
                     for (int k = 0; k < 8; k++)
                     {
                         float ang = k * Mathf.PI / 4f;

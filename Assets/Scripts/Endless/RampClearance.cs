@@ -10,7 +10,7 @@ namespace VoidFlow
     // side of a block), and only the ones a ramp actually crosses.
     public static class RampClearance
     {
-        const float Cell = 16f;
+        const float Cell = 24f;
 
         // One ramp's triangles in world space, filed in a grid (made once, used against every
         // building near it)
