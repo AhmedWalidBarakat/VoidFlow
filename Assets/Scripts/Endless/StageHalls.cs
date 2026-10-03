@@ -120,6 +120,10 @@ namespace VoidFlow
             Material trimA = kit.accent ? kit.accent : (kit.slab ? kit.slab : wall);
             Material lightA = kit.glowAlt ? kit.glowAlt : kit.glow;
             var design = v.design;
+            // Tech zones' wall textures are drawn in fine lines, which ripple across walls this
+            // big: their halls are built in the zone's smoother slab, the colour and light coming
+            // from the recessed panels and their outlines
+            if (design == Design.Panels && kit.slab) wall = kit.slab;
             int panelIndex = 0;
             float height = v.ceiling - v.floor;
             for (int i = 0; i < o.Count; i++)
@@ -139,17 +143,17 @@ namespace VoidFlow
                     {
                         float y0 = Mathf.Lerp(v.floor, v.ceiling, r / (float)rows), y1 = Mathf.Lerp(v.floor, v.ceiling, (r + 1) / (float)rows);
                         Quad(wall, f0.WithY(y0), f1.WithY(y0), f1.WithY(y1), f0.WithY(y1));
-                        if (design == Design.Panels)
+                        if (design == Design.Panels && (panelIndex + r) % 2 == 0) // (every other panel, checkered: thin lines packed close shimmer far off)
                         {
                             // a recessed panel outlined in light
                             Vector3 m0 = f0 + along * (pw * 0.12f), m1 = f1 - along * (pw * 0.12f);
                             float ya = Mathf.Lerp(y0, y1, 0.12f), yb = Mathf.Lerp(y0, y1, 0.88f);
                             Vector3 off = inward * 0.35f; // (behind its outline of light, clear of the wall)
                             Quad(trimA, m0.WithY(ya) + off, m1.WithY(ya) + off, m1.WithY(yb) + off, m0.WithY(yb) + off);
-                            Strip(kit.glow, m0.WithY(ya), m1.WithY(ya), inward, 0.5f);
-                            Strip(kit.glow, m0.WithY(yb), m1.WithY(yb), inward, 0.5f);
-                            Strip(kit.glow, m0.WithY(ya), m0.WithY(yb), inward, 0.5f);
-                            Strip(kit.glow, m1.WithY(ya), m1.WithY(yb), inward, 0.5f);
+                            Strip(kit.glow, m0.WithY(ya), m1.WithY(ya), inward, 1.4f);
+                            Strip(kit.glow, m0.WithY(yb), m1.WithY(yb), inward, 1.4f);
+                            Strip(kit.glow, m0.WithY(ya), m0.WithY(yb), inward, 1.4f);
+                            Strip(kit.glow, m1.WithY(ya), m1.WithY(yb), inward, 1.4f);
                         }
                         // windows: tall bright strips in a band round the middle of the room
                         bool window = (design == Design.Stripes && panelIndex % 3 == 1 && r == rows / 2)
@@ -332,9 +336,9 @@ namespace VoidFlow
                 {
                     Vector3 n = f.n[i], p = f.v[i];
                     Vector3 a = new(Mathf.Abs(n.x), Mathf.Abs(n.y), Mathf.Abs(n.z));
-                    // a repeat every 10m: on walls this big a finer pattern turns to shimmer and
+                    // a repeat every 16m: on walls this big a finer pattern turns to shimmer and
                     // moire in the distance (real maps scale their textures up on big surfaces too)
-                    uv[i] = (a.y >= a.x && a.y >= a.z ? new Vector2(p.x, p.z) : a.x >= a.z ? new Vector2(p.z, p.y) : new Vector2(p.x, p.y)) / 10f;
+                    uv[i] = (a.y >= a.x && a.y >= a.z ? new Vector2(p.x, p.z) : a.x >= a.z ? new Vector2(p.z, p.y) : new Vector2(p.x, p.y)) / 16f;
                 }
                 Architecture.Batch.SmallUvs(uv);
                 mesh.uv = uv;
