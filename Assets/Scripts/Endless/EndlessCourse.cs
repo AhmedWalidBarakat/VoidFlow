@@ -446,7 +446,7 @@ namespace VoidFlow
                 if (pts.Count > 0)
                 {
                     plans[st] = StageHalls.Plan(st, pts, Mathf.Max(30f, Architecture.DepthFor(biome.style)), Architecture.OpenTop(biome.style), kits[BiomeOf(st * rampsPerBiome)]);
-                    plans[st].design = StageHalls.DesignFor(biome.style, st);
+                    plans[st].design = StageHalls.DesignFor(biome, st);
                 }
             }
         }
@@ -926,8 +926,11 @@ namespace VoidFlow
                     shift = Mathf.Lerp(10f, 22f, t) * Rand(0.85f, 1.1f) * ShiftSign(i, theme, stage),
                 };
 
+                // The hand-laid maps keep their layout and their order of ramps, but fly tighter
+                // than the originals: longer gaps, bigger shifts, shorter landings (still proved
+                // possible below)
                 if (def != null)
-                    landing = new RampShapes.Landing { speed = flightSpeed, gap = def.gap, length = def.land, clearStart = def.clear, clearEnd = 0f, shift = def.shift };
+                    landing = new RampShapes.Landing { speed = flightSpeed, gap = def.gap * 1.12f, length = def.land * 0.88f, clearStart = def.clear * 0.9f, clearEnd = 0f, shift = def.shift * 1.2f };
                 // Off a launch ramp's kicker you fly high and far: the next ramp waits well down
                 // the arc, past its peak
                 else if (afterLaunch)
@@ -1119,7 +1122,7 @@ namespace VoidFlow
             // (Checkpoints and new stages have no gates to see: you just get the notice as you
             // reach the ramp)
             if (IsCheckpoint(i)) BuildPad(seg, path, landingEnd, kit);
-            if (biome.script == null && twin == null && !move.StartsWith("platforms")) BuildGates(seg, path, i, kit);
+            if (twin == null && !move.StartsWith("platforms")) BuildGates(seg, path, i, kit, biome.script != null);
             // A platform run: the next flight leaves from its last platform
             if (biome.script == null && move.StartsWith("platforms")) last = BuildPlatforms(seg, path, kit, i);
             if (ringCenter is Vector3 ring)
@@ -1504,11 +1507,11 @@ namespace VoidFlow
         // solid blocks standing on the ramp above and below the line, leaving a narrow lane to
         // thread. Ride high or low and you smack into one. They start well after the landing
         // and stop before the launch swing, so you board and launch as ever.
-        void BuildGates(Segment seg, RampShapes.RampPath path, int i, BiomeKit kit)
+        void BuildGates(Segment seg, RampShapes.RampPath path, int i, BiomeKit kit, bool handLaid = false)
         {
             if (i < 3 || i % rampsPerBiome == 0) return;
             float b = Brutal(i);
-            if (Dice(i, 9) >= 0.25f + 0.45f * b) return;
+            if (Dice(i, 9) >= (handLaid ? 0.35f : 0.25f + 0.45f * b)) return; // (the real maps a little less often: their own obstacles come first)
             float from = 40f, to = path.Length - RampShapes.SwingLength - 15f;
             if (to - from < 20f) return;
             float spacing = Mathf.Lerp(45f, 28f, b), lane = Mathf.Lerp(7f, 4.5f, b); // half the lane, across the face
