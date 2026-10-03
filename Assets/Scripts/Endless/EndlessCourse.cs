@@ -98,6 +98,7 @@ namespace VoidFlow
             public RampShapes.RampPath path;
             public Vector3[] line;          // riding line, course-local
             public Vector3[] flight;        // the designed flight into this ramp, course-local (may be empty)
+            public Vector3[] extra = Array.Empty<Vector3>(); // more of the course past the ramp (bhop platforms' tops)
             public GameObject root;
             public string move;
             public readonly List<Mesh> meshes = new();
@@ -414,6 +415,7 @@ namespace VoidFlow
                     if (sg.index / rampsPerBiome != st || (st == 0 && sg.index < 2)) continue; // (the start terrace has its own sky)
                     pts.AddRange(sg.line);
                     pts.AddRange(sg.flight);
+                    pts.AddRange(sg.extra);
                 }
                 if (pts.Count > 0) plans[st] = StageHalls.Plan(st, pts, Mathf.Max(30f, Architecture.DepthFor(biome.style)), Architecture.OpenTop(biome.style), kits[BiomeOf(st * rampsPerBiome)]);
             }
@@ -434,6 +436,7 @@ namespace VoidFlow
                     if (sst < st - 1 || sst > st + 1) continue;
                     cutters.Add(RampsOf(sg));
                     tube.AddRange(StageHalls.FlightTube(sg.line, 16f));
+                    tube.AddRange(StageHalls.FlightTube(sg.extra, 16f));
                     tube.AddRange(StageHalls.FlightTube(sg.flight, 36f));
                 }
                 cutters.Add(RampClearance.FromTriangles(tube));
@@ -490,6 +493,7 @@ namespace VoidFlow
                     if (sg.index < first || sg.index > last) continue;
                     foreach (var p in sg.line) line.Add(transform.TransformPoint(p));
                     foreach (var p in sg.flight) line.Add(transform.TransformPoint(p));
+                    foreach (var p in sg.extra) line.Add(transform.TransformPoint(p));
                 }
                 var sheets = new List<(Segment seg, Transform ground, float y)>();
                 Bounds area = default;
@@ -1038,7 +1042,9 @@ namespace VoidFlow
             // (Checkpoints and new stages have no gates to see: you just get the notice as you
             // reach the ramp)
             if (IsCheckpoint(i)) BuildPad(seg, path, landingEnd, kit);
-            if (biome.script == null && twin == null) BuildGates(seg, path, i, kit);
+            if (biome.script == null && twin == null && !move.StartsWith("platforms")) BuildGates(seg, path, i, kit);
+            // A platform run: the next flight leaves from its last platform
+            if (biome.script == null && move.StartsWith("platforms")) last = BuildPlatforms(seg, path, kit, i);
             if (ringCenter is Vector3 ring)
             {
                 AddPart(seg, "Ring", ring, RampShapes.RingMesh(ring, ringFacing, 6f, $"Ring {i}"), kit.glowAlt, solid: false);
@@ -1125,6 +1131,7 @@ namespace VoidFlow
             var pts = new List<Vector3>();
             foreach (var p in seg.line) pts.Add(transform.TransformPoint(p));
             foreach (var p in seg.flight) pts.Add(transform.TransformPoint(p));
+            foreach (var p in seg.extra) pts.Add(transform.TransformPoint(p));
             foreach (var other in segments)
             {
                 if (!other.root) continue;
@@ -1327,6 +1334,62 @@ namespace VoidFlow
 
         int brokenInto; // the ramp being built is in this many pieces (0 = whole)
 
+        // Bhop platforms, as in the maps: the ramp ends level and throws you out onto a row of
+        // flat platforms with gaps between, a hop apart at the speed you carry (hold jump and
+        // you hop from each to the next without losing speed), and you leave the last one for the
+        // next ramp. The first catches the drop off the ramp for a range of speeds; the rest sit
+        // where each hop comes down. Returns the launch the next flight is designed from.
+        RampShapes.RampPath BuildPlatforms(Segment seg, RampShapes.RampPath path, BiomeKit kit, int i)
+        {
+            float v = FlightSpeed(path, courseStartY);
+            float hopTime = 2f * 301.993f * PlayerMovement.SourceUnit / RampShapes.Gravity;
+            Vector3 launch = path.RideLine(path.ridge.Count - 1); // (you leave the end riding high on the face)
+            Vector3 fwd = path.EndForward;
+            const float Drop = 4f, Width = 16f, Thick = 3f;
+            float top = launch.y - Drop, fall = Mathf.Sqrt(2f * Drop / RampShapes.Gravity);
+            float hop = v * hopTime, touch = v * fall;
+            int count = 3 + (int)(Brutal(i) * 2.99f);
+            var spans = new List<(float a, float b)> { (touch * 0.5f, touch * 1.6f) };
+            float c = touch;
+            for (int k = 1; k < count; k++) { c += hop; spans.Add((c - hop * 0.4f, c + hop * 0.35f)); }
+            var group = new GameObject("Platforms").transform;
+            group.SetParent(seg.root.transform, false);
+            var line = new List<Vector3>();
+            var rot = Quaternion.LookRotation(fwd, Vector3.up);
+            foreach (var (a, b) in spans)
+            {
+                Vector3 mid = launch + fwd * ((a + b) * 0.5f);
+                mid.y = top - Thick * 0.5f;
+                var block = new GameObject("Platform");
+                block.transform.SetParent(group, false);
+                block.transform.SetLocalPositionAndRotation(mid, rot);
+                block.transform.localScale = new Vector3(Width, Thick, b - a);
+                block.AddComponent<MeshFilter>().sharedMesh = cube;
+                block.AddComponent<MeshRenderer>().sharedMaterial = kit.slab;
+                block.AddComponent<BoxCollider>();
+                // a glowing rim round the top, so you read where to land
+                foreach (var (off, size) in new[] { (new Vector3(-0.5f, 0.5f, 0f), new Vector3(0.04f, 0.05f, 1f)), (new Vector3(0.5f, 0.5f, 0f), new Vector3(0.04f, 0.05f, 1f)),
+                                                    (new Vector3(0f, 0.5f, -0.5f), new Vector3(1f, 0.05f, 0.04f)), (new Vector3(0f, 0.5f, 0.5f), new Vector3(1f, 0.05f, 0.04f)) })
+                {
+                    var rim = new GameObject("PlatformGlow");
+                    rim.transform.SetParent(block.transform, false);
+                    rim.transform.localPosition = off;
+                    rim.transform.localScale = size + new Vector3(0f, 0f, 0f);
+                    rim.AddComponent<MeshFilter>().sharedMesh = cube;
+                    var rr = rim.AddComponent<MeshRenderer>();
+                    rr.sharedMaterial = kit.glow;
+                    rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+                for (float d = a; d <= b; d += 3f) { var q = launch + fwd * d; line.Add(new Vector3(q.x, top + 1f, q.z)); }
+                seg.lowestY = Mathf.Min(seg.lowestY, top - Thick);
+            }
+            seg.extra = line.ToArray();
+            seg.move += $" ({count} platforms)";
+            // the next flight leaves from where the last hop comes down
+            Vector3 end = launch + fwd * c; end.y = top;
+            return RampShapes.Lay(RampShapes.Kind.Prism, 0.2f, -1f, end - fwd * 8f, fwd, new[] { (8f, 0f) }, null);
+        }
+
         // How far along the generated course a ramp is, 0 at the start to 1 where the real
         // maps begin (how hard the hard-everywhere changes bite)
         float Brutal(int ramp) => Mathf.Clamp01(ramp / (float)Mathf.Max(1, Biome.MapsFrom * rampsPerBiome));
@@ -1339,7 +1402,7 @@ namespace VoidFlow
         // ramp (its checkpoint), a launch or a twin
         int BrokenPieces(int i, string move, bool twin)
         {
-            if (i < 4 || i % rampsPerBiome == 0 || twin || move.StartsWith("launch") || move.Contains("big air")) return 0;
+            if (i < 4 || i % rampsPerBiome == 0 || twin || move.StartsWith("launch") || move.StartsWith("platforms") || move.Contains("big air")) return 0;
             float b = Brutal(i);
             if (Dice(i, 3) >= 0.15f + 0.35f * b) return 0;
             return 2 + (int)(Dice(i, 4) * (b < 0.4f ? 2f : 3f)); // 2-3 pieces, up to 4 later
@@ -1455,6 +1518,7 @@ namespace VoidFlow
             if (i >= 8)
                 options.AddRange(new[] { ("snipe", 1.6f), ("drop", 1.1f), ("steps", 1.3f), ("kicker", 1.1f), ("zigzag", 1f) });
             if (i >= 30) options.Add(("bowl", 0.9f));
+            if (i >= 12 && i % rampsPerBiome != rampsPerBiome - 1) options.Add(("platforms", 2.2f));
             // Advanced adds speed sections (plunges); technical throws every move it has in
             if (tier == Tier.Advanced) options.Add(("plunge", 3f));
             if (tier == Tier.Technical)
@@ -1469,7 +1533,7 @@ namespace VoidFlow
                 pick -= o.Item2;
             }
 
-            bool calm = name is "hole" or "spiral" or "winding" or "sweep" or "loop" or "snipe" or "bowl"; // (a snipe's flick is its own long flight)
+            bool calm = name is "hole" or "spiral" or "winding" or "sweep" or "loop" or "snipe" or "bowl" or "platforms"; // (a snipe's flick is its own long flight)
             double airChance = theme == "BIG AIR" ? 0.8 : tier switch { Tier.Beginner => 0.2, Tier.Advanced or Tier.Technical => 0.5, _ => 0.35 };
             var m = new Move { name = name, bigAir = name == "launch" || (!calm && rng.NextDouble() < airChance) };
             switch (name)
@@ -1560,6 +1624,11 @@ namespace VoidFlow
                     m.width = Mathf.Lerp(8f, 6f, t);
                     m.shape = blade;
                     m.twin = true;
+                    break;
+                case "platforms": // a ramp that ends level, throwing you onto a row of platforms to bhop across
+                    m.kind = RampShapes.Kind.Prism;
+                    m.width = Mathf.Lerp(13f, 10f, t);
+                    m.shape = new[] { (60f, -0.25f), (140f, -0.25f), (200f, -0.03f), (230f, 0f) };
                     break;
                 case "bowl": // after Legendary's bowl: a steep banked half-circle ridden round its rim before the launch
                 {
@@ -1936,6 +2005,7 @@ namespace VoidFlow
                 for (int k = 0; k < seg.path.ridge.Count; k++) seg.path.ridge[k] += delta;
                 for (int k = 0; k < seg.line.Length; k++) seg.line[k] += delta;
                 for (int k = 0; k < seg.flight.Length; k++) seg.flight[k] += delta;
+                for (int k = 0; k < seg.extra.Length; k++) seg.extra[k] += delta;
                 seg.lowestY += delta.y;
             }
             courseStartY += delta.y;
