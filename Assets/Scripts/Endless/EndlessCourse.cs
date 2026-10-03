@@ -1454,6 +1454,7 @@ namespace VoidFlow
             // off sideways, drops, stepped dives, kickers in the middle of a ramp, quick zigzags
             if (i >= 8)
                 options.AddRange(new[] { ("snipe", 1.6f), ("drop", 1.1f), ("steps", 1.3f), ("kicker", 1.1f), ("zigzag", 1f) });
+            if (i >= 30) options.Add(("bowl", 0.9f));
             // Advanced adds speed sections (plunges); technical throws every move it has in
             if (tier == Tier.Advanced) options.Add(("plunge", 3f));
             if (tier == Tier.Technical)
@@ -1468,7 +1469,7 @@ namespace VoidFlow
                 pick -= o.Item2;
             }
 
-            bool calm = name is "hole" or "spiral" or "winding" or "sweep" or "loop" or "snipe"; // (a snipe's flick is its own long flight)
+            bool calm = name is "hole" or "spiral" or "winding" or "sweep" or "loop" or "snipe" or "bowl"; // (a snipe's flick is its own long flight)
             double airChance = theme == "BIG AIR" ? 0.8 : tier switch { Tier.Beginner => 0.2, Tier.Advanced or Tier.Technical => 0.5, _ => 0.35 };
             var m = new Move { name = name, bigAir = name == "launch" || (!calm && rng.NextDouble() < airChance) };
             switch (name)
@@ -1560,6 +1561,17 @@ namespace VoidFlow
                     m.shape = blade;
                     m.twin = true;
                     break;
+                case "bowl": // after Legendary's bowl: a steep banked half-circle ridden round its rim before the launch
+                {
+                    m.kind = RampShapes.Kind.Slab;
+                    m.bank = MapScripts.SpinBank;
+                    m.width = Mathf.Lerp(9f, 7f, t);
+                    float degrees = Rand(150f, 200f), radius = MapScripts.MinSpinRadius + Rand(0f, 30f);
+                    float length = degrees * Mathf.Deg2Rad * radius + 60f;
+                    m.shape = new[] { (40f, -0.08f), (length - 20f, -0.08f), (length, 0.06f) };
+                    m.bend = new[] { (25f, 0f), (length - 25f, degrees), (length, degrees) };
+                    break;
+                }
                 case "snipe": // short and sharp: hit it fast and flick off it, far to the side
                 {
                     m.kind = RampShapes.Kind.Prism;

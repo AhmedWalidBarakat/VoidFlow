@@ -20,6 +20,7 @@ namespace VoidFlow
             public float floor, ceiling;
             public bool openTop;
             public BiomeKit kit;
+            public List<Vector3> course;    // a sample of the stage's riding lines and flights (set dressing keeps clear of it)
 
             public bool Contains(Vector3 p, float inset)
             {
@@ -53,7 +54,9 @@ namespace VoidFlow
                     ring.Add(new Vector2(p.x + Mathf.Cos(a) * Margin, p.z + Mathf.Sin(a) * Margin));
                 }
             }
-            return new Volume { stage = stage, outline = Hull(ring), floor = lo - depth, ceiling = hi + Headroom, openTop = openTop, kit = kit };
+            var course = new List<Vector3>();
+            for (int i = 0; i < points.Count; i += 4) course.Add(points[i]);
+            return new Volume { stage = stage, outline = Hull(ring), floor = lo - depth, ceiling = hi + Headroom, openTop = openTop, kit = kit, course = course };
         }
 
         // Builds a hall's panels, leaving out any that stand inside a neighbouring hall
@@ -143,6 +146,86 @@ namespace VoidFlow
                     if (Mathf.RoundToInt((x - minX) / Panel) % 2 == 0)
                         Strip(kit.glow, new Vector3(x, v.floor, z), new Vector3(x, v.floor, z1), Vector3.up, 0.6f);
                 }
+
+            // Set dressing, a different mix in every hall, like a map's: pillars standing floor to
+            // ceiling with bands of light, floating platforms and stacked blocks at all heights.
+            // All of it keeps well clear of where you ride and fly.
+            void Box(Material m, Vector3 c, Vector3 size, float yaw)
+            {
+                var q = Quaternion.Euler(0f, yaw, 0f);
+                Vector3 X = q * Vector3.right * (size.x * 0.5f), Y = Vector3.up * (size.y * 0.5f), Z = q * Vector3.forward * (size.z * 0.5f);
+                Quad(m, c - X - Y - Z, c + X - Y - Z, c + X + Y - Z, c - X + Y - Z);
+                Quad(m, c - X - Y + Z, c - X + Y + Z, c + X + Y + Z, c + X - Y + Z);
+                Quad(m, c - X - Y - Z, c - X + Y - Z, c - X + Y + Z, c - X - Y + Z);
+                Quad(m, c + X - Y - Z, c + X - Y + Z, c + X + Y + Z, c + X + Y - Z);
+                Quad(m, c - X + Y - Z, c + X + Y - Z, c + X + Y + Z, c - X + Y + Z);
+                Quad(m, c - X - Y - Z, c - X - Y + Z, c + X - Y + Z, c + X - Y - Z);
+            }
+            bool ClearAcross(Vector3 p, float r) // nothing of the course anywhere above or below
+            {
+                foreach (var c in v.course) { float dx = c.x - p.x, dz = c.z - p.z; if (dx * dx + dz * dz < r * r) return false; }
+                return true;
+            }
+            bool ClearOf(Vector3 p, float r)
+            {
+                foreach (var c in v.course) if ((c - p).sqrMagnitude < r * r) return false;
+                return true;
+            }
+            var rng = new System.Random(v.stage * 7919 + 17);
+            float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+            Material accent = kit.accent ? kit.accent : ceiling, glowA = kit.glow, glowB = kit.glowAlt ? kit.glowAlt : kit.glow;
+            int look = v.stage % 4; // 0 colonnade, 1 floating platforms, 2 stacks, 3 a bit of everything
+            float h = v.ceiling - v.floor;
+            if (look == 0 || look == 3)
+            {
+                float step = look == 0 ? 60f : 90f;
+                int made = 0;
+                for (float x = minX + step * 0.5f; x < maxX && made < 30; x += step)
+                    for (float z = minZ + step * 0.5f; z < maxZ && made < 30; z += step)
+                    {
+                        var at = new Vector3(x + R(-10f, 10f), 0f, z + R(-10f, 10f));
+                        if (!Inside(o, new Vector2(at.x, at.z)) || !ClearAcross(at, 45f) || rng.NextDouble() < 0.3) continue;
+                        float w = R(6f, 10f);
+                        Box(wall, at.WithY(v.floor + h * 0.5f), new Vector3(w, h, w), 0f);
+                        for (float y = v.floor + 30f; y < v.ceiling - 10f; y += 45f)
+                            Box(glowA, at.WithY(y), new Vector3(w + 0.6f, 1.2f, w + 0.6f), 0f);
+                        made++;
+                    }
+            }
+            if (look == 1 || look == 3)
+            {
+                int made = 0;
+                for (int tries = 0; tries < 200 && made < (look == 1 ? 26 : 12); tries++)
+                {
+                    var at = new Vector3(R(minX, maxX), R(v.floor + 15f, v.ceiling - 15f), R(minZ, maxZ));
+                    if (!Inside(o, new Vector2(at.x, at.z)) || !ClearOf(at, 45f)) continue;
+                    float w = R(16f, 36f), d = R(16f, 36f), yaw = R(0f, 90f);
+                    Box(accent, at, new Vector3(w, R(2f, 5f), d), yaw);
+                    Box(glowB, at + Vector3.down * 3.2f, new Vector3(w * 0.6f, 0.4f, d * 0.6f), yaw); // light underneath
+                    made++;
+                }
+            }
+            if (look == 2 || look == 3)
+            {
+                int made = 0;
+                for (int tries = 0; tries < 200 && made < (look == 2 ? 18 : 8); tries++)
+                {
+                    var at = new Vector3(R(minX, maxX), v.floor, R(minZ, maxZ));
+                    if (!Inside(o, new Vector2(at.x, at.z)) || !ClearAcross(at, 40f)) continue;
+                    float y = v.floor, size = R(14f, 26f), yaw = R(0f, 90f);
+                    int blocks = rng.Next(3, 8);
+                    for (int k = 0; k < blocks && y < v.ceiling - 20f; k++)
+                    {
+                        float bh = R(8f, 22f);
+                        Box(k % 2 == 0 ? wall : accent, at.WithY(y + bh * 0.5f), new Vector3(size, bh, size), yaw);
+                        Box(glowA, at.WithY(y + bh + 0.4f), new Vector3(size + 0.5f, 0.8f, size + 0.5f), yaw);
+                        y += bh + 0.8f;
+                        size *= R(0.7f, 0.95f);
+                        yaw += R(-25f, 25f);
+                    }
+                    made++;
+                }
+            }
 
             var go = new GameObject($"Hall {v.stage}");
             go.transform.SetParent(parent, false);
