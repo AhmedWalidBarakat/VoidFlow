@@ -212,9 +212,10 @@ namespace VoidFlow
             float w = Screen.width, h = Screen.height;
             if (!course.Ready)
             {
-                // Building the course: a dark screen with a progress bar (once, when the game opens)
+                // Building the course: a black screen with just the progress bar (once, when the
+                // game opens), so the stutter of building behind it never shows
                 var old = GUI.color;
-                GUI.color = new Color(0.03f, 0.025f, 0.05f, 0.94f);
+                GUI.color = Color.black;
                 GUI.DrawTexture(new Rect(0, 0, w, h), Texture2D.whiteTexture);
                 GUI.color = new Color(0.25f, 0.2f, 0.35f);
                 GUI.DrawTexture(new Rect(w * 0.3f, h * 0.55f, w * 0.4f, 6f), Texture2D.whiteTexture);

@@ -331,6 +331,8 @@ namespace VoidFlow
                 while (pending.Count > 0) pending.Dequeue()();
                 var seg = segments[^1];
                 ClearBuildings(seg);
+                // buildings far enough back are done with: keep only their copy on the graphics card
+                if (Seg(seg.index - 32) is Segment done) Trim(done);
                 // Only the last few stay active while building (later ramps check against them)
                 if (segments.Count > 8 && segments[^9].root) segments[^9].root.SetActive(false);
                 BuildProgress = nextIndex / (float)FinalRamp;
@@ -441,9 +443,15 @@ namespace VoidFlow
                 }
                 cutters.Add(RampClearance.FromTriangles(tube));
                 ClearedFaces += RampClearance.Cut(new List<MeshFilter>(go.GetComponentsInChildren<MeshFilter>(true)), cutters);
-                // Solid, like a map's walls: you can't fall through or fly out
+                // Solid, like a map's walls: you can't fall through or fly out (the strips and
+                // panels of light are only drawn: thousands of small faces, no use to collide with)
+                var hallKit = plans[st].kit;
                 foreach (var mf in go.GetComponentsInChildren<MeshFilter>(true))
-                    mf.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
+                {
+                    var mat = mf.GetComponent<MeshRenderer>().sharedMaterial;
+                    if (mat != hallKit.glow && mat != hallKit.glowAlt) mf.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
+                    if (!Application.isEditor) mf.sharedMesh.UploadMeshData(true); // (its collision is already cooked)
+                }
                 halls.Add((plans[st], go));
             }
             rampTris.Clear();
@@ -536,6 +544,22 @@ namespace VoidFlow
                 ClearedFaces += RampClearance.Cut(moved, near);
                 rampTris.Clear();
                 ClearSeconds += clock.Elapsed.TotalSeconds;
+            }
+        }
+
+        // One ramp's own drawn meshes (not its surfaces, which collide, and not open-zone ground
+        // and scenery, which still move when the ground settles) down to their GPU copy
+        void Trim(Segment seg)
+        {
+            if (Application.isEditor || !seg.root) return;
+            foreach (var mf in seg.root.GetComponentsInChildren<MeshFilter>(true))
+            {
+                var mesh = mf.sharedMesh;
+                if (!mesh || !mesh.isReadable || mesh == cube || mesh == shardMesh || mf.GetComponent<MeshCollider>()) continue;
+                bool settles = false;
+                for (var t = mf.transform; t && t != seg.root.transform; t = t.parent)
+                    if (t.name == Architecture.OpenGround || t.name == Architecture.ScenePiece) { settles = true; break; }
+                if (!settles) mesh.UploadMeshData(true);
             }
         }
 
