@@ -621,7 +621,7 @@ namespace VoidFlow
             fistRest = new Vector3(0f, -0.05f, -0.06f) - fistRestRotation * GripFront;
             rightFist.SetLocalPositionAndRotation(fistRest, fistRestRotation);
             var left = BuildBlockArm(t, "Left Arm", Support);
-            Quaternion leftRotation = FingersBack(new Vector3(0.25f, 0.75f, 0.6f), new Vector3(-1f, 0f, 0.3f));
+            Quaternion leftRotation = FingersBack(new Vector3(0.5f, 0.55f, 0.7f), new Vector3(-1f, 0f, 0.3f)); // (the forearm running back to the bottom left)
             left.root.SetLocalPositionAndRotation(new Vector3(0f, -0.028f, 0.34f) - leftRotation * GripFront, leftRotation);
             return root;
         }

@@ -39,7 +39,37 @@ namespace VoidFlow
         //  - Gallery: framed paintings between pilasters (raphaello)
         //  - Ruins: broken columns and a worn band (essentia)
         //  - Backrooms: plain walls, a baseboard, rows of fluorescent ceiling lights
-        public enum Design { Stripes, Ribs, Panels, Mixed, Cave, NeonGrid, Spikes, Patchwork, Industrial, Sanctum, Tomb, DevGrid, Zen, Funhouse, Shade, Facets, Gallery, Ruins, Backrooms }
+        // ...and every other zone dressed after its name, the way each of the great maps dresses
+        // its walls to fit its run (rusted grates round rusted ramps, torchlit brick round a
+        // tomb's, neon round neon):
+        //  - Crystal: rock bursting with clusters of glowing crystals, crystals hanging from the
+        //    roof, veins of light (cyan crystal, amethyst, glacier cave)
+        //  - Castle: a wall walk with battlements, arrow slits, towers, banners (castle walls,
+        //    great wall)
+        //  - Hex / HexVines: a honeycomb of glowing hexagons (hex lab), overgrown (hex jungle)
+        //  - Pixel: big pixel monsters of light on a dark wall (arcade monsters, toy town)
+        //  - Hearts: ribs of light round the tunnel, pixel hearts (love tunnel)
+        //  - Waves: bands of light rolling round the room (chrome wave)
+        //  - Retro: sunset stripes and neon triangles (synthwave, vapor geometry, ember sunset)
+        //  - Warehouse: tall many-paned windows, steel columns, stacked crates, roof trusses
+        //  - Barn: plank walls, cross bracing, lanterns, rafters (cornfield)
+        //  - Stadium: stepped stands round the foot, a checkered band, floodlights (race arena,
+        //    skate park)
+        //  - Streaks: streaks of light at speed along the walls (light streaks)
+        //  - Lab: a red line running round the room like a circuit (red line lab)
+        //  - Bunker: heavy buttresses, slit windows, caged lamps, heavy beams (concrete bunker)
+        //  - Shapes: great neon circles, triangles and squares on the dark (neon shapes/rings)
+        //  - Arches: an arcade of round arches under a cornice (palaces, terraces, mauve temple)
+        //  - Stepped: ledges stepping out down the walls in bands (stripe pyramid, canyon, quarry)
+        //  - Nautical: portholes, lifebuoys, a wave band (sea mines)
+        //  - City: building fronts with lit windows round the room (glass city, night city)
+        //  - Library: shelves of books up the walls (library)
+        //  - Mine: rock held up by timber frames hung with lanterns (torch mines)
+        //  - Crater: grey walls pocked with craters, boulders round the foot (moon crater)
+        //  - Furnace: glowing furnace mouths, chimney ducts (forge, dark foundry)
+        //  - Banners: long flags hanging down the walls (flag hills)
+        public enum Design { Stripes, Ribs, Panels, Mixed, Cave, NeonGrid, Spikes, Patchwork, Industrial, Sanctum, Tomb, DevGrid, Zen, Funhouse, Shade, Facets, Gallery, Ruins, Backrooms,
+            Crystal, Castle, Hex, HexVines, Pixel, Hearts, Waves, Retro, Warehouse, Barn, Stadium, Streaks, Lab, Bunker, Shapes, Arches, Stepped, Nautical, City, Library, Mine, Crater, Furnace, Banners }
 
         // A real map's own look, by its zone's name; the rest by their style
         public static Design DesignFor(Biome biome, int stage)
@@ -62,6 +92,40 @@ namespace VoidFlow
             if (n.Contains("ESSENTIA")) return Design.Ruins;
             if (n.Contains("BACKROOMS")) return Design.Backrooms;
             if (n.Contains("STARLIT")) return Design.Ribs;
+            if (n.Contains("CRYSTAL") || n.Contains("AMETHYST") || n.Contains("GLACIER")) return Design.Crystal;
+            if (n.Contains("CASTLE") || n.Contains("GREAT WALL")) return Design.Castle;
+            if (n.Contains("HEX JUNGLE")) return Design.HexVines;
+            if (n.Contains("HEX")) return Design.Hex;
+            if (n.Contains("ARCADE") || n.Contains("TOY TOWN")) return Design.Pixel;
+            if (n.Contains("LOVE")) return Design.Hearts;
+            if (n.Contains("CHROME")) return Design.Waves;
+            if (n.Contains("SYNTHWAVE") || n.Contains("VAPOR") || n.Contains("EMBER SUNSET")) return Design.Retro;
+            if (n.Contains("WAREHOUSE")) return Design.Warehouse;
+            if (n.Contains("CORNFIELD")) return Design.Barn;
+            if (n.Contains("RACE ARENA") || n.Contains("SKATE")) return Design.Stadium;
+            if (n.Contains("STREAKS")) return Design.Streaks;
+            if (n.Contains("RED LINE")) return Design.Lab;
+            if (n.Contains("BUNKER")) return Design.Bunker;
+            if (n.Contains("NEON SHAPES") || n.Contains("NEON RINGS") || n.Contains("OMNIFIC")) return Design.Shapes;
+            if (n.Contains("PALACE") || n.Contains("CELESTIAL") || n.Contains("MAUVE") || n.Contains("MOONLIT GARDEN")) return Design.Arches;
+            if (n.Contains("PYRAMID") || n.Contains("CANYON") || n.Contains("QUARRY")) return Design.Stepped;
+            if (n.Contains("SEA MINES")) return Design.Nautical;
+            if (n.Contains("CITY") || n.Contains("SURF TOWN")) return Design.City;
+            if (n.Contains("LIBRARY")) return Design.Library;
+            if (n.Contains("TORCH MINES")) return Design.Mine;
+            if (n.Contains("MOON CRATER")) return Design.Crater;
+            if (n == "FORGE" || n.Contains("DARK FOUNDRY")) return Design.Furnace;
+            if (n.Contains("HAZARD FOUNDRY")) return Design.Industrial;
+            if (n.Contains("FLAG HILLS")) return Design.Banners;
+            if (n.Contains("WHITE GALLERY")) return Design.Gallery;
+            if (n.Contains("CANDY") || n.Contains("FRUIT")) return Design.Funhouse;
+            if (n.Contains("WIREFRAME") || n == "PRO") return Design.NeonGrid;
+            if (n.Contains("GROTTO") || n.Contains("ALPINE") || n.Contains("WILD HILLS")) return Design.Cave;
+            if (n.Contains("SANDSTONE")) return Design.Tomb;
+            if (n.Contains("SIX SIX SIX")) return Design.Spikes;
+            if (n.Contains("JADE")) return Design.Zen;
+            if (n.Contains("SURF SCHOOL")) return Design.DevGrid;
+            if (n.Contains("SPECTRUM") || n.Contains("SUMMER")) return Design.Stripes;
             return DesignFor(biome.style, stage);
         }
 
@@ -96,6 +160,8 @@ namespace VoidFlow
             }
         }
 
+        static readonly string[] Heart = { ".##.##.", "#######", "#######", ".#####.", "..###..", "...#..." };
+
         public const float Margin = 95f, Headroom = 95f, Panel = 30f; // room for every line and speed, not just the designed one
 
         // A stage's hall round its course points (riding lines and flights)
@@ -129,9 +195,13 @@ namespace VoidFlow
                 foreach (var o in neighbours) if (o.Contains(c, 0.5f)) return false;
                 return true;
             }
+            // a motif (a ring, a picture, a crystal) stands or goes as a whole: its pieces one
+            // by one would leave it in broken dashes where it meets a neighbouring hall
+            int whole = 0; // 0 each face on its own, 1 keep, -1 leave out
+            void Motif(Vector3 at) => whole = Outside(at) ? 1 : -1;
             void Quad(Material m, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
             {
-                if (!m || !Outside((a + b + c + d) * 0.25f)) return;
+                if (!m || whole < 0 || (whole == 0 && !Outside((a + b + c + d) * 0.25f))) return;
                 if (!faces.TryGetValue(m, out var f)) faces[m] = f = (new List<Vector3>(), new List<Vector3>(), new List<int>());
                 Vector3 normal = Vector3.Cross(b - a, d - a).normalized;
                 foreach (float s in new[] { 1f, -1f })
@@ -165,7 +235,11 @@ namespace VoidFlow
             // Tech zones' wall textures are drawn in fine lines, which ripple across walls this
             // big: their halls are built in the zone's smoother slab, the colour and light coming
             // from the recessed panels and their outlines
-            if ((design is Design.Panels or Design.NeonGrid or Design.Shade or Design.Industrial or Design.DevGrid) && kit.slab) wall = kit.slab;
+            if ((design is Design.Panels or Design.NeonGrid or Design.Shade or Design.Industrial or Design.DevGrid or Design.Hex or Design.Pixel or Design.Hearts
+                 or Design.Waves or Design.Retro or Design.Barn or Design.Streaks or Design.Lab or Design.Shapes or Design.Crater or Design.Furnace) && kit.slab) wall = kit.slab;
+            bool rock = design is Design.Cave or Design.Crystal or Design.Mine;
+            float walked = 0f; // how far round the room (waves roll on unbroken from wall to wall)
+            Vector3 runA = Vector3.zero, runB = Vector3.zero; // the straight run of wall being dressed
             var dr = new System.Random(v.stage * 131 + 7); // the look's own dice
             // rock: every corner of the wall pushed in by its own amount (the same for the panels
             // that share it, so the rock stays whole)
@@ -183,6 +257,7 @@ namespace VoidFlow
                 int cols = Mathf.Max(1, Mathf.CeilToInt(len / Panel)), rows = Mathf.Max(1, Mathf.CeilToInt(height / Panel));
                 Vector2 e = (b2 - a2) / len;
                 Vector3 inward = new Vector3(-e.y, 0f, e.x); // left of a counter-clockwise edge points in
+                runA = new Vector3(a2.x, 0f, a2.y); runB = new Vector3(b2.x, 0f, b2.y);
                 for (int c = 0; c < cols; c++, panelIndex++)
                 {
                     Vector2 p0 = a2 + (b2 - a2) * (c / (float)cols), p1 = a2 + (b2 - a2) * ((c + 1) / (float)cols);
@@ -193,7 +268,7 @@ namespace VoidFlow
                     {
                         float y0 = Mathf.Lerp(v.floor, v.ceiling, r / (float)rows), y1 = Mathf.Lerp(v.floor, v.ceiling, (r + 1) / (float)rows);
                         Vector3 w00 = f0.WithY(y0), w10 = f1.WithY(y0), w11 = f1.WithY(y1), w01 = f0.WithY(y1);
-                        if (design == Design.Cave)
+                        if (rock)
                             Quad(wall, w00 + inward * Bulge(w00), w10 + inward * Bulge(w10), w11 + inward * Bulge(w11), w01 + inward * Bulge(w01));
                         else
                             Quad(wall, w00, w10, w11, w01);
@@ -427,7 +502,7 @@ namespace VoidFlow
                         case Design.Backrooms:
                             Strip(trimA, f0.WithY(v.floor + 1.2f), f1.WithY(v.floor + 1.2f), inward, 2.4f); // a baseboard
                             break;
-                        default:
+                        case Design.Mixed:
                         {
                             // mixed: a band of colour, a light line and a pilaster every few bays
                             Strip(trimA, f0.WithY(v.floor + 14f), f1.WithY(v.floor + 14f), inward, 3f);
@@ -436,7 +511,11 @@ namespace VoidFlow
                                 Box(trimA, f0.WithY(v.floor + height * 0.5f) + inward * 1.65f, new Vector3(3.5f, height, 2.8f), Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg);
                             break;
                         }
+                        default:
+                            Themed(f0, f1, along, inward, pw, panelIndex, rows, walked);
+                            break;
                     }
+                    walked += pw;
                 }
             }
 
@@ -454,7 +533,8 @@ namespace VoidFlow
                         int gx = Mathf.RoundToInt((x - minX) / Panel), gz = Mathf.RoundToInt((z - minZ) / Panel);
                         // skylights (stripes), a grid of light panels (tech), or a plain roof
                         bool sky = (design == Design.Stripes && gz % 3 == 1) || (design == Design.Panels && (gx + gz) % 2 == 0)
-                                || (design == Design.Zen && (gx + gz) % 3 == 0) || (design == Design.Gallery && gz % 2 == 0);
+                                || (design == Design.Zen && (gx + gz) % 3 == 0) || (design == Design.Gallery && gz % 2 == 0)
+                                || (design == Design.Hex && (gx + gz) % 3 == 0) || (design == Design.Warehouse && gz % 3 == 1);
                         Quad(ceiling, new Vector3(x, v.ceiling, z), new Vector3(x, v.ceiling, z1), new Vector3(x1, v.ceiling, z1), new Vector3(x1, v.ceiling, z));
                         if (sky)
                         {
@@ -476,12 +556,21 @@ namespace VoidFlow
                         }
                         if (design == Design.Cave && dr.NextDouble() < 0.3)
                             Box(trimA, new Vector3((x + x1) * 0.5f, v.ceiling - 6f, (z + z1) * 0.5f), new Vector3(4f, 12f, 4f), (float)dr.NextDouble() * 90f);
+                        if (design == Design.Crystal && dr.NextDouble() < 0.3)
+                            for (int k = 0; k < 3; k++)
+                                Shard(k == 0 ? kit.glow : lightA, new Vector3(Mathf.Lerp(x, x1, (float)dr.NextDouble()), v.ceiling, Mathf.Lerp(z, z1, (float)dr.NextDouble())),
+                                    Vector3.down * 3f + new Vector3((float)dr.NextDouble() - 0.5f, 0f, (float)dr.NextDouble() - 0.5f), 8f + (float)dr.NextDouble() * 16f, 3f + (float)dr.NextDouble() * 3f);
+                        if ((design is Design.Hearts or Design.Retro) && gx % 2 == 0)
+                            Box(design == Design.Hearts ? lightA : kit.glow, new Vector3(x, v.ceiling - 0.8f, (z + z1) * 0.5f), new Vector3(1.4f, 0.4f, z1 - z), 0f);
+                        if (design == Design.Lab && gx % 3 == 0)
+                            Box(kit.glow, new Vector3(x, v.ceiling - 0.8f, (z + z1) * 0.5f), new Vector3(2f, 0.4f, z1 - z), 0f);
                         if (design == Design.NeonGrid && gx % 2 == 0)
                             Box(lightA, new Vector3(x, v.ceiling - 0.8f, (z + z1) * 0.5f), new Vector3(1.2f, 0.4f, z1 - z), 0f);
                         if (design == Design.DevGrid)
                             Box(trimA, new Vector3(x, v.ceiling - 0.8f, (z + z1) * 0.5f), new Vector3(1f, 0.4f, z1 - z), 0f);
                         // heavy beams under the roof (ribs) or a frame of beams (mixed)
-                        if ((design == Design.Ribs && gx % 2 == 0) || (design == Design.Mixed && gx % 3 == 0))
+                        if ((design == Design.Ribs && gx % 2 == 0) || (design == Design.Mixed && gx % 3 == 0) || design == Design.Barn
+                            || ((design is Design.Castle or Design.Warehouse or Design.Bunker or Design.Arches or Design.Library or Design.Mine or Design.Furnace) && gx % 2 == 0))
                             Box(trimA, new Vector3(x, v.ceiling - 2.75f, (z + z1) * 0.5f), new Vector3(3f, 5f, z1 - z), 0f); // (just under the roof, not in it)
                     }
                     // glowing grid lines on the floor every other panel
@@ -503,6 +592,512 @@ namespace VoidFlow
                 Quad(m, c - X + Y - Z, c + X + Y - Z, c + X + Y + Z, c - X + Y + Z);
                 Quad(m, c - X - Y - Z, c - X - Y + Z, c + X - Y + Z, c + X - Y - Z);
             }
+
+            // a pointed crystal: a square foot round `at`, tapering to a point `len` along `dir`
+            void Shard(Material m, Vector3 at, Vector3 dir, float len, float w)
+            {
+                dir.Normalize();
+                Vector3 s = Vector3.Cross(dir, Mathf.Abs(dir.y) > 0.9f ? Vector3.right : Vector3.up).normalized * (w * 0.5f);
+                Vector3 u = Vector3.Cross(dir, s).normalized * (w * 0.5f), tip = at + dir * len;
+                Vector3 a = at + s, b = at + u, c = at - s, d = at - u;
+                Motif(at);
+                Quad(m, a, b, tip, tip); Quad(m, b, c, tip, tip); Quad(m, c, d, tip, tip); Quad(m, d, a, tip, tip);
+                whole = 0;
+            }
+            // how far a motif round c may reach along the wall without running past the corner
+            // (past it the wall turns, and the motif would go on behind the next run)
+            float Fit(Vector3 c, Vector3 along, float r)
+            {
+                Vector3 flat = c.WithY(0f);
+                return Mathf.Min(r, Vector3.Dot(flat - runA, along) - 1f, Vector3.Dot(runB - flat, along) - 1f);
+            }
+            Vector3 OnWall(Vector3 c, Vector3 along, float ang, float r) => c + along * (Mathf.Cos(ang) * r) + Vector3.up * (Mathf.Sin(ang) * r);
+            // an outline of light on the wall round c (a polygon of `sides`)
+            void Ring(Material m, Vector3 c, Vector3 along, Vector3 inward, float r, int sides, float width, float turn = 0f)
+            {
+                r = Fit(c, along, r);
+                if (r < 3f) return;
+                width = Mathf.Min(width, r * 0.25f);
+                Motif(c + inward.normalized);
+                for (int k = 0; k < sides; k++)
+                    Strip(m, OnWall(c, along, turn + k * 2f * Mathf.PI / sides, r), OnWall(c, along, turn + (k + 1) * 2f * Mathf.PI / sides, r), inward, width);
+                whole = 0;
+            }
+            // a filled fan on the wall round c, from angle a0 to a1, `off` out from it
+            void Fan(Material m, Vector3 c, Vector3 along, Vector3 inward, float r, float a0, float a1, int steps, float off)
+            {
+                Vector3 o = inward * off;
+                r = Fit(c, along, r);
+                if (r < 2f) return;
+                Motif(c + inward.normalized);
+                for (int k = 0; k < steps; k++)
+                    Quad(m, OnWall(c, along, Mathf.Lerp(a0, a1, k / (float)steps), r) + o, OnWall(c, along, Mathf.Lerp(a0, a1, (k + 1) / (float)steps), r) + o, c + o, c + o);
+                whole = 0;
+            }
+            // a flat rectangle on the wall, from along-offsets s0..s1 of p and heights y0..y1
+            void Pane(Material m, Vector3 p, Vector3 along, Vector3 inward, float s0, float s1, float y0, float y1, float off)
+            {
+                Vector3 a = p + along * s0 + inward * off, b = p + along * s1 + inward * off;
+                Quad(m, a.WithY(y0), b.WithY(y0), b.WithY(y1), a.WithY(y1));
+            }
+            // a picture in squares of light, its top row first, its middle at c
+            void Pixels(Material m, Vector3 c, Vector3 along, Vector3 inward, string[] art, float px)
+            {
+                px = Mathf.Min(px, Fit(c, along, art[0].Length * px * 0.5f) * 2f / art[0].Length);
+                if (px < 0.8f) return;
+                float w = art[0].Length * px, tall = art.Length * px;
+                Motif(c + inward.normalized);
+                for (int r = 0; r < art.Length; r++)
+                    for (int k = 0; k < art[r].Length; k++)
+                        if (art[r][k] == '#')
+                        {
+                            float s0 = -w * 0.5f + k * px, y = c.y + tall * 0.5f - (r + 1) * px;
+                            Pane(m, c, along, inward, s0 + 0.15f, s0 + px - 0.15f, y + 0.15f, y + px - 0.15f, 0.7f);
+                        }
+                whole = 0;
+            }
+            // a pixel monster of its own: random, mirrored, with two eyes
+            string[] Monster()
+            {
+                var art = new string[7];
+                for (int r = 0; r < 7; r++)
+                {
+                    var row = new char[7];
+                    for (int k = 0; k < 4; k++)
+                    {
+                        bool on = r == 0 ? k == 1 || dr.NextDouble() < 0.3
+                                : r == 2 ? k != 2
+                                : r is 1 or 3 or 4 ? k > 0 || dr.NextDouble() < 0.5
+                                : dr.NextDouble() < 0.55;
+                        row[k] = row[6 - k] = on ? '#' : '.';
+                    }
+                    art[r] = new string(row);
+                }
+                return art;
+            }
+
+            // A zone's own dressing on one bay of wall (see Design); `round` is how far round the
+            // room the bay starts
+            void Themed(Vector3 f0, Vector3 f1, Vector3 along, Vector3 inward, float pw, int bay, int rows, float round)
+            {
+                float yaw = Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg; // a Box at this yaw: x into the room, z along the wall
+                Vector3 midc = (f0 + f1) * 0.5f;
+                float F(float a, float b) => a + (float)dr.NextDouble() * (b - a);
+                float top = v.openTop ? v.ceiling - 4f : v.ceiling - 6f;
+                // halls run hundreds of metres high and you see their walls from a hundred
+                // metres off or more: the motifs grow with the hall, the big ones spread over
+                // several bays
+                float S = Mathf.Clamp(height / 140f, 1f, 4f);
+                int every = Mathf.Max(1, Mathf.RoundToInt(S));
+                bool motif = bay % every == 0;
+                switch (design)
+                {
+                    case Design.Crystal:
+                    {
+                        // a cluster at the foot, now and then one up the wall, a vein of light
+                        Vector3 foot = Vector3.Lerp(f0, f1, F(0.2f, 0.8f)).WithY(v.floor) + inward * 6f;
+                        int n = 3 + dr.Next(4);
+                        for (int k = 0; k < n; k++)
+                            Shard(k % 2 == 0 ? lightA : kit.glow, foot + along * F(-6f, 6f), Vector3.up * 2f + inward * F(0f, 0.6f) + along * F(-0.9f, 0.9f), F(14f, 38f) * Mathf.Min(S, 2.5f), F(3f, 7f) * Mathf.Min(S, 2.5f));
+                        if (dr.NextDouble() < 0.5)
+                        {
+                            Vector3 at = Vector3.Lerp(f0, f1, F(0.2f, 0.8f)).WithY(v.floor + height * F(0.3f, 0.8f)) + inward * 6f;
+                            for (int k = 0; k < 3; k++)
+                                Shard(k == 0 ? kit.glow : lightA, at, inward * 2f + Vector3.up * F(-1f, 1f) + along * F(-1f, 1f), F(8f, 20f) * Mathf.Min(S, 1.6f), F(2f, 4.5f) * Mathf.Min(S, 2f));
+                        }
+                        float vy = v.floor + height * F(0.15f, 0.85f);
+                        Strip(kit.glow, f0.WithY(vy) + inward * 6.5f, f1.WithY(vy + F(-12f, 12f)) + inward * 6.5f, inward, 0.8f * S);
+                        break;
+                    }
+                    case Design.Castle:
+                    {
+                        // the wall walk and its battlements, arrow slits above and below it
+                        float walk = v.floor + Mathf.Min(height * 0.45f, 60f);
+                        Box(trimA, midc.WithY(walk - 1.5f) + inward * 3f, new Vector3(6f, 3f, pw), yaw);
+                        Strip(kit.glow, f0.WithY(walk - 3.4f) + inward * 5.5f, f1.WithY(walk - 3.4f) + inward * 5.5f, inward, 0.6f);
+                        for (int k = 0; k < 3; k++)
+                            Box(trimA, Vector3.Lerp(f0, f1, (k + 0.5f) / 3f).WithY(walk + 2.5f) + inward * 5.4f, new Vector3(1.2f, 5f, pw / 6f), yaw);
+                        foreach (float ys in new[] { v.floor + 14f, walk + 10f })
+                            for (int k = 0; k < 2; k++)
+                                Pane(lightA, Vector3.Lerp(f0, f1, (k + 0.5f) / 2f), along, inward, -0.8f * S, 0.8f * S, ys, ys + 7f * S, 0.4f);
+                        if (bay % 4 == 0)
+                        {
+                            // a tower, a torch on it and its own battlements up top
+                            Box(wall, f0.WithY(v.floor + height * 0.5f) + inward * 5f, new Vector3(10f, height, 12f), yaw);
+                            Box(kit.glow, f0.WithY(walk + 6f) + inward * 10.6f, new Vector3(1f, 2.2f, 1f), yaw);
+                            if (v.openTop)
+                                for (int k = -1; k <= 1; k += 2)
+                                    Box(wall, (f0 + along * (k * 4f)).WithY(v.ceiling + 2.5f) + inward * 5f, new Vector3(10f, 5f, 3f), yaw);
+                        }
+                        else if (bay % 4 == 2)
+                        {
+                            // a banner with a swallowtail
+                            Vector3 b = midc + inward * 0.9f;
+                            float y1 = top, y0 = Mathf.Max(walk + 8f, y1 - 26f * S);
+                            Pane(lightA, b, along, Vector3.zero, -3.5f, 3.5f, y0, y1, 0f);
+                            Quad(lightA, (b - along * 3.5f).WithY(y0), (b - along * 3.5f).WithY(y0 - 5f), b.WithY(y0), b.WithY(y0));
+                            Quad(lightA, b.WithY(y0), (b + along * 3.5f).WithY(y0 - 5f), (b + along * 3.5f).WithY(y0), (b + along * 3.5f).WithY(y0));
+                        }
+                        if (v.openTop)
+                            for (int k = 0; k < 3; k++) // the wall's own battlements, against the sky
+                                Box(wall, Vector3.Lerp(f0, f1, (k + 0.5f) / 3f).WithY(v.ceiling + 2.5f) + inward * 1.5f, new Vector3(3f, 5f, pw / 6f), yaw);
+                        break;
+                    }
+                    case Design.Hex:
+                    case Design.HexVines:
+                    {
+                        // a honeycomb of hexagons, a row to each panel, every other row shifted half a bay
+                        // (hexagons as wide as `every` bays, a row of them every `every` panels up)
+                        if (motif)
+                            for (int r = 0, n = 0; r < rows; r += every, n++)
+                            {
+                                Vector3 c = (f0 + along * (pw * every * (n % 2 == 0 ? 0.5f : 1f))).WithY(Mathf.Lerp(v.floor, v.ceiling, (r + every * 0.5f) / rows));
+                                int pick = bay / every + n;
+                                Ring(pick % 3 == 0 ? lightA : kit.glow, c, along, inward, 11f * S, 6, 1.2f * S, Mathf.PI / 6f);
+                                if (pick % 3 == 1) Fan(trimA, c, along, inward, 9.5f * S, 0f, 2f * Mathf.PI, 6, 0.4f);
+                            }
+                        if (design == Design.HexVines)
+                            for (int k = 0; k < 1; k++)
+                            {
+                                // vines hanging from the roof, leaves along them
+                                Vector3 at = Vector3.Lerp(f0, f1, F(0.1f, 0.9f)) + inward * 1.6f;
+                                float y1 = top, y0 = y1 - height * F(0.2f, 0.6f);
+                                Strip(trimA, at.WithY(y0), at.WithY(y1), inward, 0.9f * S);
+                                for (float y = y0 + 2f; y < y1; y += F(4f, 7f) * S)
+                                    Box(wall, at.WithY(y) + inward * 1.2f + along * F(-1.2f, 1.2f) * S, new Vector3(1.2f, F(1.5f, 2.5f) * S, F(2f, 3.2f) * S), yaw + F(-30f, 30f));
+                            }
+                        break;
+                    }
+                    case Design.Pixel:
+                    {
+                        // a monster of its own in every bay, a row of dots along the foot
+                        if (motif)
+                            foreach (float band in new[] { F(0.15f, 0.45f), F(0.55f, 0.85f) })
+                                Pixels(dr.NextDouble() < 0.5 ? kit.glow : lightA, midc.WithY(v.floor + height * band), along, inward, Monster(), 2.4f * S);
+                        for (int k = 0; k < 5; k++)
+                            Pane(kit.glow, Vector3.Lerp(f0, f1, (k + 0.5f) / 5f), along, inward, -0.9f, 0.9f, v.floor + 8f, v.floor + 8f + 1.8f * S, 0.7f);
+                        break;
+                    }
+                    case Design.Hearts:
+                    {
+                        // ribs of light round the tunnel, a heart here and there
+                        Strip(lightA, f0.WithY(v.floor), f0.WithY(v.ceiling), inward, 1.6f * S);
+                        if (bay % (2 * every) == every)
+                            Pixels(bay % (4 * every) == every ? kit.glow : lightA, midc.WithY(v.floor + height * F(0.25f, 0.75f)), along, inward, Heart, 2.4f * S);
+                        Strip(trimA, f0.WithY(v.floor + 10f), f1.WithY(v.floor + 10f), inward, 3f);
+                        break;
+                    }
+                    case Design.Waves:
+                    {
+                        // three waves of light rolling round the room, unbroken from wall to wall
+                        for (int w = 0; w < 3; w++)
+                        {
+                            float baseY = v.floor + height * (0.25f + 0.22f * w), amp = (7f + w * 2f) * S, wl = 110f + w * 25f, ph = w * 1.7f;
+                            for (int k = 0; k < 6; k++)
+                            {
+                                float s0 = round + pw * k / 6f, s1 = round + pw * (k + 1) / 6f;
+                                Strip(w == 1 ? lightA : kit.glow, Vector3.Lerp(f0, f1, k / 6f).WithY(baseY + amp * Mathf.Sin(s0 * 2f * Mathf.PI / wl + ph)),
+                                    Vector3.Lerp(f0, f1, (k + 1) / 6f).WithY(baseY + amp * Mathf.Sin(s1 * 2f * Mathf.PI / wl + ph)), inward, (w == 1 ? 2.6f : 1.4f) * S);
+                            }
+                        }
+                        break;
+                    }
+                    case Design.Retro:
+                    {
+                        // the stripes of a setting sun, further apart as they go down, a neon triangle every few bays
+                        float y = v.floor + height * 0.5f, gap = 1.5f * S;
+                        for (int k = 0; k < 8 && y > v.floor + 4f; k++, y -= gap + 1.4f * S, gap *= 1.35f)
+                            Strip(kit.glow, f0.WithY(y), f1.WithY(y), inward, 1.4f * S);
+                        if (bay % (3 * every) == 0)
+                            Ring(lightA, midc.WithY(v.floor + height * F(0.62f, 0.8f)), along, inward, 13f * S, 3, 1.5f * S, Mathf.PI / 2f);
+                        break;
+                    }
+                    case Design.Warehouse:
+                    {
+                        // a steel column, a tall window of many panes up high, crates at the foot
+                        Material frame = kit.slab ? kit.slab : trimA;
+                        Box(trimA, f0.WithY(v.floor + height * 0.5f) + inward * 1.5f, new Vector3(2.6f, height, 2.6f), yaw);
+                        float ya = v.floor + height * 0.42f, yb = Mathf.Min(ya + 42f, v.ceiling - 8f);
+                        if (yb - ya > 12f)
+                        {
+                            float s0 = pw * 0.18f, s1 = pw * 0.82f;
+                            Pane(lightA, f0, along, inward, s0, s1, ya, yb, 0.4f);
+                            for (int k = 0; k <= 3; k++)
+                                Strip(frame, (f0 + along * Mathf.Lerp(s0, s1, k / 3f)).WithY(ya), (f0 + along * Mathf.Lerp(s0, s1, k / 3f)).WithY(yb), inward * 1.6f, 0.9f);
+                            for (int k = 0; k <= 4; k++)
+                                Strip(frame, (f0 + along * s0).WithY(Mathf.Lerp(ya, yb, k / 4f)), (f0 + along * s1).WithY(Mathf.Lerp(ya, yb, k / 4f)), inward * 1.6f, 0.9f);
+                        }
+                        int crates = dr.Next(4);
+                        float cy = v.floor;
+                        for (int k = 0; k < crates; k++)
+                        {
+                            float sz = F(5f, 8f);
+                            Box(frame, Vector3.Lerp(f0, f1, F(0.3f, 0.7f)).WithY(cy + sz * 0.5f) + inward * (sz * 0.5f + 0.8f), new Vector3(sz, sz, sz), yaw + F(-15f, 15f));
+                            cy += sz;
+                        }
+                        break;
+                    }
+                    case Design.Barn:
+                    {
+                        // planks with battens, cross bracing down low, a rail, lanterns
+                        for (int k = 0; k < 4; k++)
+                            Strip(trimA, Vector3.Lerp(f0, f1, k / 4f).WithY(v.floor), Vector3.Lerp(f0, f1, k / 4f).WithY(v.ceiling), inward, 1.1f);
+                        float yb = v.floor + Mathf.Min(30f, height * 0.4f);
+                        Strip(trimA, f0.WithY(v.floor + 1f), f1.WithY(yb), inward * 1.6f, 1.6f);
+                        Strip(trimA, f0.WithY(yb), f1.WithY(v.floor + 1f), inward * 1.6f, 1.6f);
+                        Strip(trimA, f0.WithY(yb), f1.WithY(yb), inward * 1.6f, 2f);
+                        if (bay % 2 == 0)
+                            Box(kit.glow, f0.WithY(yb + 6f) + inward * 1.6f, new Vector3(1.2f, 2f, 1.2f), yaw);
+                        break;
+                    }
+                    case Design.Stadium:
+                    {
+                        // stepped stands round the foot, a checkered band above, floodlights
+                        for (int k = 0; k < 4; k++)
+                        {
+                            float st = Mathf.Min(S, 2f), hk = (k + 1) * 3f * st, inn = (12f - 3f * k) * st;
+                            Box(k % 2 == 0 ? trimA : wall, midc.WithY(v.floor + hk * 0.5f) + inward * (inn - 1.5f * st), new Vector3(3f * st, hk, pw), yaw);
+                            Strip(lightA, f0.WithY(v.floor + hk + 0.2f) + inward * (inn - 0.3f), f1.WithY(v.floor + hk + 0.2f) + inward * (inn - 0.3f), Vector3.up, 0.5f);
+                        }
+                        // the tiers of the stand, each with its checkered band and its rail of light
+                        float sq = pw / 6f;
+                        foreach (float at in new[] { 0.22f, 0.45f, 0.68f })
+                        {
+                            float yb = v.floor + height * at;
+                            Box(trimA, midc.WithY(yb - 2f * S) + inward * (3f * S), new Vector3(6f * S, 4f * S, pw), yaw);
+                            for (int k = 0; k < 6; k++)
+                                for (int r = 0; r < 2; r++)
+                                    Pane((k + r) % 2 == 0 ? kit.glow : wall, Vector3.Lerp(f0, f1, k / 6f), along, inward, 0f, sq, yb + r * sq, yb + (r + 1) * sq, 0.6f);
+                            Strip(lightA, f0.WithY(yb - 4f * S) + inward * (6f * S), f1.WithY(yb - 4f * S) + inward * (6f * S), inward, 1f * S);
+                        }
+                        if (bay % 3 == 0) // floodlights along the top
+                        {
+                            Box(trimA, f0.WithY(top - 10f * S) + inward * (3f * S), new Vector3(6f * S, 1.2f * S, 1.2f * S), yaw);
+                            Box(lightA, f0.WithY(top - 8f * S) + inward * (6f * S), new Vector3(2f, 5f, 10f) * S, yaw);
+                        }
+                        break;
+                    }
+                    case Design.Streaks:
+                    {
+                        // streaks of light at speed
+                        for (int k = 0; k < 6; k++)
+                        {
+                            float a = F(0f, 0.6f), b = Mathf.Min(1f, a + F(0.25f, 0.9f)), y = v.floor + F(6f, height - 6f);
+                            Strip(k % 2 == 0 ? kit.glow : lightA, Vector3.Lerp(f0, f1, a).WithY(y), Vector3.Lerp(f0, f1, b).WithY(y), inward, F(0.6f, 2.4f) * S);
+                        }
+                        break;
+                    }
+                    case Design.Lab:
+                    {
+                        // the red line round the room, rising and falling like a circuit, a green one under it
+                        float y = v.floor + Mathf.Min(height * 0.3f, 40f);
+                        Strip(kit.glow, f0.WithY(y), f1.WithY(y), inward, 2.4f * S);
+                        Strip(lightA, f0.WithY(y - 4f * S), f1.WithY(y - 4f * S), inward, 0.8f * S);
+                        if (bay % 3 == 0)
+                        {
+                            Strip(kit.glow, midc.WithY(y), midc.WithY(v.ceiling), inward, 2.4f * S);
+                            Fan(kit.glow, midc.WithY(y), along, inward, 2.8f * S, 0f, 2f * Mathf.PI, 8, 0.8f);
+                        }
+                        if (bay % 5 == 2) Strip(kit.glow, midc.WithY(v.floor), midc.WithY(y), inward, 2.4f * S);
+                        break;
+                    }
+                    case Design.Bunker:
+                    {
+                        // buttresses, a slit window high up, caged lamps, the joints of the pour
+                        if (bay % 2 == 0)
+                        {
+                            Box(wall, f0.WithY(v.floor + height * 0.25f) + inward * 3f, new Vector3(6f, height * 0.5f, 5f), yaw);
+                            Box(wall, f0.WithY(v.floor + height * 0.75f) + inward * 2f, new Vector3(4f, height * 0.5f, 4f), yaw);
+                        }
+                        for (float y = v.floor + 60f * S; y < v.ceiling - 20f * S; y += 90f * S)
+                            Pane(lightA, f0, along, inward, pw * 0.2f, pw * 0.8f, y, y + 2.5f * S, 0.4f);
+                        for (float y = v.floor + 12f; y < v.ceiling - 10f; y += 45f * S)
+                        {
+                            Box(kit.glow, midc.WithY(y) + inward * 0.9f * S, new Vector3(1.6f, 1.6f, 1.6f) * S, yaw);
+                            Box(trimA, midc.WithY(y + 1.1f * S) + inward * 0.9f * S, new Vector3(2f, 0.4f, 2f) * S, yaw);
+                        }
+                        for (float y = v.floor + 20f * S; y < v.ceiling - 20f; y += 20f * S)
+                            Strip(trimA, f0.WithY(y), f1.WithY(y), inward * 0.5f, 0.5f);
+                        break;
+                    }
+                    case Design.Shapes:
+                    {
+                        // a great neon shape in every bay
+                        if (!motif) break;
+                        int pick = bay / every;
+                        float w = 1.4f * S;
+                        foreach (float band in new[] { F(0.15f, 0.45f), F(0.55f, 0.85f) })
+                        {
+                            Vector3 c = midc.WithY(v.floor + height * band);
+                            Material m = pick % 2 == 0 ? kit.glow : lightA;
+                            switch (pick++ % 4)
+                            {
+                                case 0: Ring(m, c, along, inward, 11f * S, 20, w); break;
+                                case 1: Ring(m, c, along, inward, 12f * S, 3, w, Mathf.PI / 2f); break;
+                                case 2: Ring(m, c, along, inward, 11f * S, 4, w, Mathf.PI / 4f); break;
+                                default: Ring(m, c, along, inward, 12f * S, 20, w); Ring(kit.glow, c, along, inward, 6.5f * S, 20, w); break;
+                            }
+                        }
+                        break;
+                    }
+                    case Design.Arches:
+                    {
+                        // an arcade: a pilaster each side, a round arch between, a cornice over all
+                        // (tier upon tier of them up the whole wall, like the galleries round a great court)
+                        float r = pw * 0.5f - 2f, tier = Mathf.Clamp(height / 6f, r * 2.6f + 12f, 110f);
+                        for (float y0 = v.floor; y0 + tier <= v.ceiling - 4f; y0 += tier)
+                        {
+                            float spring = y0 + tier - r - 9f;
+                            Box(trimA, f0.WithY((y0 + spring) * 0.5f) + inward * 1.5f, new Vector3(3f, spring - y0, 4f), yaw);
+                            Vector3 c = midc.WithY(spring);
+                            for (int k = 0; k < 10; k++)
+                                Strip(trimA, OnWall(c, along, Mathf.PI * k / 10f, r), OnWall(c, along, Mathf.PI * (k + 1) / 10f, r), inward * 2.4f, 2.6f);
+                            Pane(lightA, f0, along, inward, pw * 0.5f - r + 1.5f, pw * 0.5f + r - 1.5f, y0 + 3f, spring, 0.5f);
+                            Fan(lightA, c, along, inward, r - 1.5f, 0f, Mathf.PI, 10, 0.5f);
+                            Box(trimA, midc.WithY(y0 + tier - 3f) + inward * 2f, new Vector3(4f, 3f, pw), yaw); // the gallery's floor
+                            Strip(kit.glow, f0.WithY(y0 + tier - 5f) + inward * 3.5f, f1.WithY(y0 + tier - 5f) + inward * 3.5f, inward, 1f);
+                        }
+                        break;
+                    }
+                    case Design.Stepped:
+                    {
+                        // ledges stepping out further the lower they are, bands of colour between
+                        int k = 0;
+                        for (float y = v.floor + 14f * S; y < v.ceiling - 6f; y += 14f * S, k++)
+                        {
+                            float depth = 2f + 7f * (1f - (y - v.floor) / height);
+                            Box(k % 2 == 0 ? trimA : wall, midc.WithY(y) + inward * (depth * S * 0.5f), new Vector3(depth * S, 2.5f * S, pw), yaw);
+                            Strip(k % 2 == 0 ? wall : trimA, f0.WithY(y - 6f * S), f1.WithY(y - 6f * S), inward, 5f * S);
+                        }
+                        break;
+                    }
+                    case Design.Nautical:
+                    {
+                        // portholes, a lifebuoy now and then, a wave band along the foot
+                        if (motif)
+                            foreach (float y in new[] { v.floor + height * 0.35f, v.floor + height * 0.65f })
+                            {
+                                Vector3 c = midc.WithY(y);
+                                Ring(trimA, c, along, inward, 4.4f * S, 8, 1.4f * S, Mathf.PI / 8f);
+                                Fan(lightA, c, along, inward, 3.8f * S, 0f, 2f * Mathf.PI, 8, 0.4f);
+                            }
+                        if (bay % (4 * every) == every)
+                            Ring(kit.glow, midc.WithY(v.floor + height * 0.18f), along, inward, 3.6f * S, 12, 2.2f * S);
+                        for (int k = 0; k < 6; k++)
+                        {
+                            float s0 = round + pw * k / 6f, s1 = round + pw * (k + 1) / 6f;
+                            Strip(trimA, Vector3.Lerp(f0, f1, k / 6f).WithY(v.floor + 6f * S + 2.5f * S * Mathf.Sin(s0 * 0.12f / S)), Vector3.Lerp(f0, f1, (k + 1) / 6f).WithY(v.floor + 6f * S + 2.5f * S * Mathf.Sin(s1 * 0.12f / S)), inward, 3f * S);
+                        }
+                        break;
+                    }
+                    case Design.City:
+                    {
+                        // two buildings to a bay, their windows lit floor by floor
+                        for (int b = 0; b < 2; b++)
+                        {
+                            float s0 = pw * b * 0.5f + 0.8f, s1 = pw * (b + 1) * 0.5f - 0.8f, bh = height * F(0.3f, 0.85f), depth = F(3f, 10f);
+                            Vector3 foot = f0 + along * ((s0 + s1) * 0.5f);
+                            Box(b % 2 == 0 ? wall : trimA, foot.WithY(v.floor + bh * 0.5f) + inward * (depth * 0.5f), new Vector3(depth, bh, s1 - s0), yaw);
+                            for (float y = v.floor + 6f * S; y < v.floor + bh - 4f * S; y += 6f * S)
+                                for (int k = 0; k < 3; k++)
+                                    if (dr.NextDouble() < 0.55)
+                                        Strip(dr.NextDouble() < 0.7 ? kit.glow : lightA, (f0 + along * Mathf.Lerp(s0 + 1f, s1 - 1f, k / 3f + 0.03f)).WithY(y) + inward * depth,
+                                            (f0 + along * Mathf.Lerp(s0 + 1f, s1 - 1f, (k + 1) / 3f - 0.03f)).WithY(y) + inward * depth, inward, 2f * S);
+                            Box(lightA, foot.WithY(v.floor + bh + 3f) + inward * (depth * 0.5f), new Vector3(0.6f, 6f, 0.6f), yaw); // a mast
+                        }
+                        break;
+                    }
+                    case Design.Library:
+                    {
+                        // shelves up the walls, every shelf full of books
+                        float shelfTop = v.floor + height * 0.45f;
+                        Material[] spines = { wall, trimA, kit.slab ? kit.slab : wall, kit.floor ? kit.floor : trimA };
+                        for (float y = v.floor + 2f; y < shelfTop; y += 5f * S)
+                        {
+                            Box(trimA, midc.WithY(y) + inward * 1.5f, new Vector3(3f, 0.6f * S, pw), yaw);
+                            for (float s = 0.5f; s < pw - 0.6f;)
+                            {
+                                float w = Mathf.Min(F(1.8f, 4.5f) * Mathf.Sqrt(S), pw - 0.5f - s);
+                                Pane(spines[dr.Next(spines.Length)], f0, along, inward, s + 0.1f, s + w - 0.1f, y + 0.3f * S, y + F(3f, 4.4f) * S, 1.4f);
+                                s += w;
+                            }
+                        }
+                        Strip(kit.glow, f0.WithY(shelfTop + 2f * S), f1.WithY(shelfTop + 2f * S), inward * 2f, 1.2f * S);
+                        break;
+                    }
+                    case Design.Mine:
+                    {
+                        // timber frames propping the rock, lanterns hung on them
+                        // (level upon level of them, the way a mine goes down)
+                        if (bay % 2 == 0)
+                        {
+                            float fh = 40f * Mathf.Sqrt(S);
+                            for (float y0 = v.floor; y0 + fh < v.ceiling - 6f; y0 += fh + 12f * S)
+                            {
+                                foreach (float s in new[] { 2f, pw - 2f })
+                                {
+                                    Box(trimA, (f0 + along * s).WithY(y0 + fh * 0.5f) + inward * 8f, new Vector3(2.2f * Mathf.Sqrt(S), fh, 2.2f * Mathf.Sqrt(S)), yaw);
+                                    Box(kit.glow, (f0 + along * s).WithY(y0 + fh - 8f) + inward * 10f, new Vector3(1.2f, 1.8f, 1.2f) * Mathf.Sqrt(S), yaw);
+                                }
+                                Box(trimA, midc.WithY(y0 + fh) + inward * 8f, new Vector3(2.6f, 2.6f, pw) * 1f, yaw);
+                                Box(trimA, midc.WithY(y0 + fh + 1.6f) + inward * 9f, new Vector3(9f, 0.8f, pw), yaw); // the level's boards
+                            }
+                        }
+                        break;
+                    }
+                    case Design.Crater:
+                    {
+                        // craters pocking the walls, boulders round the foot
+                        int n = dr.Next(2, 5);
+                        for (int k = 0; k < n; k++)
+                        {
+                            Vector3 c = Vector3.Lerp(f0, f1, F(0.25f, 0.75f)).WithY(v.floor + height * F(0.15f, 0.85f));
+                            float r = F(4f, 10f) * S;
+                            Ring(trimA, c, along, inward * 1.5f, r, 12, 1.8f * S);
+                            Fan(kit.floor ? kit.floor : trimA, c, along, inward, r - 0.6f, 0f, 2f * Mathf.PI, 12, 0.4f);
+                            if (dr.NextDouble() < 0.3) Ring(kit.glow, c, along, inward * 2f, r * 0.4f, 12, 0.6f * S);
+                        }
+                        if (dr.NextDouble() < 0.6)
+                        {
+                            float sz = F(5f, 14f) * S;
+                            Box(wall, Vector3.Lerp(f0, f1, F(0.2f, 0.8f)).WithY(v.floor + sz * 0.35f) + inward * (sz * 0.5f + 1f), new Vector3(sz, sz * 0.7f, sz * F(0.8f, 1.3f)), F(0f, 90f));
+                        }
+                        break;
+                    }
+                    case Design.Furnace:
+                    {
+                        // a furnace mouth glowing at the foot of every bay, chimney ducts between, a band of grating
+                        float s0 = pw * 0.28f, s1 = pw * 0.72f, ym = v.floor + 12f * S, half = (s1 - s0) * 0.5f;
+                        Pane(lightA, f0, along, inward, s0, s1, v.floor + 2f, ym, 0.4f);
+                        Fan(lightA, (f0 + along * (s0 + half)).WithY(ym), along, inward, half, 0f, Mathf.PI, 8, 0.4f);
+                        Strip(trimA, (f0 + along * (s0 - 1f)).WithY(v.floor + 2f), (f0 + along * (s0 - 1f)).WithY(ym), inward * 1.6f, 2f);
+                        Strip(trimA, (f0 + along * (s1 + 1f)).WithY(v.floor + 2f), (f0 + along * (s1 + 1f)).WithY(ym), inward * 1.6f, 2f);
+                        Strip(trimA, (f0 + along * (s0 - 2f)).WithY(ym + half + 2f), (f0 + along * (s1 + 2f)).WithY(ym + half + 2f), inward * 1.6f, 2.5f);
+                        if (bay % 2 == 0)
+                        {
+                            Box(trimA, f0.WithY(v.floor + height * 0.5f) + inward * 2.5f, new Vector3(4.5f, height, 4.5f), yaw);
+                            for (float y = v.floor + 25f * S; y < v.ceiling - 5f; y += 25f * S)
+                                Box(kit.glow, f0.WithY(y) + inward * 2.5f, new Vector3(5.2f, 1f * S, 5.2f), yaw);
+                        }
+                        Strip(trimA, f0.WithY(v.floor + height * 0.5f), f1.WithY(v.floor + height * 0.5f), inward, 5f);
+                        break;
+                    }
+                    case Design.Banners:
+                    {
+                        // a long flag down the wall in every bay, a stone band along the foot
+                        Vector3 b = midc + inward * 0.9f;
+                        float y1 = top, y0 = Mathf.Max(v.floor + 20f, y1 - 34f * S), bw = Mathf.Min(4f * S, pw * 0.4f);
+                        Material m = bay % 2 == 0 ? kit.glow : lightA;
+                        Pane(m, b, along, Vector3.zero, -bw, bw, y0, y1, 0f);
+                        Quad(m, (b - along * bw).WithY(y0), (b - along * bw).WithY(y0 - 1.5f * bw), b.WithY(y0), b.WithY(y0));
+                        Quad(m, b.WithY(y0), (b + along * bw).WithY(y0 - 1.5f * bw), (b + along * bw).WithY(y0), (b + along * bw).WithY(y0));
+                        Box(trimA, b.WithY(y1 + 0.6f), new Vector3(1f, 1f, bw * 2.5f), yaw);
+                        Strip(trimA, f0.WithY(v.floor + 6f), f1.WithY(v.floor + 6f), inward, 6f);
+                        break;
+                    }
+                }
+            }
+
             bool ClearAcross(Vector3 p, float r) // nothing of the course anywhere above or below
             {
                 foreach (var c in v.course) { float dx = c.x - p.x, dz = c.z - p.z; if (dx * dx + dz * dz < r * r) return false; }

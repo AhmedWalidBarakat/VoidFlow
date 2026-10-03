@@ -74,15 +74,16 @@ namespace VoidFlow
             }
             // Forearm, glove and strap on the same bones
             Skinned(t, "ArmSkin", Jacket(rig), armSkin, arm);
-            // The sleeve's rolled elastic cuff, closing the gap between it and the glove
+            // The sleeve's hem: a snug band of the same fabric over the end of the sleeve and the
+            // top of the glove's wrist, closing the opening between them
             var (cuffAt, crx, crz) = SleeveEnd(rig.skin);
             var ring = new GameObject("JacketCuff");
             ring.layer = Layer;
             ring.transform.SetParent(t, false);
-            ring.transform.localPosition = cuffAt;
-            ring.AddComponent<MeshFilter>().sharedMesh = HandFit.Loop(crx + 0.0055f, crz + 0.0055f, 0.0068f, 1.2f);
+            ring.transform.localPosition = cuffAt + Vector3.down * 0.006f;
+            ring.AddComponent<MeshFilter>().sharedMesh = HandFit.Loop(crx + 0.0068f, crz + 0.0068f, 0.0042f, 3.6f, 48, 12);
             var cr = ring.AddComponent<MeshRenderer>();
-            cr.sharedMaterial = jacketCuff;
+            cr.sharedMaterial = armSkin;
             cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             Skinned(t, "GloveBlock", rig.glove, glove, arm);
             Skinned(t, "GloveStrap", rig.strap, cuff, arm);
@@ -103,7 +104,10 @@ namespace VoidFlow
         }
 
         // The forearm made into a jacket sleeve: puffed out a little all round, and more at the
-        // cuff where it meets the glove, so the glove disappears into it
+        // cuff where it meets the glove, so the glove disappears into it. Its far end (the
+        // baked arm stops short of the elbow, rounded off) is drawn out into a long sleeve
+        // widening toward the elbow, so it runs on off the bottom of the screen like a real
+        // arm's and is never seen to end
         static readonly Dictionary<ArmRig, Mesh> jackets = new();
         static Mesh Jacket(ArmRig rig)
         {
@@ -112,12 +116,15 @@ namespace VoidFlow
             mesh.name = "Jacket";
             var v = mesh.vertices;
             var n = mesh.normals;
-            float top = float.MinValue;
-            foreach (var p in v) top = Mathf.Max(top, p.y);
+            float top = float.MinValue, bottom = float.MaxValue;
+            foreach (var p in v) { top = Mathf.Max(top, p.y); bottom = Mathf.Min(bottom, p.y); }
+            const float Tail = 0.12f, Reach = 0.3f;
             for (int i = 0; i < v.Length; i++)
             {
                 float cuff = Mathf.Clamp01(1f - (top - v[i].y) / 0.03f);
-                v[i] += n[i] * (0.006f + 0.005f * cuff);
+                float back = Mathf.Clamp01(1f - (v[i].y - bottom) / Tail); // 1 at the far end
+                v[i] += n[i] * (0.006f + 0.005f * cuff + 0.004f * back);
+                v[i].y -= Reach * back * back * back;
             }
             mesh.vertices = v;
             mesh.RecalculateBounds();
