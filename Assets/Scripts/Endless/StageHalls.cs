@@ -13,6 +13,23 @@ namespace VoidFlow
     // local.
     public static class StageHalls
     {
+        // The halls' architecture, each zone in its own (after the looks of the maps):
+        //  - Stripes: utopia's halls. Bevelled lower walls, long bands of the zone's colours
+        //    running round the room, bright window strips, skylights in the roof
+        //  - Ribs: cathedrals and temples. Pilasters up every other bay, a dark band low down,
+        //    heavy beams under the roof
+        //  - Panels: labs and tech. Recessed wall panels outlined in glowing seams, a grid of
+        //    light panels in the ceiling
+        //  - Mixed: bands, pilasters and windows together, for the rest
+        public enum Design { Stripes, Ribs, Panels, Mixed }
+
+        public static Design DesignFor(SceneryStyle style, int stage) => style switch
+        {
+            SceneryStyle.Gallery or SceneryStyle.Sunset or SceneryStyle.Candy or SceneryStyle.Toy or SceneryStyle.Palace => Design.Stripes,
+            SceneryStyle.Cathedral or SceneryStyle.Temple or SceneryStyle.Library or SceneryStyle.Mine or SceneryStyle.Grotto => Design.Ribs,
+            SceneryStyle.Lab or SceneryStyle.Synth or SceneryStyle.Wire or SceneryStyle.Forge or SceneryStyle.Rings => Design.Panels,
+            _ => (Design)((stage * 7 + 3) % 4),
+        };
         public class Volume
         {
             public int stage;
@@ -21,6 +38,7 @@ namespace VoidFlow
             public bool openTop;
             public BiomeKit kit;
             public List<Vector3> course;    // a sample of the stage's riding lines and flights (set dressing keeps clear of it)
+            public Design design;           // how its walls and roof are shaped and lit
 
             public bool Contains(Vector3 p, float inset)
             {
@@ -97,38 +115,99 @@ namespace VoidFlow
             foreach (var p in o) center += p;
             center /= o.Count;
 
-            // Walls, panel by panel, with glowing seams at the floor and ceiling, pilasters of
-            // light every few panels, and light panels along the middle
+            // Walls, panel by panel, in the zone's design (see Design), with glowing seams where
+            // they meet the floor and the roof
+            Material trimA = kit.accent ? kit.accent : (kit.slab ? kit.slab : wall);
+            Material lightA = kit.glowAlt ? kit.glowAlt : kit.glow;
+            var design = v.design;
             int panelIndex = 0;
+            float height = v.ceiling - v.floor;
             for (int i = 0; i < o.Count; i++)
             {
                 Vector2 a2 = o[i], b2 = o[(i + 1) % o.Count];
                 float len = Vector2.Distance(a2, b2);
-                int cols = Mathf.Max(1, Mathf.CeilToInt(len / Panel)), rows = Mathf.Max(1, Mathf.CeilToInt((v.ceiling - v.floor) / Panel));
+                int cols = Mathf.Max(1, Mathf.CeilToInt(len / Panel)), rows = Mathf.Max(1, Mathf.CeilToInt(height / Panel));
                 Vector2 e = (b2 - a2) / len;
                 Vector3 inward = new Vector3(-e.y, 0f, e.x); // left of a counter-clockwise edge points in
                 for (int c = 0; c < cols; c++, panelIndex++)
                 {
                     Vector2 p0 = a2 + (b2 - a2) * (c / (float)cols), p1 = a2 + (b2 - a2) * ((c + 1) / (float)cols);
+                    Vector3 f0 = new Vector3(p0.x, 0f, p0.y), f1 = new Vector3(p1.x, 0f, p1.y);
+                    Vector3 along = (f1 - f0).normalized;
+                    float pw = Vector3.Distance(f0, f1);
                     for (int r = 0; r < rows; r++)
                     {
                         float y0 = Mathf.Lerp(v.floor, v.ceiling, r / (float)rows), y1 = Mathf.Lerp(v.floor, v.ceiling, (r + 1) / (float)rows);
-                        Quad(wall, new Vector3(p0.x, y0, p0.y), new Vector3(p1.x, y0, p1.y), new Vector3(p1.x, y1, p1.y), new Vector3(p0.x, y1, p0.y));
-                        // light panels in a band round the middle of the hall
-                        if (r == rows / 2 && panelIndex % 3 == 1)
+                        Quad(wall, f0.WithY(y0), f1.WithY(y0), f1.WithY(y1), f0.WithY(y1));
+                        if (design == Design.Panels)
                         {
-                            Vector3 m0 = new Vector3(p0.x, 0f, p0.y), m1 = new Vector3(p1.x, 0f, p1.y), d = (m1 - m0) * 0.2f;
-                            float ya = Mathf.Lerp(y0, y1, 0.2f), yb = Mathf.Lerp(y0, y1, 0.8f);
+                            // a recessed panel outlined in light
+                            Vector3 m0 = f0 + along * (pw * 0.12f), m1 = f1 - along * (pw * 0.12f);
+                            float ya = Mathf.Lerp(y0, y1, 0.12f), yb = Mathf.Lerp(y0, y1, 0.88f);
+                            Vector3 off = inward * 0.35f;
+                            Quad(trimA, m0.WithY(ya) + off, m1.WithY(ya) + off, m1.WithY(yb) + off, m0.WithY(yb) + off);
+                            Strip(kit.glow, m0.WithY(ya), m1.WithY(ya), inward, 0.5f);
+                            Strip(kit.glow, m0.WithY(yb), m1.WithY(yb), inward, 0.5f);
+                            Strip(kit.glow, m0.WithY(ya), m0.WithY(yb), inward, 0.5f);
+                            Strip(kit.glow, m1.WithY(ya), m1.WithY(yb), inward, 0.5f);
+                        }
+                        // windows: tall bright strips in a band round the middle of the room
+                        bool window = (design == Design.Stripes && panelIndex % 3 == 1 && r == rows / 2)
+                                   || (design == Design.Mixed && panelIndex % 5 == 2 && r == rows / 2);
+                        if (window)
+                        {
+                            Vector3 m0 = f0 + along * (pw * 0.22f), m1 = f1 - along * (pw * 0.22f);
+                            float ya = Mathf.Lerp(y0, y1, 0.1f), yb = Mathf.Lerp(y0, y1, 0.92f);
                             Vector3 off = inward * 0.3f;
-                            Quad(kit.glowAlt ? kit.glowAlt : kit.glow, (m0 + d).WithY(ya) + off, (m1 - d).WithY(ya) + off, (m1 - d).WithY(yb) + off, (m0 + d).WithY(yb) + off);
+                            Quad(lightA, m0.WithY(ya) + off, m1.WithY(ya) + off, m1.WithY(yb) + off, m0.WithY(yb) + off);
+                            Strip(trimA, m0.WithY(ya - 0.6f), m1.WithY(ya - 0.6f), inward, 1.2f);
+                            Strip(trimA, m0.WithY(yb + 0.6f), m1.WithY(yb + 0.6f), inward, 1.2f);
                         }
                     }
-                    Vector3 f0 = new Vector3(p0.x, 0f, p0.y), f1 = new Vector3(p1.x, 0f, p1.y);
+                    // seams where the walls meet the floor and the roof
                     Strip(kit.glow, f0.WithY(v.floor + 1.5f), f1.WithY(v.floor + 1.5f), inward, 1.2f);
                     if (!v.openTop) Strip(kit.glow, f0.WithY(v.ceiling - 1.5f), f1.WithY(v.ceiling - 1.5f), inward, 1.2f);
-                    if (panelIndex % 4 == 0)
-                        for (int r = 0; r < rows; r++)
-                            Strip(kit.glow, f0.WithY(Mathf.Lerp(v.floor, v.ceiling, r / (float)rows)), f0.WithY(Mathf.Lerp(v.floor, v.ceiling, (r + 1) / (float)rows)), inward, 1.6f);
+                    switch (design)
+                    {
+                        case Design.Stripes:
+                        {
+                            // a bevel along the foot of the wall, and bands of colour above it and
+                            // under the roof, like utopia's halls
+                            const float BevelUp = 12f, BevelIn = 8f;
+                            Quad(wall, f0.WithY(v.floor + BevelUp), f1.WithY(v.floor + BevelUp), (f1 + inward * BevelIn).WithY(v.floor), (f0 + inward * BevelIn).WithY(v.floor));
+                            Strip(trimA, f0.WithY(v.floor + BevelUp + 4f), f1.WithY(v.floor + BevelUp + 4f), inward, 3f);
+                            Strip(kit.glow, f0.WithY(v.floor + BevelUp + 7f), f1.WithY(v.floor + BevelUp + 7f), inward, 1.2f);
+                            Strip(lightA, f0.WithY(v.floor + BevelUp + 9.5f), f1.WithY(v.floor + BevelUp + 9.5f), inward, 2f);
+                            if (!v.openTop)
+                            {
+                                Strip(trimA, f0.WithY(v.ceiling - 12f), f1.WithY(v.ceiling - 12f), inward, 3f);
+                                Strip(kit.glow, f0.WithY(v.ceiling - 9f), f1.WithY(v.ceiling - 9f), inward, 1.2f);
+                            }
+                            break;
+                        }
+                        case Design.Ribs:
+                        {
+                            // pilasters up every other bay, a dark band low down
+                            Strip(trimA, f0.WithY(v.floor + 9f), f1.WithY(v.floor + 9f), inward, 4f);
+                            if (panelIndex % 2 == 0)
+                            {
+                                Box(trimA, f0.WithY(v.floor + height * 0.5f) + inward * 1.6f, new Vector3(4f, height, 3.2f), Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg);
+                                Strip(kit.glow, f0.WithY(v.floor + 3f) + inward * 1.7f - along * 2.1f, f0.WithY(v.floor + 3f) + inward * 1.7f + along * 2.1f, inward, 0.8f);
+                            }
+                            break;
+                        }
+                        case Design.Panels:
+                            break;
+                        default:
+                        {
+                            // mixed: a band of colour, a light line and a pilaster every few bays
+                            Strip(trimA, f0.WithY(v.floor + 14f), f1.WithY(v.floor + 14f), inward, 3f);
+                            Strip(lightA, f0.WithY(v.floor + 17.5f), f1.WithY(v.floor + 17.5f), inward, 1.2f);
+                            if (panelIndex % 4 == 0)
+                                Box(trimA, f0.WithY(v.floor + height * 0.5f) + inward * 1.4f, new Vector3(3.5f, height, 2.8f), Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg);
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -141,7 +220,21 @@ namespace VoidFlow
                     float x1 = Mathf.Min(x + Panel, maxX), z1 = Mathf.Min(z + Panel, maxZ);
                     if (!Inside(o, new Vector2((x + x1) * 0.5f, (z + z1) * 0.5f))) continue;
                     Quad(floor, new Vector3(x, v.floor, z), new Vector3(x1, v.floor, z), new Vector3(x1, v.floor, z1), new Vector3(x, v.floor, z1));
-                    if (!v.openTop) Quad(ceiling, new Vector3(x, v.ceiling, z), new Vector3(x, v.ceiling, z1), new Vector3(x1, v.ceiling, z1), new Vector3(x1, v.ceiling, z));
+                    if (!v.openTop)
+                    {
+                        int gx = Mathf.RoundToInt((x - minX) / Panel), gz = Mathf.RoundToInt((z - minZ) / Panel);
+                        // skylights (stripes), a grid of light panels (tech), or a plain roof
+                        bool sky = (design == Design.Stripes && gz % 3 == 1) || (design == Design.Panels && (gx + gz) % 2 == 0);
+                        Quad(ceiling, new Vector3(x, v.ceiling, z), new Vector3(x, v.ceiling, z1), new Vector3(x1, v.ceiling, z1), new Vector3(x1, v.ceiling, z));
+                        if (sky)
+                        {
+                            float ix = (x1 - x) * 0.18f, iz = (z1 - z) * 0.18f, y = v.ceiling - 0.4f;
+                            Quad(lightA, new Vector3(x + ix, y, z + iz), new Vector3(x + ix, y, z1 - iz), new Vector3(x1 - ix, y, z1 - iz), new Vector3(x1 - ix, y, z + iz));
+                        }
+                        // heavy beams under the roof (ribs) or a frame of beams (mixed)
+                        if ((design == Design.Ribs && gx % 2 == 0) || (design == Design.Mixed && gx % 3 == 0))
+                            Box(trimA, new Vector3(x, v.ceiling - 2.5f, (z + z1) * 0.5f), new Vector3(3f, 5f, z1 - z), 0f);
+                    }
                     // glowing grid lines on the floor every other panel
                     if (Mathf.RoundToInt((x - minX) / Panel) % 2 == 0)
                         Strip(kit.glow, new Vector3(x, v.floor, z), new Vector3(x, v.floor, z1), Vector3.up, 0.6f);
@@ -251,7 +344,7 @@ namespace VoidFlow
                 var r = part.AddComponent<MeshRenderer>();
                 r.sharedMaterial = m;
                 r.shadowCastingMode = ShadowCastingMode.Off;
-                r.receiveShadows = false;
+                r.receiveShadows = m != kit.glow && m != kit.glowAlt; // the walls catch the ramps' shadows
             }
             return go;
         }

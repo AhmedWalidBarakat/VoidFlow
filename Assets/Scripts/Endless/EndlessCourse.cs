@@ -88,7 +88,8 @@ namespace VoidFlow
         public float designSpeed = 2300f;
 
         const float BiomeBlendSeconds = 5f; // zones melt into each other
-        const float CourseView = 500f;      // view distance on the course (metres)
+        const int RampsShown = 6;           // ramps drawn ahead of you (all of them are built at load)
+        const float CourseView = 2500f;     // view distance on the course (metres): the whole hall, like a map
         const int MaxRebuilds = 6;
         const float FallMargin = 40f;
 
@@ -442,7 +443,11 @@ namespace VoidFlow
                     pts.AddRange(sg.flight);
                     pts.AddRange(sg.extra);
                 }
-                if (pts.Count > 0) plans[st] = StageHalls.Plan(st, pts, Mathf.Max(30f, Architecture.DepthFor(biome.style)), Architecture.OpenTop(biome.style), kits[BiomeOf(st * rampsPerBiome)]);
+                if (pts.Count > 0)
+                {
+                    plans[st] = StageHalls.Plan(st, pts, Mathf.Max(30f, Architecture.DepthFor(biome.style)), Architecture.OpenTop(biome.style), kits[BiomeOf(st * rampsPerBiome)]);
+                    plans[st].design = StageHalls.DesignFor(biome.style, st);
+                }
             }
         }
 
@@ -481,7 +486,7 @@ namespace VoidFlow
                     if ((sst == st - 1 && within >= rampsPerBiome - 2) || (sst == st + 1 && within <= 1)) cutters.Add(RampsOf(sg));
                     tube.AddRange(StageHalls.FlightTube(Every(sg.line, 3), 16f, false)); // (a ring of lines 12m apart: no 30m panel slips between)
                     tube.AddRange(StageHalls.FlightTube(Every(sg.extra, 3), 16f, false));
-                    tube.AddRange(StageHalls.FlightTube(sg.flight, 36f));
+                    tube.AddRange(StageHalls.FlightTube(sg.flight, 30f));
                 }
                 cutters.Add(RampClearance.FromTriangles(tube));
                 ClearedFaces += RampClearance.Cut(new List<MeshFilter>(go.GetComponentsInChildren<MeshFilter>(true)), cutters);
@@ -510,7 +515,7 @@ namespace VoidFlow
         // The halls of the stage you're on and the ones either side (they share open sides)
         void ShowHalls()
         {
-            int a = Mathf.Max(0, current - rampsBehind) / rampsPerBiome - 1, b = (current + 2) / rampsPerBiome + 1;
+            int a = Mathf.Max(0, current - rampsBehind) / rampsPerBiome - 2, b = (current + RampsShown) / rampsPerBiome + 2;
             foreach (var (v, go) in halls)
             {
                 bool show = v.stage >= a && v.stage <= b;
@@ -777,7 +782,7 @@ namespace VoidFlow
             // from the start area just its own two white-and-gold ramps, not the course beyond
             foreach (var s in segments)
             {
-                bool show = s.index >= current - rampsBehind && s.index <= current + (current < 1 ? 1 : 2);
+                bool show = s.index >= current - rampsBehind && s.index <= current + (current < 1 ? 1 : RampsShown);
                 if (s.root && s.root.activeSelf != show) s.root.SetActive(show);
             }
             if (startHall) startHall.gameObject.SetActive(current < 2);
@@ -2038,7 +2043,7 @@ namespace VoidFlow
             int from = current;
             current = checkpoint;
             foreach (var s in segments)
-                if (s.root) s.root.SetActive(s.index >= current - rampsBehind && s.index <= current + 2);
+                if (s.root) s.root.SetActive(s.index >= current - rampsBehind && s.index <= current + RampsShown);
             ShowHalls();
             if (Seg(from) is Segment was && was.biome != Seg(current).biome)
             {
@@ -2176,9 +2181,10 @@ namespace VoidFlow
             // its long view over the distant islands
             float Reach(Biome z) => z == Biome.Terrace ? 2500f : CourseView;
             float reach = Mathf.Lerp(Reach(a), Reach(b), t);
-            float fogEnd = Mathf.Min(Mathf.Lerp(a.fogEnd, b.fogEnd, t), reach - 40f);
+            // only a light haze far off, as in a map, not a fog that eats the far walls
+            float fogEnd = Mathf.Min(Mathf.Max(Mathf.Lerp(a.fogEnd, b.fogEnd, t) * 4f, 2000f), reach - 40f);
             RenderSettings.fogEndDistance = fogEnd;
-            RenderSettings.fogStartDistance = Mathf.Min(Mathf.Lerp(a.fogStart, b.fogStart, t), fogEnd * 0.6f);
+            RenderSettings.fogStartDistance = Mathf.Min(Mathf.Max(Mathf.Lerp(a.fogStart, b.fogStart, t) * 4f, 500f), fogEnd * 0.6f);
             if (view) view.farClipPlane = reach;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = Color.Lerp(a.ambientSky, b.ambientSky, t);

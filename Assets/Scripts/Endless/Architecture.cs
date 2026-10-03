@@ -41,8 +41,10 @@ namespace VoidFlow
             public float level, top, bottom;
         }
 
-        public static bool Continuous(SceneryStyle s) => s is not (SceneryStyle.Palace or SceneryStyle.Spectrum
-            or SceneryStyle.Alpine or SceneryStyle.Glass or SceneryStyle.Ember or SceneryStyle.Amethyst or SceneryStyle.Toy);
+        // (open to the sky only where the place is outdoors: the sky palace, the mountains, the
+        // city, the sunset plains and toy town; the crystal cave and spectrum are roofed halls)
+        public static bool Continuous(SceneryStyle s) => s is not (SceneryStyle.Palace
+            or SceneryStyle.Alpine or SceneryStyle.Glass or SceneryStyle.Ember or SceneryStyle.Toy);
 
         // Enclosed zones with no roof: walls either side, the sky overhead
         public static bool OpenTop(SceneryStyle s) => s is SceneryStyle.Canyon or SceneryStyle.Garden;
