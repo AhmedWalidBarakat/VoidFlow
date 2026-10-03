@@ -186,7 +186,7 @@ namespace VoidFlow
 
         // ------------------------------------------------------------------ building
 
-        class Batch
+        public class Batch
         {
             readonly Dictionary<Material, List<CombineInstance>> parts = new();
             readonly Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<Vector2> uv, List<int> t)> quads = new();
@@ -256,6 +256,20 @@ namespace VoidFlow
 
             // Textures tile at a fixed size in the world (every 4m), whatever the piece's size,
             // projected onto each face from its main direction
+            // World coordinates run to tens of kilometres down the course: as texture coordinates
+            // they lose precision on the graphics card and the textures shimmer. Each face (four
+            // corners: every quad and every side of a block) has whole repeats taken off, which
+            // leaves the pattern exactly where it was
+            public static void SmallUvs(Vector2[] uv)
+            {
+                for (int i = 0; i + 3 < uv.Length; i += 4)
+                {
+                    float u = Mathf.Floor(Mathf.Min(Mathf.Min(uv[i].x, uv[i + 1].x), Mathf.Min(uv[i + 2].x, uv[i + 3].x)));
+                    float w = Mathf.Floor(Mathf.Min(Mathf.Min(uv[i].y, uv[i + 1].y), Mathf.Min(uv[i + 2].y, uv[i + 3].y)));
+                    for (int k = 0; k < 4; k++) uv[i + k] -= new Vector2(u, w);
+                }
+            }
+
             static void WorldUvs(Mesh mesh)
             {
                 var v = mesh.vertices;
@@ -267,6 +281,7 @@ namespace VoidFlow
                     uv[i] = (a.y >= a.x && a.y >= a.z ? new Vector2(v[i].x, v[i].z)
                         : a.x >= a.z ? new Vector2(v[i].z, v[i].y) : new Vector2(v[i].x, v[i].y)) / 4f;
                 }
+                SmallUvs(uv);
                 mesh.uv = uv;
             }
         }

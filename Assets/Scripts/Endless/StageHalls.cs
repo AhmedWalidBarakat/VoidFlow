@@ -105,7 +105,7 @@ namespace VoidFlow
             void Strip(Material m, Vector3 p, Vector3 q, Vector3 inward, float width)
             {
                 Vector3 along = (q - p).normalized, up = Vector3.Cross(inward, along).normalized * (width * 0.5f);
-                Vector3 off = inward * 0.25f;
+                Vector3 off = inward * 0.6f; // (clear of the wall: no flicker, even far off)
                 Quad(m, p - up + off, q - up + off, q + up + off, p + up + off);
             }
 
@@ -144,7 +144,7 @@ namespace VoidFlow
                             // a recessed panel outlined in light
                             Vector3 m0 = f0 + along * (pw * 0.12f), m1 = f1 - along * (pw * 0.12f);
                             float ya = Mathf.Lerp(y0, y1, 0.12f), yb = Mathf.Lerp(y0, y1, 0.88f);
-                            Vector3 off = inward * 0.35f;
+                            Vector3 off = inward * 0.35f; // (behind its outline of light, clear of the wall)
                             Quad(trimA, m0.WithY(ya) + off, m1.WithY(ya) + off, m1.WithY(yb) + off, m0.WithY(yb) + off);
                             Strip(kit.glow, m0.WithY(ya), m1.WithY(ya), inward, 0.5f);
                             Strip(kit.glow, m0.WithY(yb), m1.WithY(yb), inward, 0.5f);
@@ -158,7 +158,7 @@ namespace VoidFlow
                         {
                             Vector3 m0 = f0 + along * (pw * 0.22f), m1 = f1 - along * (pw * 0.22f);
                             float ya = Mathf.Lerp(y0, y1, 0.1f), yb = Mathf.Lerp(y0, y1, 0.92f);
-                            Vector3 off = inward * 0.3f;
+                            Vector3 off = inward * 0.8f;
                             Quad(lightA, m0.WithY(ya) + off, m1.WithY(ya) + off, m1.WithY(yb) + off, m0.WithY(yb) + off);
                             Strip(trimA, m0.WithY(ya - 0.6f), m1.WithY(ya - 0.6f), inward, 1.2f);
                             Strip(trimA, m0.WithY(yb + 0.6f), m1.WithY(yb + 0.6f), inward, 1.2f);
@@ -191,7 +191,7 @@ namespace VoidFlow
                             Strip(trimA, f0.WithY(v.floor + 9f), f1.WithY(v.floor + 9f), inward, 4f);
                             if (panelIndex % 2 == 0)
                             {
-                                Box(trimA, f0.WithY(v.floor + height * 0.5f) + inward * 1.6f, new Vector3(4f, height, 3.2f), Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg);
+                                Box(trimA, f0.WithY(v.floor + height * 0.5f) + inward * 1.85f, new Vector3(4f, height, 3.2f), Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg);
                                 Strip(kit.glow, f0.WithY(v.floor + 3f) + inward * 1.7f - along * 2.1f, f0.WithY(v.floor + 3f) + inward * 1.7f + along * 2.1f, inward, 0.8f);
                             }
                             break;
@@ -204,7 +204,7 @@ namespace VoidFlow
                             Strip(trimA, f0.WithY(v.floor + 14f), f1.WithY(v.floor + 14f), inward, 3f);
                             Strip(lightA, f0.WithY(v.floor + 17.5f), f1.WithY(v.floor + 17.5f), inward, 1.2f);
                             if (panelIndex % 4 == 0)
-                                Box(trimA, f0.WithY(v.floor + height * 0.5f) + inward * 1.4f, new Vector3(3.5f, height, 2.8f), Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg);
+                                Box(trimA, f0.WithY(v.floor + height * 0.5f) + inward * 1.65f, new Vector3(3.5f, height, 2.8f), Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg);
                             break;
                         }
                     }
@@ -228,12 +228,12 @@ namespace VoidFlow
                         Quad(ceiling, new Vector3(x, v.ceiling, z), new Vector3(x, v.ceiling, z1), new Vector3(x1, v.ceiling, z1), new Vector3(x1, v.ceiling, z));
                         if (sky)
                         {
-                            float ix = (x1 - x) * 0.18f, iz = (z1 - z) * 0.18f, y = v.ceiling - 0.4f;
+                            float ix = (x1 - x) * 0.18f, iz = (z1 - z) * 0.18f, y = v.ceiling - 1f;
                             Quad(lightA, new Vector3(x + ix, y, z + iz), new Vector3(x + ix, y, z1 - iz), new Vector3(x1 - ix, y, z1 - iz), new Vector3(x1 - ix, y, z + iz));
                         }
                         // heavy beams under the roof (ribs) or a frame of beams (mixed)
                         if ((design == Design.Ribs && gx % 2 == 0) || (design == Design.Mixed && gx % 3 == 0))
-                            Box(trimA, new Vector3(x, v.ceiling - 2.5f, (z + z1) * 0.5f), new Vector3(3f, 5f, z1 - z), 0f);
+                            Box(trimA, new Vector3(x, v.ceiling - 2.75f, (z + z1) * 0.5f), new Vector3(3f, 5f, z1 - z), 0f); // (just under the roof, not in it)
                     }
                     // glowing grid lines on the floor every other panel
                     if (Mathf.RoundToInt((x - minX) / Panel) % 2 == 0)
@@ -332,8 +332,11 @@ namespace VoidFlow
                 {
                     Vector3 n = f.n[i], p = f.v[i];
                     Vector3 a = new(Mathf.Abs(n.x), Mathf.Abs(n.y), Mathf.Abs(n.z));
-                    uv[i] = (a.y >= a.x && a.y >= a.z ? new Vector2(p.x, p.z) : a.x >= a.z ? new Vector2(p.z, p.y) : new Vector2(p.x, p.y)) / 4f;
+                    // a repeat every 10m: on walls this big a finer pattern turns to shimmer and
+                    // moire in the distance (real maps scale their textures up on big surfaces too)
+                    uv[i] = (a.y >= a.x && a.y >= a.z ? new Vector2(p.x, p.z) : a.x >= a.z ? new Vector2(p.z, p.y) : new Vector2(p.x, p.y)) / 10f;
                 }
+                Architecture.Batch.SmallUvs(uv);
                 mesh.uv = uv;
                 mesh.SetTriangles(f.t, 0);
                 mesh.RecalculateBounds();

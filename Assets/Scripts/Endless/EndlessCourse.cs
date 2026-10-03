@@ -2185,7 +2185,13 @@ namespace VoidFlow
             float fogEnd = Mathf.Min(Mathf.Max(Mathf.Lerp(a.fogEnd, b.fogEnd, t) * 4f, 2000f), reach - 40f);
             RenderSettings.fogEndDistance = fogEnd;
             RenderSettings.fogStartDistance = Mathf.Min(Mathf.Max(Mathf.Lerp(a.fogStart, b.fogStart, t) * 4f, 500f), fogEnd * 0.6f);
-            if (view) view.farClipPlane = reach;
+            if (view)
+            {
+                view.farClipPlane = reach;
+                // the hands and weapon have their own camera, so the world's can start a little
+                // way out: depth precision far off, and no walls and trims flickering through each other
+                view.nearClipPlane = 0.3f;
+            }
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = Color.Lerp(a.ambientSky, b.ambientSky, t);
             RenderSettings.ambientEquatorColor = Color.Lerp(a.ambientEquator, b.ambientEquator, t);
