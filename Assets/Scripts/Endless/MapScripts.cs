@@ -132,6 +132,83 @@ namespace VoidFlow
 
         // ------------------------------------------------------------------ the maps
 
+        // LIMINAL: eight stages of my own, after the empty, uncanny rooms of murglegurgle's
+        // surf_liminal (a tier 5 staged map): a night city of towers, the yellow backrooms, a
+        // starlit hall of pillars, a dark pool, rooms of floating houses, a green shaft, the
+        // tiled poolrooms and neon stacks. Original layouts, not the map's own.
+        public static readonly RampDef[] LiminalCity =
+        {
+            Line(15f, 210f).At(34f, 14f, 70f).Named("between the towers"),
+            Snipe(13f, 150f).At(48f, -26f, 58f).Named("across the street"),
+            Line(14f, 200f).At(38f, 18f, 64f).Named("lit windows"),
+            Drop(13f, 110f).At(40f, -14f, 60f).Named("off the rooftop"),
+            Plunge(14f).At(36f, 20f, 62f).Named("down the avenue"),
+            Snipe(12f, 160f).At(52f, -24f, 56f).Window().Named("through the tower gap"),
+        };
+        public static readonly RampDef[] LiminalBackrooms =
+        {
+            Line(13f, 190f).At(36f, 12f, 62f).Window().Named("first doorway"),
+            Line(12f, 180f).At(36f, -14f, 60f).Broken(3).Named("humming corridor"),
+            Line(12f, 180f).At(38f, 14f, 58f).Window().Named("second doorway"),
+            Curve(12f, 210f, -50f).At(36f, -12f, 60f).Named("wrong turn"),
+            Line(12f, 190f).At(40f, 16f, 56f).Broken(4).Window().Named("the endless hallway"),
+            Line(13f, 170f).At(36f, -12f, 60f).Window().Named("exit sign"),
+        };
+        public static readonly RampDef[] LiminalStarlit =
+        {
+            Line(14f, 200f).At(40f, 24f, 60f).Named("under the pillars"),
+            Line(13f, 190f).At(44f, -28f, 56f).Named("crossing beam"),
+            Twin(13f, 170f).At(40f, 22f, 58f).Named("twin beams"),
+            Curve(13f, 240f, 70f, true).At(40f, -20f, 60f).Named("round the lit pillar"),
+            Line(12f, 200f).At(46f, 28f, 54f).Named("crossing back"),
+            Snipe(12f, 150f).At(50f, -26f, 54f).Named("to the far ledge"),
+        };
+        public static readonly RampDef[] LiminalPool =
+        {
+            Plunge(14f).At(36f, 12f, 64f).Named("into the dark water"),
+            Climb(13f).At(36f, -14f, 60f).Named("up the pool wall"),
+            Launch(13f).At(44f, 16f, 60f).Named("off the diving board"),
+            Line(13f, 200f).At(40f, -12f, 70f).Named("over the pool"),
+            Wave(12f).At(40f, 18f, 58f).Named("ripples"),
+            Line(12f, 190f).At(44f, -20f, 56f).Window().Named("the lit skylight"),
+        };
+        public static readonly RampDef[] LiminalHouses =
+        {
+            Wave(13f).At(38f, 14f, 60f).Named("under the floating roofs"),
+            Snipe(12f, 160f).At(50f, -24f, 56f).Named("house to house"),
+            Curve(12f, 240f, -60f, true).At(40f, 18f, 58f).Named("round the chimney"),
+            Line(12f, 200f).At(44f, -22f, 56f).Broken(3).Named("broken porch"),
+            Snipe(12f, 150f).At(52f, 26f, 54f).Named("across the eaves"),
+            Plunge(13f).At(40f, -16f, 60f).Named("down past the windows"),
+        };
+        public static readonly RampDef[] LiminalShaft =
+        {
+            Drop(13f, 120f).At(36f, 10f, 62f).Named("over the edge"),
+            Drop(12f, 110f).At(40f, -12f, 58f).Named("stacked ramp one"),
+            Drop(12f, 110f).At(40f, 12f, 58f).Named("stacked ramp two"),
+            Plunge(12f).At(40f, -14f, 58f).Named("green glow"),
+            Drop(11f, 120f).At(44f, 14f, 56f).Window().Named("through the lit slot"),
+            Line(12f, 200f).At(44f, -18f, 56f).Named("out of the shaft"),
+        };
+        public static readonly RampDef[] LiminalPoolrooms =
+        {
+            Line(13f, 200f).At(38f, 14f, 62f).Window().Named("capsule window"),
+            Curve(12f, 260f, 80f, true).At(40f, -16f, 58f).Named("round the tiled pool"),
+            Spin(7f, 360f, 140f).At(60f, 30f, 24f).Named("whirlpool"),
+            Line(12f, 200f).At(44f, -20f, 56f).Window().Named("second capsule"),
+            Snipe(12f, 150f).At(50f, 22f, 54f).Named("over the shallow end"),
+            Line(12f, 190f).At(44f, -18f, 56f).Broken(3).Named("slippery tiles"),
+        };
+        public static readonly RampDef[] LiminalNeon =
+        {
+            Line(12f, 200f).At(44f, 20f, 56f).Named("between the stacks"),
+            Spin(7f, 450f, 140f).Broken(5).At(64f, -32f, 24f).Named("neon spin"),
+            Snipe(11f, 150f).At(54f, 28f, 50f).Window().Named("through the pink gap"),
+            Drop(11f, 110f).At(46f, -16f, 54f).Named("off the top block"),
+            Line(11f, 200f).At(48f, 22f, 52f).Broken(4).Named("cracked neon"),
+            Line(11f, 220f).At(50f, -24f, 50f).Window().Named("out of the liminal"),
+        };
+
         // surf_utopia_njv: long off-white halls lined with orange and blue stripes, wide
         // centre prisms, framed windows to fly through, a bowl, a winding hall; tier 1
         public static readonly RampDef[] Utopia1 =

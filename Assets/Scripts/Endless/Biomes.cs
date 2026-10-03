@@ -843,6 +843,128 @@ namespace VoidFlow
                 scenery = new Color(0.3f, 0.5f, 0.2f), scenerySurface = Surface.WallHedge, style = SceneryStyle.Garden,
             },
             // Real maps from "The Hardest Maps in CS:GO Surf", laid out ramp by ramp after their runs
+            // LIMINAL: eight stages after murglegurgle's surf_liminal (my own layouts), between
+            // the generated course and the real maps
+            new Biome
+            {
+                name = "NIGHT CITY", sky = new Color(0.12f, 0.13f, 0.25f), skyTop = new Color(0.02f, 0.02f, 0.06f), skyBottom = new Color(0.15f, 0.15f, 0.3f),
+                fogStart = 250f, fogEnd = 1500f,
+                ambientSky = new Color(0.35f, 0.36f, 0.55f), ambientEquator = new Color(0.25f, 0.25f, 0.4f), ambientGround = new Color(0.1f, 0.1f, 0.15f),
+                sunColor = new Color(0.6f, 0.65f, 1.0f), sunIntensity = 0.8f,
+                ramp = new Color(0.75f, 0.75f, 0.9f), rampSurface = Surface.RampWhiteGrid, slab = new Color(0.45f, 0.45f, 0.6f), slabSurface = Surface.Concrete,
+                glow = new Color(1.0f, 0.75f, 0.35f), glowAlt = new Color(1.0f, 0.4f, 0.3f),
+                scenery = new Color(0.55f, 0.55f, 0.75f), scenerySurface = Surface.WallGrid, style = SceneryStyle.Glass,
+                floor = new Color(0.2f, 0.2f, 0.28f), floorSurface = Surface.Concrete,
+                shaft = new Color(1.0f, 0.8f, 0.5f),
+                script = MapScripts.LiminalCity,
+                tier = "TIER 5",
+                section = "liminal 1/8: the night city",
+            },
+            new Biome
+            {
+                name = "THE BACKROOMS", sky = new Color(0.75f, 0.68f, 0.35f), skyTop = new Color(0.6f, 0.55f, 0.3f), skyBottom = new Color(0.7f, 0.62f, 0.35f),
+                fogStart = 120f, fogEnd = 700f,
+                ambientSky = new Color(0.95f, 0.9f, 0.6f), ambientEquator = new Color(0.8f, 0.72f, 0.4f), ambientGround = new Color(0.45f, 0.4f, 0.25f),
+                sunColor = new Color(1.0f, 0.95f, 0.75f), sunIntensity = 0.8f,
+                ramp = new Color(0.85f, 0.8f, 0.55f), rampSurface = Surface.RampGallery, slab = new Color(0.8f, 0.72f, 0.45f), slabSurface = Surface.Plaster,
+                glow = new Color(1.0f, 0.98f, 0.85f), glowAlt = new Color(0.9f, 0.85f, 0.6f),
+                scenery = new Color(0.9f, 0.82f, 0.45f), scenerySurface = Surface.WallPanels, style = SceneryStyle.Gallery,
+                floor = new Color(0.6f, 0.55f, 0.38f), floorSurface = Surface.Concrete,
+                shaft = new Color(1.0f, 0.95f, 0.75f),
+                script = MapScripts.LiminalBackrooms,
+                tier = "TIER 5",
+                section = "liminal 2/8: the backrooms",
+            },
+            new Biome
+            {
+                name = "STARLIT HALL", sky = new Color(0.08f, 0.1f, 0.2f), skyTop = new Color(0.01f, 0.01f, 0.05f), skyBottom = new Color(0.1f, 0.12f, 0.25f),
+                fogStart = 250f, fogEnd = 1600f,
+                ambientSky = new Color(0.4f, 0.45f, 0.7f), ambientEquator = new Color(0.25f, 0.28f, 0.45f), ambientGround = new Color(0.08f, 0.08f, 0.12f),
+                sunColor = new Color(0.7f, 0.75f, 1.0f), sunIntensity = 0.8f,
+                ramp = new Color(0.45f, 0.5f, 0.7f), rampSurface = Surface.RampNeon, slab = new Color(0.3f, 0.34f, 0.5f), slabSurface = Surface.Concrete,
+                glow = new Color(0.75f, 0.85f, 1.0f), glowAlt = new Color(1.0f, 0.55f, 0.25f),
+                scenery = new Color(0.35f, 0.4f, 0.6f), scenerySurface = Surface.WallBlocks, style = SceneryStyle.Gallery,
+                floor = new Color(0.18f, 0.2f, 0.3f), floorSurface = Surface.Tiles,
+                shaft = new Color(0.75f, 0.85f, 1.0f),
+                script = MapScripts.LiminalStarlit,
+                tier = "TIER 5",
+                section = "liminal 3/8: the starlit hall",
+            },
+            new Biome
+            {
+                name = "DARK POOL", sky = new Color(0.06f, 0.05f, 0.08f), skyTop = new Color(0.01f, 0.01f, 0.02f), skyBottom = new Color(0.08f, 0.06f, 0.1f),
+                fogStart = 200f, fogEnd = 1300f,
+                ambientSky = new Color(0.3f, 0.25f, 0.35f), ambientEquator = new Color(0.2f, 0.15f, 0.22f), ambientGround = new Color(0.05f, 0.05f, 0.06f),
+                sunColor = new Color(0.6f, 0.8f, 1.0f), sunIntensity = 0.8f,
+                ramp = new Color(0.4f, 0.7f, 0.85f), rampSurface = Surface.RampGlass, slab = new Color(0.25f, 0.22f, 0.28f), slabSurface = Surface.Tiles,
+                glow = new Color(0.5f, 0.9f, 1.0f), glowAlt = new Color(1.0f, 0.25f, 0.25f),
+                scenery = new Color(0.28f, 0.24f, 0.3f), scenerySurface = Surface.WallPanels, style = SceneryStyle.Gallery,
+                floor = new Color(0.1f, 0.3f, 0.4f), floorSurface = Surface.Tiles,
+                shaft = new Color(0.5f, 0.9f, 1.0f),
+                script = MapScripts.LiminalPool,
+                tier = "TIER 5",
+                section = "liminal 4/8: the dark pool",
+            },
+            new Biome
+            {
+                name = "FLOATING HOUSES", sky = new Color(0.3f, 0.2f, 0.4f), skyTop = new Color(0.08f, 0.05f, 0.15f), skyBottom = new Color(0.35f, 0.25f, 0.4f),
+                fogStart = 220f, fogEnd = 1400f,
+                ambientSky = new Color(0.6f, 0.5f, 0.75f), ambientEquator = new Color(0.45f, 0.35f, 0.5f), ambientGround = new Color(0.15f, 0.1f, 0.18f),
+                sunColor = new Color(1.0f, 0.75f, 0.6f), sunIntensity = 0.8f,
+                ramp = new Color(0.75f, 0.65f, 0.85f), rampSurface = Surface.RampWhiteGrid, slab = new Color(0.45f, 0.38f, 0.55f), slabSurface = Surface.Plaster,
+                glow = new Color(1.0f, 0.85f, 0.55f), glowAlt = new Color(0.75f, 0.5f, 1.0f),
+                scenery = new Color(0.5f, 0.4f, 0.62f), scenerySurface = Surface.WallWood, style = SceneryStyle.Gallery,
+                floor = new Color(0.3f, 0.25f, 0.38f), floorSurface = Surface.Concrete,
+                shaft = new Color(1.0f, 0.85f, 0.6f),
+                script = MapScripts.LiminalHouses,
+                tier = "TIER 5",
+                section = "liminal 5/8: the floating houses",
+            },
+            new Biome
+            {
+                name = "GREEN SHAFT", sky = new Color(0.08f, 0.2f, 0.12f), skyTop = new Color(0.02f, 0.06f, 0.03f), skyBottom = new Color(0.1f, 0.22f, 0.14f),
+                fogStart = 180f, fogEnd = 1200f,
+                ambientSky = new Color(0.35f, 0.6f, 0.4f), ambientEquator = new Color(0.22f, 0.4f, 0.26f), ambientGround = new Color(0.06f, 0.12f, 0.07f),
+                sunColor = new Color(0.6f, 1.0f, 0.7f), sunIntensity = 0.8f,
+                ramp = new Color(0.35f, 0.6f, 0.42f), rampSurface = Surface.RampHex, slab = new Color(0.25f, 0.4f, 0.3f), slabSurface = Surface.Tiles,
+                glow = new Color(0.35f, 1.0f, 0.5f), glowAlt = new Color(0.9f, 0.35f, 0.3f),
+                scenery = new Color(0.3f, 0.5f, 0.36f), scenerySurface = Surface.WallLab, style = SceneryStyle.Lab,
+                floor = new Color(0.12f, 0.25f, 0.16f), floorSurface = Surface.Tiles,
+                shaft = new Color(0.4f, 1.0f, 0.6f),
+                script = MapScripts.LiminalShaft,
+                tier = "TIER 6",
+                section = "liminal 6/8: the green shaft",
+            },
+            new Biome
+            {
+                name = "POOLROOMS", sky = new Color(0.7f, 0.92f, 0.85f), skyTop = new Color(0.5f, 0.8f, 0.75f), skyBottom = new Color(0.75f, 0.95f, 0.9f),
+                fogStart = 200f, fogEnd = 1300f,
+                ambientSky = new Color(0.9f, 1.0f, 0.95f), ambientEquator = new Color(0.7f, 0.9f, 0.85f), ambientGround = new Color(0.4f, 0.55f, 0.5f),
+                sunColor = new Color(0.9f, 1.0f, 0.95f), sunIntensity = 0.8f,
+                ramp = new Color(0.85f, 1.0f, 0.95f), rampSurface = Surface.RampWhiteGrid, slab = new Color(0.6f, 0.85f, 0.78f), slabSurface = Surface.WhiteTile,
+                glow = new Color(0.95f, 1.0f, 0.98f), glowAlt = new Color(0.4f, 0.9f, 1.0f),
+                scenery = new Color(0.7f, 0.95f, 0.87f), scenerySurface = Surface.Tiles, style = SceneryStyle.Gallery,
+                floor = new Color(0.45f, 0.75f, 0.75f), floorSurface = Surface.WhiteTile,
+                shaft = new Color(0.9f, 1.0f, 1.0f),
+                script = MapScripts.LiminalPoolrooms,
+                tier = "TIER 6",
+                section = "liminal 7/8: the poolrooms",
+            },
+            new Biome
+            {
+                name = "NEON STACKS", sky = new Color(0.08f, 0.04f, 0.1f), skyTop = new Color(0.02f, 0.01f, 0.03f), skyBottom = new Color(0.1f, 0.05f, 0.12f),
+                fogStart = 220f, fogEnd = 1400f,
+                ambientSky = new Color(0.45f, 0.25f, 0.5f), ambientEquator = new Color(0.3f, 0.15f, 0.35f), ambientGround = new Color(0.08f, 0.04f, 0.1f),
+                sunColor = new Color(1.0f, 0.4f, 0.7f), sunIntensity = 0.8f,
+                ramp = new Color(0.35f, 0.3f, 0.5f), rampSurface = Surface.RampNeon, slab = new Color(0.22f, 0.2f, 0.32f), slabSurface = Surface.Blocks,
+                glow = new Color(1.0f, 0.25f, 0.55f), glowAlt = new Color(0.45f, 0.4f, 1.0f),
+                scenery = new Color(0.28f, 0.25f, 0.42f), scenerySurface = Surface.WallBlocks, style = SceneryStyle.Synth,
+                floor = new Color(0.12f, 0.1f, 0.18f), floorSurface = Surface.Grid,
+                shaft = new Color(1.0f, 0.4f, 0.7f),
+                script = MapScripts.LiminalNeon,
+                tier = "TIER 6",
+                section = "liminal 8/8: the neon stacks",
+            },
             new Biome
             {
                 name = "ESSENTIA", sky = new Color(0.12f, 0.11f, 0.12f), skyTop = new Color(0.03f, 0.03f, 0.04f), skyBottom = new Color(0.6f, 0.4f, 0.4f),
@@ -1434,7 +1556,7 @@ namespace VoidFlow
         // Where the Legend zones start: after the finale, as hard as the hardest surf maps
         public const int LegendFrom = 39;
         // Where the real hard maps start (after the Legend zones), up to the finale at the end
-        public const int MapsFrom = 66;
+        public const int MapsFrom = 74;
     }
 
     // One set of shared materials per biome. Every ramp and scenery piece in the biome uses

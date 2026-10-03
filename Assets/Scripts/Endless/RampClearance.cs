@@ -25,8 +25,7 @@ namespace VoidFlow
 
         public static Ramps Prepare(IEnumerable<MeshFilter> surfaces)
         {
-            var r = new Ramps();
-            bool any = false;
+            var tris = new List<Vector3>();
             foreach (var mf in surfaces)
             {
                 var mesh = mf ? mf.sharedMesh : null;
@@ -34,10 +33,21 @@ namespace VoidFlow
                 var v = mesh.vertices; var t = mesh.triangles; var tr = mf.transform;
                 var w = new Vector3[v.Length];
                 for (int i = 0; i < v.Length; i++) w[i] = tr.TransformPoint(v[i]);
-                for (int k = 0; k < t.Length; k += 3)
+                foreach (int k in t) tris.Add(w[k]);
+            }
+            return FromTriangles(tris);
+        }
+
+        // Triangles given in world space, three points each
+        public static Ramps FromTriangles(List<Vector3> points)
+        {
+            var r = new Ramps();
+            bool any = false;
+            {
+                for (int k = 0; k + 2 < points.Count; k += 3)
                 {
                     int id = r.lo.Count;
-                    Vector3 a = w[t[k]], b = w[t[k + 1]], c = w[t[k + 2]];
+                    Vector3 a = points[k], b = points[k + 1], c = points[k + 2];
                     r.tris.Add(a); r.tris.Add(b); r.tris.Add(c);
                     Vector3 lo = Vector3.Min(a, Vector3.Min(b, c)), hi = Vector3.Max(a, Vector3.Max(b, c));
                     r.lo.Add(lo); r.hi.Add(hi);

@@ -335,6 +335,7 @@ namespace VoidFlow
                 BuildProgress = nextIndex / (float)FinalRamp;
                 if (clock.Elapsed.TotalSeconds > seconds) { buildWork += clock.Elapsed.TotalSeconds; return false; }
             }
+            BuildHalls();
             SettleGround();
             TrimMeshes();
             buildWork += clock.Elapsed.TotalSeconds;
@@ -377,10 +378,98 @@ namespace VoidFlow
             for (int k = 1; k <= Back; k++)
                 if (Seg(seg.index - k) is Segment o) { near.Add(RampsOf(o)); older.AddRange(BuildingsOf(o)); }
             ClearedFaces += RampClearance.Cut(BuildingsOf(seg), near);
-            ClearedFaces += RampClearance.Cut(older, new List<RampClearance.Ramps> { RampsOf(seg) });
+            // and any building further back that this ramp reaches (a loop or a long dive can come
+            // round to one built many ramps before): a quick check of its bounds first
+            var mine = RampsOf(seg);
+            if (mine != null && mine.Count > 0)
+                for (int k = Back + 1; k <= 30; k++)
+                    if (Seg(seg.index - k) is Segment far && far.root)
+                        foreach (var mf in BuildingsOf(far))
+                            if (mf.GetComponent<Renderer>() is Renderer r && r.bounds.Intersects(mine.bounds)) older.Add(mf);
+            ClearedFaces += RampClearance.Cut(older, new List<RampClearance.Ramps> { mine });
             // ramps further back are done with
             if (Seg(seg.index - Back - 1) is Segment gone) rampTris.Remove(gone);
             ClearSeconds += clock.Elapsed.TotalSeconds;
+        }
+
+        // ------------------------------------------------------------------ stage halls
+
+        readonly List<(StageHalls.Volume v, GameObject go)> halls = new();
+        Vector3 hallShift; // how far the world has moved since the halls were built
+
+        void BuildHalls()
+        {
+            foreach (var (_, go) in halls) Kill(go);
+            halls.Clear();
+            hallShift = Vector3.zero;
+            int stages = FinalRamp / rampsPerBiome;
+            var plans = new StageHalls.Volume[stages];
+            for (int st = 0; st < stages; st++)
+            {
+                var biome = Biome.All[BiomeOf(st * rampsPerBiome)];
+                if (!Architecture.Continuous(biome.style)) continue;
+                var pts = new List<Vector3>();
+                foreach (var sg in segments)
+                {
+                    if (sg.index / rampsPerBiome != st || (st == 0 && sg.index < 2)) continue; // (the start terrace has its own sky)
+                    pts.AddRange(sg.line);
+                    pts.AddRange(sg.flight);
+                }
+                if (pts.Count > 0) plans[st] = StageHalls.Plan(st, pts, Mathf.Max(30f, Architecture.DepthFor(biome.style)), Architecture.OpenTop(biome.style), kits[BiomeOf(st * rampsPerBiome)]);
+            }
+            for (int st = 0; st < stages; st++)
+            {
+                if (plans[st] == null) continue;
+                var near = new List<StageHalls.Volume>();
+                for (int o = st - 2; o <= st + 2; o++)
+                    if (o != st && o >= 0 && o < stages && plans[o] != null) near.Add(plans[o]);
+                var meshes = new List<Mesh>();
+                var go = StageHalls.Build(plans[st], near, transform, meshes, cube);
+                // Wherever a ramp, a rider on it or a flight passes, the panels give way
+                var cutters = new List<RampClearance.Ramps>();
+                var tube = new List<Vector3>();
+                foreach (var sg in segments)
+                {
+                    int sst = sg.index / rampsPerBiome;
+                    if (sst < st - 1 || sst > st + 1) continue;
+                    cutters.Add(RampsOf(sg));
+                    tube.AddRange(StageHalls.FlightTube(sg.line, 16f));
+                    tube.AddRange(StageHalls.FlightTube(sg.flight, 36f));
+                }
+                cutters.Add(RampClearance.FromTriangles(tube));
+                ClearedFaces += RampClearance.Cut(new List<MeshFilter>(go.GetComponentsInChildren<MeshFilter>(true)), cutters);
+                // Solid, like a map's walls: you can't fall through or fly out
+                foreach (var mf in go.GetComponentsInChildren<MeshFilter>(true))
+                    mf.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
+                halls.Add((plans[st], go));
+            }
+            rampTris.Clear();
+            ShowHalls();
+        }
+
+        // The halls of the stage you're on and the ones either side (they share open sides)
+        void ShowHalls()
+        {
+            int a = Mathf.Max(0, current - rampsBehind) / rampsPerBiome - 1, b = (current + 2) / rampsPerBiome + 1;
+            foreach (var (v, go) in halls)
+            {
+                bool show = v.stage >= a && v.stage <= b;
+                if (go && go.activeSelf != show) go.SetActive(show);
+            }
+        }
+
+        // The floor of the hall you're over (the lowest where halls overlap), if any
+        float? HallFloorAt(Vector3 p)
+        {
+            Vector3 q = p - hallShift;
+            float? floor = null;
+            foreach (var (v, go) in halls)
+            {
+                if (!go || !go.activeSelf) continue;
+                var probe = new Vector3(q.x, (v.floor + v.ceiling) * 0.5f, q.z);
+                if (v.Contains(probe, 0f)) floor = floor is float f ? Mathf.Min(f, v.floor) : v.floor;
+            }
+            return floor;
         }
 
         // Open zones' ground (snowfields, sunset plains, toy-town grass): once the whole course is
@@ -394,7 +483,7 @@ namespace VoidFlow
             {
                 // Only ramps that can be on screen with this stage's ground count: its own, and a
                 // few either side (the rest of the course is hidden while you're here)
-                int first = stage * rampsPerBiome - rampsBehind - 2, last = (stage + 1) * rampsPerBiome + 6; // (long flights reach well into the next stage)
+                int first = stage * rampsPerBiome - rampsBehind - 2, last = (stage + 1) * rampsPerBiome + 12; // (long flights reach well into the next stage)
                 var line = new List<Vector3>();
                 foreach (var sg in segments)
                 {
@@ -437,7 +526,7 @@ namespace VoidFlow
                 var clock = System.Diagnostics.Stopwatch.StartNew();
                 var near = new List<RampClearance.Ramps>();
                 foreach (var sg in segments)
-                    if (sg.index >= first && sg.index <= last) near.Add(RampsOf(sg));
+                    if (sg.index >= first && sg.index <= last + 24) near.Add(RampsOf(sg)); // (and ramps a while on, that can come round under it)
                 var moved = new List<MeshFilter>();
                 foreach (var (sg, _, _) in sheets) moved.AddRange(BuildingsOf(sg));
                 ClearedFaces += RampClearance.Cut(moved, near);
@@ -513,6 +602,8 @@ namespace VoidFlow
         {
             foreach (var seg in segments) DestroySegment(seg);
             segments.Clear();
+            foreach (var (_, go) in halls) Kill(go);
+            halls.Clear();
             pending.Clear();
             if (startHall)
             {
@@ -614,6 +705,7 @@ namespace VoidFlow
                 if (s.root && s.root.activeSelf != show) s.root.SetActive(show);
             }
             if (startHall) startHall.gameObject.SetActive(current < 2);
+            ShowHalls();
         }
 
         // How hard a ramp is (0..1): its tier's range, climbing through the stage, plus a
@@ -804,8 +896,11 @@ namespace VoidFlow
                     landing.shift *= 1.3f + 0.35f * b;
                     landing.length *= 0.8f - 0.12f * b;
                     landing.clearStart *= 0.8f;
-                    m.width = Mathf.Max(m.width * (0.9f - 0.1f * b), 11f);
+                    m.width = Mathf.Max(m.width * (0.9f - 0.1f * b), 4.5f);
                 }
+
+                // Off a snipe you flick far out to the side
+                if (def == null && last != null && segments.Count > 0 && segments[^1].move.StartsWith("snipe")) landing.shift *= 1.3f;
 
                 // The first stages open gently, like a map's stage start: a shorter hop onto a
                 // long, forgiving landing hill
@@ -821,7 +916,7 @@ namespace VoidFlow
                 path = RampShapes.LandingRamp(last, landing, m.kind, m.width, m.shape, m.bend, m.bank > 0f ? m.bank : RampShapes.SlabBank);
                 for (int attempt = 0; !FlightCheck.Possible(last, path, slowest, landing.length + 20f); attempt++)
                 {
-                    if (attempt == MaxRebuilds) { ImpossibleRamps++; break; }
+                    if (attempt == MaxRebuilds) { ImpossibleRamps++; Debug.LogWarning($"VoidFlow: ramp {i} ({m.name}, after {(segments.Count > 0 ? segments[^1].move : "-")}) could not be made landable"); break; }
                     RebuiltRamps++;
                     if (def != null && attempt == 0) ScriptFixes.Add($"ramp {i} ({biome.name}, {def.name}): gap {def.gap:0} shift {def.shift:0} too far");
                     landing.gap *= 0.85f;
@@ -1005,7 +1100,7 @@ namespace VoidFlow
             float d = Mathf.Clamp(landing.gap * 0.3f, 18f, 32f), f = d / landing.gap;
             var (_, design, launch) = RampShapes.Flight(last, flightSpeed);
             var slow = RampShapes.Flight(last, SlowestLikelySpeed(flightSpeed)).height;
-            var fast = RampShapes.Flight(last, Mathf.Max(flightSpeed * 1.8f, 3000f * PlayerMovement.SourceUnit)).height;
+            var fast = RampShapes.Flight(last, Mathf.Max(flightSpeed * 1.8f, 3600f * PlayerMovement.SourceUnit)).height;
             float lo = Mathf.Min(slow(d), Mathf.Min(fast(d), design(d))), hi = Mathf.Max(slow(d), Mathf.Max(fast(d), design(d)));
             if (hi - lo > (forced ? 26f : 16f)) return null; // too spread out to make a fair hole
             Vector3 fwd = last.EndForward, side = new Vector3(fwd.z, 0f, -fwd.x);
@@ -1016,8 +1111,8 @@ namespace VoidFlow
             {
                 center = center,
                 facing = (fwd + side * (2f * landing.shift * f / landing.gap)).normalized,
-                hw = forced ? 12f : Mathf.Lerp(11f, 8.5f, Brutal(i)), // smaller and smaller windows to thread
-                hh = Mathf.Clamp((hi - lo) * 0.5f + (forced ? 7f : 5.5f), forced ? 9f : 7.5f, forced ? 21f : 16f),
+                hw = forced ? 12f : Mathf.Lerp(14f, 11f, Brutal(i)), // smaller windows further in (wide enough for every line off the ramp)
+                hh = Mathf.Clamp((hi - lo) * 0.5f + (forced ? 7f : 8f), forced ? 9f : 10f, forced ? 21f : 18f),
             };
         }
 
@@ -1043,7 +1138,7 @@ namespace VoidFlow
                         else box = r.bounds;
                     }
                     if (box is not Bounds area) continue;
-                    area.Expand(12f);
+                    area.Expand(32f); // (a ramp's face reaches well out from its riding line)
                     foreach (var p in pts)
                         if (area.Contains(p)) { Kill(piece.gameObject); break; }
                 }
@@ -1082,8 +1177,33 @@ namespace VoidFlow
                 lastFrame = null;
                 return;
             }
-            // Continuous: the whole ramp (the opening drop starts clear of the hall), joined to
-            // the building before it across the flight
+            // Enclosed zones: the stage's hall (StageHalls) goes up once the whole course is
+            // built. A window is a great wall standing across the flight with the hole in it,
+            // far too wide and tall to fly round
+            if (holePlan is HolePlan plan)
+            {
+                Vector3 across = new Vector3(plan.facing.z, 0f, -plan.facing.x).normalized;
+                var fr = new Architecture.Frame
+                {
+                    p = plan.center, f = plan.facing, right = across,
+                    A = plan.center - across * 60f, B = plan.center + across * 60f,
+                    level = plan.center.y, bottom = plan.center.y - 45f, top = plan.center.y + 30f,
+                };
+                var wall = Architecture.HoleWall(fr, plan.center, plan.facing, plan.hw, plan.hh, kit, seg.root.transform, seg.meshes, cube);
+                // it gives way wherever a ramp (this one or the two before) runs through it, so you
+                // never meet it while riding, only in the air
+                var lines = new List<Vector3>();
+                for (int k = 0; k <= 2; k++)
+                    if ((k == 0 ? seg : Seg(seg.index - k)) is Segment sg)
+                        lines.AddRange(StageHalls.FlightTube(System.Array.ConvertAll(sg.line, q => transform.TransformPoint(q)), 14f));
+                RampClearance.Cut(new List<MeshFilter>(wall.GetComponentsInChildren<MeshFilter>(true)), new List<RampClearance.Ramps> { RampClearance.FromTriangles(lines) });
+                foreach (var mc in wall.GetComponentsInChildren<MeshCollider>(true)) { mc.sharedMesh = null; mc.sharedMesh = mc.GetComponent<MeshFilter>().sharedMesh; }
+                if (FlightClears(seg, wall)) seg.move += " + hole in the wall";
+                else Kill(wall);
+            }
+            lastFrame = null;
+            return;
+#pragma warning disable CS0162
             var frames = Architecture.RampFrames(path, i == 0 ? 45f : 0f, path.Length, step, Architecture.DepthFor(style), extraMargin);
             if (frames.Count == 0) { lastFrame = null; return; }
             int doorway = stageStart || lastFrame == null ? 0 : -1; // a doorway wherever a building begins
@@ -1107,6 +1227,7 @@ namespace VoidFlow
             }
             Architecture.Build(frames, biome, kit, seg.root.transform, seg.meshes, decor, cube, doorway);
             lastFrame = frames[^1];
+#pragma warning restore CS0162
         }
 
         // A ramp that curls back (a loop, a spiral) can pass through an earlier ramp's hole wall,
@@ -1246,7 +1367,7 @@ namespace VoidFlow
                 // only where the ramp runs fairly straight: in a hard turn you ride higher or lower
                 // on the face to hold it, and a lane round the middle line would be a wall
                 int k0 = Mathf.Max(0, k - 8), k1 = Mathf.Min(path.ridge.Count - 1, k + 8);
-                if (Vector3.Angle(path.forward[k0], path.forward[k1]) > 8f) continue;
+                if (Vector3.Angle(path.forward[k0], path.forward[k1]) > 5f) continue;
                 Vector3 along = (path.ridge[k + 1] - path.ridge[k]).normalized;
                 Vector3 top = path.FacePoint(k, 0f), bottom = path.FacePoint(k, 1f);
                 Vector3 across = (bottom - top).normalized;
@@ -1329,6 +1450,10 @@ namespace VoidFlow
                 "BIG AIR" => new List<(string, float)> { ("launch", 4f), ("blade", 2f), ("plunge", 2f), ("climb", 2f), ("sweep", 1f) },
                 _ => new List<(string, float)> { ("blade", 3f), ("sweep", 3f), ("loop", 2f), ("corner", 1.5f), ("launch", 1.5f), ("plunge", 1f), ("climb", 1f) },
             };
+            // Shapes from the hard maps, everywhere once the course gets going: snipes flicked
+            // off sideways, drops, stepped dives, kickers in the middle of a ramp, quick zigzags
+            if (i >= 8)
+                options.AddRange(new[] { ("snipe", 1.6f), ("drop", 1.1f), ("steps", 1.3f), ("kicker", 1.1f), ("zigzag", 1f) });
             // Advanced adds speed sections (plunges); technical throws every move it has in
             if (tier == Tier.Advanced) options.Add(("plunge", 3f));
             if (tier == Tier.Technical)
@@ -1343,7 +1468,7 @@ namespace VoidFlow
                 pick -= o.Item2;
             }
 
-            bool calm = name is "hole" or "spiral" or "winding" or "sweep" or "loop";
+            bool calm = name is "hole" or "spiral" or "winding" or "sweep" or "loop" or "snipe"; // (a snipe's flick is its own long flight)
             double airChance = theme == "BIG AIR" ? 0.8 : tier switch { Tier.Beginner => 0.2, Tier.Advanced or Tier.Technical => 0.5, _ => 0.35 };
             var m = new Move { name = name, bigAir = name == "launch" || (!calm && rng.NextDouble() < airChance) };
             switch (name)
@@ -1435,6 +1560,45 @@ namespace VoidFlow
                     m.shape = blade;
                     m.twin = true;
                     break;
+                case "snipe": // short and sharp: hit it fast and flick off it, far to the side
+                {
+                    m.kind = RampShapes.Kind.Prism;
+                    m.width = Mathf.Lerp(9f, 6f, t);
+                    float length = Rand(130f, 170f);
+                    m.shape = new[] { (length * 0.5f, -0.1f), (length, 0.09f) };
+                    break;
+                }
+                case "drop": // a steep slide that throws you down into a long fall
+                {
+                    m.kind = RampShapes.Kind.Prism;
+                    m.width = Mathf.Lerp(10f, 7f, t);
+                    float length = Rand(100f, 130f);
+                    m.shape = new[] { (15f, -0.95f), (length - 15f, -0.95f), (length, -0.3f) };
+                    break;
+                }
+                case "steps": // a dive in steps: steep, level, steep, level, then launch
+                {
+                    m.kind = RampShapes.Kind.Prism;
+                    m.width = Mathf.Lerp(11f, 8f, t);
+                    m.shape = new[] { (35f, -0.5f), (70f, -0.5f), (100f, -0.04f), (135f, -0.04f), (165f, -0.5f), (200f, -0.5f), (235f, -0.02f), (270f, 0.08f) };
+                    break;
+                }
+                case "kicker": // a bump halfway that pops you up off the face: hold the ramp through it
+                {
+                    m.kind = RampShapes.Kind.Prism;
+                    m.width = Mathf.Lerp(10f, 7f, t);
+                    m.shape = new[] { (40f, -0.2f), (100f, -0.2f), (125f, 0.12f), (140f, 0.12f), (165f, -0.25f), (220f, -0.25f), (250f, 0f), (275f, 0.08f) };
+                    break;
+                }
+                case "zigzag": // left, right, left: a quick S and back, long enough to hold at speed
+                {
+                    m.kind = RampShapes.Kind.Prism;
+                    m.width = Mathf.Lerp(10f, 7f, t);
+                    float a = Mathf.Lerp(16f, 26f, t) * Rand(0.85f, 1f);
+                    m.shape = new[] { (40f, -0.12f), (360f, -0.12f), (390f, 0.07f) };
+                    m.bend = new[] { (20f, 0f), (110f, a), (210f, -a * 0.7f), (310f, a * 0.5f), (390f, a * 0.5f) };
+                    break;
+                }
                 default: // blade, with a gentle bend once the course gets going
                     m.kind = RampShapes.Kind.Prism;
                     m.width = Mathf.Lerp(7f, 5f, t);
@@ -1448,6 +1612,14 @@ namespace VoidFlow
             }
             // Wide ramps for beginners, tiny ones for advanced
             m.width *= tier switch { Tier.Beginner => 1.2f, Tier.Advanced => 0.8f, Tier.Technical => 0.9f, _ => 1f };
+            // ...and no two alike: each ramp a little wider or thinner, longer or shorter
+            m.width *= Rand(0.8f, 1.25f);
+            if (m.kind == RampShapes.Kind.Prism && name is not ("loop" or "winding" or "zigzag" or "sweep"))
+            {
+                float stretch = Rand(0.85f, 1.3f);
+                m.shape = System.Array.ConvertAll(m.shape, k => (k.Item1 * stretch, k.Item2));
+                if (m.bend != null) m.bend = System.Array.ConvertAll(m.bend, k => (k.Item1 * stretch, k.Item2));
+            }
             return m;
         }
 
@@ -1558,6 +1730,8 @@ namespace VoidFlow
             if (here == null) return false;
             float floor = here.lowestY;
             if (next != null) floor = Mathf.Min(floor, next.lowestY);
+            // down on a hall's floor counts as falling, as in a map
+            if (HallFloorAt(p) is float hall && p.y < hall + 2f) return true;
             return p.y < floor - FallMargin;
         }
 
@@ -1697,6 +1871,7 @@ namespace VoidFlow
             current = checkpoint;
             foreach (var s in segments)
                 if (s.root) s.root.SetActive(s.index >= current - rampsBehind && s.index <= current + 2);
+            ShowHalls();
             if (Seg(from) is Segment was && was.biome != Seg(current).biome)
             {
                 envFrom = envTo = Biome.All[Seg(current).biome];
@@ -1752,6 +1927,8 @@ namespace VoidFlow
                 seg.lowestY += delta.y;
             }
             courseStartY += delta.y;
+            hallShift += delta;
+            foreach (var (_, go) in halls) if (go) go.transform.localPosition += delta;
             if (lastFrame is Architecture.Frame lf)
             {
                 Architecture.Shift(ref lf, delta);
