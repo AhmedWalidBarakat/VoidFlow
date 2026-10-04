@@ -318,7 +318,7 @@ namespace VoidFlow
         {
             if (!IsVoidModel(knife.model)) return;
             float a = current == KnifeSlot ? Mathf.Clamp01(drawTime / VoidDrawTime) : 1f;
-            var (offset, turn, grow) = VoidDrawPose(a);
+            var (offset, turn, grow, burn) = VoidDrawPose(a);
             hand.localPosition += offset;
             PlaceInFist(knife.root, turn, grow);
             if (offhand != null)
@@ -331,7 +331,7 @@ namespace VoidFlow
             {
                 if (a < 0.1f) voidWhoosh = false;
                 else if (!voidWhoosh) { voidWhoosh = true; Play(WeaponSounds.Slash, 0.35f); }
-                UpdateFlames(hand.parent.InverseTransformPoint(rightHand.grip.TransformPoint(KnifeHandle)), Quaternion.identity, Mathf.Sin(a * Mathf.PI), time);
+                UpdateFlames(hand.parent.InverseTransformPoint(rightHand.grip.TransformPoint(KnifeHandle)), Quaternion.identity, burn, time);
             }
         }
 
@@ -443,8 +443,10 @@ namespace VoidFlow
             InspectTaps(kb);
             bool held = (kb != null && kb.fKey.isPressed) || AutoInspect;
             if (((kb != null && kb.fKey.wasPressedThisFrame) || AutoInspect) && inspectTime < 0f && slashTime < 0f && ready) StartInspect();
-            if (ready && locked && mouse != null && mouse.leftButton.wasPressedThisFrame && (slashTime < 0f || slashTime > 0.3f))
+            if (ready && locked && mouse != null && mouse.leftButton.wasPressedThisFrame && (slashTime < 0f || slashTime > CutReady))
             {
+                NextCut(Time.time - lastCutAt);
+                lastCutAt = Time.time;
                 slashTime = 0f;
                 slashSide = -slashSide;
                 StopInspect();
@@ -456,17 +458,18 @@ namespace VoidFlow
             if (slashTime >= 0f)
             {
                 slashTime += dt;
-                (pos, rot) = Sample(SlashKeys, slashTime);
+                (pos, rot) = Sample(currentCut, slashTime);
                 // Every other swing mirrors, so cuts alternate right-to-left and left-to-right;
                 // swords swing wider
                 float reach = knife.IsSword ? 1.3f : 1f;
                 pos = new Vector3(pos.x * slashSide, pos.y, pos.z) * reach;
                 rot = new Vector3(rot.x, rot.y * slashSide, rot.z * slashSide) * reach;
-                if (slashTime > SlashKeys[^1].t) slashTime = -1f;
+                if (slashTime > currentCut[^1].t) slashTime = -1f;
             }
             else if (inspectTime >= 0f) AdvanceRoutine(held, dt);
             PoseKnife(pos, rot, inspectTime);
-            UpdateTrail(inspectTime >= 0f || slashTime >= 0f);
+            // (a Void weapon's draw leaves its trail too, streaking in its own colour)
+            UpdateTrail(inspectTime >= 0f || slashTime >= 0f || (IsVoidModel(knife.model) && drawTime < VoidDrawTime));
         }
 
         void AdvanceRoutine(bool held, float dt)
@@ -562,12 +565,14 @@ namespace VoidFlow
             rightHand.open = 0f; rightHand.keepIndex = false;
             leftHand.open = offhand != null ? 0f : 0.3f; // a loose fist at rest, as in CS2 (closed on a second blade)
             SetHandGrip(leftHand, Fist);
-            hand.localPosition = (talon ? TalonIdlePos : RightIdle) + pos;
-            hand.localRotation = Quaternion.Euler(rot) * (talon ? TalonIdle : knife.model == KnifeModel.Butterfly ? ButterflyIdle : ForwardIdle);
+            // (the twin blades' left hand takes every other cut, the right staying at rest)
+            bool leftCut = TwinCutsLeft;
+            hand.localPosition = (talon ? TalonIdlePos : RightIdle) + (leftCut ? Vector3.zero : pos);
+            hand.localRotation = Quaternion.Euler(leftCut ? Vector3.zero : rot) * (talon ? TalonIdle : knife.model == KnifeModel.Butterfly ? ButterflyIdle : ForwardIdle);
             SetArmAlpha(1f);
             // The left arm dips out of the way of cuts that cross the body
             float slashAway = slashTime >= 0f && slashSide < 0f ? Plateau(slashTime, 0f, 0.1f, 0.3f, 0.45f) : 0f;
-            if (offhand != null) leftHand.root.SetLocalPositionAndRotation(DualLeftIdle, DualLeftRotation);
+            if (offhand != null) leftHand.root.SetLocalPositionAndRotation(DualLeftIdle + (leftCut ? pos : Vector3.zero), Quaternion.Euler(leftCut ? rot : Vector3.zero) * DualLeftRotation);
             else leftHand.root.SetLocalPositionAndRotation(LeftIdle + LeftHandAway * slashAway, LeftIdleRotation);
             knife.ringSpin = 0f;
             knife.root.localScale = Vector3.one * knifeScale;

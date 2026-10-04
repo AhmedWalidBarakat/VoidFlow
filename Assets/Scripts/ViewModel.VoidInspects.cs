@@ -105,32 +105,34 @@ namespace VoidFlow
         {
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
-            k = k.At(0.35f); k.rp = new(0.16f, -0.06f, 0.32f); k.rq = RightUp; k.spin = new(0f, 0f, -60f); k.lp = LeftIdle + LeftHandAway; ks.Add(k); // drawn back
-            k = k.At(0.75f); k.rp = new(0.0f, -0.08f, 0.37f); k.rq = SweepQ; k.spin = new(0f, 0f, 120f); ks.Add(k);   // the reaping sweep
-            k = k.At(0.95f); k.rp = new(-0.02f, -0.085f, 0.37f); ks.Add(k);
-            k = k.At(1.45f); k.rp = new(0.15f, -0.05f, 0.32f); k.rq = RightUp; k.spin = new(0f, 0f, 0f); ks.Add(k);    // and back
+            k = k.At(0.35f); k.rp = new(0.13f, -0.04f, 0.35f); k.rq = RaiseQ; k.spin = new(0f, 0f, -20f); k.lp = LeftIdle + LeftHandAway; ks.Add(k); // drawn back, the head in view
+            k = k.At(0.75f); k.rp = new(0.0f, -0.07f, 0.37f); k.rq = TurnQ(RaiseQ, -25f); k.spin = new(0f, 0f, 45f); ks.Add(k);   // the reaping sweep, the head out in front
+            k = k.At(0.95f); k.rp = new(-0.02f, -0.075f, 0.37f); ks.Add(k);
+            k = k.At(1.45f); k.rp = new(0.13f, -0.04f, 0.35f); k.rq = RaiseQ; k.spin = new(0f, 0f, 0f); ks.Add(k);    // and back
             k = RaiseKey(k, 1.8f); k.spin = new(0f, 0f, 360f); ks.Add(k);                                               // whirled overhead
             k = k.At(2.8f); k.spin = new(0f, 0f, 720f); ks.Add(k);
             ks.Add(Home(k, 3.4f));
             return Done(ks, 2.2f, 1, 360f, (0.6f, WeaponSounds.Slash, 0.6f), (1.3f, WeaponSounds.Slash, 0.45f), (2.0f, WeaponSounds.Slash, 0.4f));
         }
 
-        // Jade Sword
+        // Jade Sword: slow flowing arcs, the blade swaying with them (always in view), then
+        // balanced on the open palm
         static Routine FlowRoutine()
         {
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
             Vector3[] path = { new(0.08f, -0.1f, 0.34f), new(0.03f, -0.12f, 0.36f), new(0.06f, -0.145f, 0.33f), new(0.1f, -0.12f, 0.31f) };
-            for (int i = 0; i < path.Length; i++)            // slow arcs, the blade turning with them
+            float[] sway = { 22f, -16f, 12f, 0f };
+            for (int i = 0; i < path.Length; i++)            // slow arcs, swaying
             {
-                k = k.At(0.5f + i * 0.4f); k.rp = path[i]; k.rq = i % 2 == 0 ? ShowA : ShowB; k.spin = new(0f, 0f, 90f * (i + 1)); ks.Add(k);
+                k = k.At(0.55f + i * 0.45f); k.rp = path[i]; k.rq = Lean(ShowA, sway[i]); ks.Add(k);
             }
-            k = k.At(2.4f); k.hold = Hold.Air; k.ap = new(0.06f, -0.075f, 0.33f); k.aq = Quaternion.Euler(0f, 0f, 90f); k.spin = new(0f, 0f, 360f);
+            k = k.At(2.55f); k.hold = Hold.Air; k.ap = new(0.06f, -0.075f, 0.33f); k.aq = Quaternion.Euler(0f, 0f, 10f);
             k.rp = ShowAt; k.rq = ShowA; k.rOpen = 0.9f; ks.Add(k);                           // balanced on the open palm
-            k = k.At(2.8f); ks.Add(k);
-            k = k.At(3.05f); k.hold = Hold.Right; k.rOpen = 0f; k.spin = new(0f, 0f, 360f); ks.Add(k);
-            ks.Add(Home(k, 3.55f));
-            return Done(ks, 2.6f, 0, 0f, (0.6f, WeaponSounds.Slash, 0.15f), (1.4f, WeaponSounds.Slash, 0.15f), (3.0f, WeaponSounds.Tick, 0.3f));
+            k = k.At(2.95f); k.ap = new(0.06f, -0.07f, 0.33f); k.aq = Quaternion.Euler(0f, 0f, -6f); ks.Add(k);
+            k = k.At(3.2f); k.hold = Hold.Right; k.rOpen = 0f; ks.Add(k);
+            ks.Add(Home(k, 3.7f));
+            return Done(ks, 2.75f, 0, 0f, (0.6f, WeaponSounds.Slash, 0.15f), (1.5f, WeaponSounds.Slash, 0.15f), (3.15f, WeaponSounds.Tick, 0.3f));
         }
 
         // Gradient Fantasy Sword
@@ -256,7 +258,7 @@ namespace VoidFlow
         }
 
         // Shattered Crystal Sword: held up so the light runs through the crystal, tilted to glint,
-        // tossed gently across (no spin) to the left hand, which shows the other side, and back
+        // tossed straight up (no spin), caught, and turned to show the shards
         static Routine CrystalPassRoutine()
         {
             var ks = new List<Key>();
@@ -264,13 +266,12 @@ namespace VoidFlow
             k = Show(k, 0.45f, RaiseQ, RaiseAt); ks.Add(k);
             k = k.At(1.0f); k.rq = Lean(RaiseQ, -12f); ks.Add(k);
             k = k.At(1.45f); k.rq = Lean(RaiseQ, 10f); ks.Add(k);
-            k = k.At(1.8f); k.hold = Hold.Air; k.ap = new(0.0f, -0.04f, 0.36f); k.aq = Quaternion.Euler(0f, 0f, 20f); k.lp = new(-0.07f, -0.1f, 0.32f); k.lq = LeftCatchQ; ks.Add(k); // across
-            k = k.At(2.05f); k.hold = Hold.Left; k.lp = LeftShowAt; k.lq = LeftShowA; ks.Add(k);
-            k = k.At(2.6f); k.lq = Lean(LeftShowA, -12f); k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
-            k = k.At(2.95f); k.hold = Hold.Air; k.ap = new(0.02f, -0.06f, 0.34f); k.aq = Quaternion.Euler(0f, 0f, -10f); k.rp = ShowAt; k.rq = ShowA; ks.Add(k);
-            k = k.At(3.2f); k.hold = Hold.Right; k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
-            ks.Add(Home(k, 3.65f));
-            return Done(ks, 1.0f, 0, 0f, (0.45f, WeaponSounds.Unsheathe, 0.3f), (1.8f, WeaponSounds.Slash, 0.2f), (2.05f, WeaponSounds.Tick, 0.4f), (3.2f, WeaponSounds.Tick, 0.4f));
+            k = k.At(1.85f); k.hold = Hold.Air; k.ap = new(0.06f, -0.02f, 0.36f); k.aq = Quaternion.Euler(0f, 0f, 70f); k.rOpen = 0.7f; ks.Add(k); // tossed up
+            k = k.At(2.15f); k.hold = Hold.Right; k.rOpen = 0f; k.rp = ShowAt; k.rq = ShowA; ks.Add(k);                                          // caught
+            k = k.At(2.65f); k.rq = TurnQ(ShowA, 22f); ks.Add(k);
+            k = k.At(3.0f); k.rq = TurnQ(ShowA, -12f); ks.Add(k);
+            ks.Add(Home(k, 3.5f));
+            return Done(ks, 1.0f, 0, 0f, (0.45f, WeaponSounds.Unsheathe, 0.3f), (1.8f, WeaponSounds.Slash, 0.2f), (2.15f, WeaponSounds.Tick, 0.45f));
         }
 
         // Demon Sword: raised slowly upright before you, then the point lowered toward you, held
@@ -355,8 +356,8 @@ namespace VoidFlow
             return Done(ks, 1.3f, 0, 0f, (0.6f, WeaponSounds.Unsheathe, 0.3f), (2.6f, WeaponSounds.Slash, 0.5f));
         }
 
-        // Squid Dagger: flipped once over in the fingers, shown up close, handed slowly across to
-        // the left hand, which tilts it to the light, and back
+        // Squid Dagger: flipped once over in the fingers, shown up close, flipped back, tilted to
+        // the light
         static Routine SmallShowRoutine()
         {
             var close = new Vector3(0.06f, -0.115f, 0.28f);
@@ -367,11 +368,12 @@ namespace VoidFlow
             k = k.At(0.85f); k.rOpen = 0f; ks.Add(k);
             k = Show(k, 1.3f, ShowA, close); ks.Add(k);
             k = k.At(1.75f); k.rq = TurnQ(ShowA, 20f); ks.Add(k);
-            k = k.At(2.1f); k.hold = Hold.Left; k.lp = new(-0.03f, -0.12f, 0.3f); k.lq = LeftShowA; k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k); // to the left
-            k = k.At(2.55f); k.lq = TurnQ(LeftShowA, -20f); ks.Add(k);
-            k = k.At(2.9f); k.hold = Hold.Right; k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
-            k = Home(k, 3.3f); k.spin = new(0f, 360f, 0f); ks.Add(k);
-            return Done(ks, 1.75f, 0, 0f, (0.6f, WeaponSounds.Tick, 0.35f), (2.1f, WeaponSounds.Tick, 0.35f), (2.9f, WeaponSounds.Tick, 0.35f));
+            k = k.At(2.1f); k.rOpen = 0.35f; ks.Add(k);
+            k = k.At(2.4f); k.spin = new(0f, 360f, 0f); ks.Add(k);                                  // and back
+            k = k.At(2.6f); k.rOpen = 0f; ks.Add(k);
+            k = k.At(2.95f); k.rq = Lean(TurnQ(ShowA, -15f), 8f); ks.Add(k);
+            ks.Add(Home(k, 3.4f));
+            return Done(ks, 1.75f, 0, 0f, (0.6f, WeaponSounds.Tick, 0.35f), (2.35f, WeaponSounds.Tick, 0.35f));
         }
 
         // Autumn Sword: held up like into an evening sun and rocked gently, as a branch in the
@@ -409,8 +411,8 @@ namespace VoidFlow
             return Done(ks, 1.0f, 0, 0f, (0.45f, WeaponSounds.Tick, 0.3f), (1.2f, WeaponSounds.Slash, 0.25f));
         }
 
-        // Arcane Crystal Dagger: turned in the light so the crystal glints, tossed low (no spin)
-        // to the left hand, shown on that side, and back
+        // Arcane Crystal Dagger: turned in the light so the crystal glints, tossed a little way up
+        // (no spin) and caught, turned again
         static Routine GlintRoutine()
         {
             var ks = new List<Key>();
@@ -418,13 +420,12 @@ namespace VoidFlow
             k = Show(k, 0.45f, ShowA, ShowAt); ks.Add(k);
             k = k.At(0.9f); k.rq = TurnQ(ShowA, 25f); ks.Add(k);
             k = k.At(1.35f); k.rq = TurnQ(ShowA, -18f); ks.Add(k);
-            k = k.At(1.65f); k.hold = Hold.Air; k.ap = new(0.0f, -0.07f, 0.33f); k.aq = Quaternion.Euler(0f, 0f, 15f); k.lp = new(-0.06f, -0.11f, 0.31f); k.lq = LeftCatchQ; ks.Add(k);
-            k = k.At(1.9f); k.hold = Hold.Left; k.lp = LeftShowAt; k.lq = LeftShowA; k.rp = RightIdle; k.rq = ForwardIdle; ks.Add(k);
-            k = k.At(2.4f); k.lq = TurnQ(LeftShowA, -22f); ks.Add(k);
-            k = k.At(2.7f); k.hold = Hold.Air; k.ap = new(0.02f, -0.08f, 0.32f); k.aq = Quaternion.identity; k.rp = ShowAt; k.rq = ShowA; ks.Add(k);
-            k = k.At(2.95f); k.hold = Hold.Right; k.lp = LeftIdle; k.lq = LeftIdleRotation; ks.Add(k);
-            ks.Add(Home(k, 3.4f));
-            return Done(ks, 0.9f, 0, 0f, (0.45f, WeaponSounds.Unsheathe, 0.25f), (1.9f, WeaponSounds.Tick, 0.4f), (2.95f, WeaponSounds.Tick, 0.4f));
+            k = k.At(1.7f); k.hold = Hold.Air; k.ap = new(0.06f, -0.06f, 0.32f); k.aq = Quaternion.Euler(0f, 0f, 25f); k.rOpen = 0.7f; ks.Add(k); // tossed up
+            k = k.At(1.95f); k.hold = Hold.Right; k.rOpen = 0f; k.rq = ShowA; ks.Add(k);
+            k = k.At(2.45f); k.rq = Lean(TurnQ(ShowA, 20f), -8f); ks.Add(k);
+            k = k.At(2.85f); ks.Add(k);
+            ks.Add(Home(k, 3.3f));
+            return Done(ks, 0.9f, 0, 0f, (0.45f, WeaponSounds.Unsheathe, 0.25f), (1.65f, WeaponSounds.Slash, 0.15f), (1.95f, WeaponSounds.Tick, 0.4f));
         }
 
         // Karambits: the hand turns over so the curve hangs from the fist, claw-like, the colour
@@ -530,72 +531,65 @@ namespace VoidFlow
 
         // ------------------------------------------------------------------ draws
 
-        // Each Void weapon is called out of the void its own way: the hand's path in (camera
-        // space), how the weapon turns as it comes (about its own axes) and how it grows, at
-        // a = 0..1 through the draw
-        (Vector3 offset, Quaternion turn, float grow) VoidDrawPose(float a)
+        // Each Void weapon comes out its own way, the way that weapon would (the hand's path in,
+        // in camera space; how the weapon turns as it comes, about its own axes; how it grows;
+        // how strongly the dark flames burn), at a = 0..1 through the draw:
+        //  - swords are unsheathed: drawn up from the hip at full size, swinging round into the hand
+        //  - the summoned ones grow out of dark flames (the Abyssal Heart, the Soulsucker, the
+        //    scythes, the twin blades)
+        //  - knives are flipped up into the hand, karambits twirled in on the finger, the kunai
+        //    dropped in from above, the lance thrust in, the cyber blade snapped out like a katana
+        (Vector3 offset, Quaternion turn, float grow, float flames) VoidDrawPose(float a)
         {
             string asset = Skins.Knives[knifeSkin].asset ?? "";
             float e = 1f - Mathf.Pow(1f - a, 3f), rest = 1f - e;   // eased in, and what's left
-            float grow = a >= 1f ? 1f : Mathf.Max(0.02f, BackOut(a));
+            float summon = a >= 1f ? 1f : Mathf.Max(0.02f, BackOut(a));
+            float pop = Mathf.Lerp(0.85f, 1f, e);                   // full size, settling into the hand
+            float burn = Mathf.Sin(a * Mathf.PI);
             Quaternion Turn(Vector3 axis, float degrees) => Quaternion.AngleAxis(degrees * rest, axis);
+            // up from the hip, the blade swinging round from behind into the hand
+            (Vector3, Quaternion, float, float) Unsheathe(float swing, float fromX) =>
+                (new Vector3(fromX, -0.13f, -0.03f) * rest, Turn(Vector3.forward, swing), pop, burn * 0.35f);
+            // flipped up from below, end over end, into the hand
+            (Vector3, Quaternion, float, float) FlipUp(float degrees) =>
+                (new Vector3(0.01f, -0.1f, 0f) * rest + new Vector3(0f, 0.025f, 0f) * Mathf.Sin(a * Mathf.PI), Turn(Vector3.right, degrees), pop, burn * 0.3f);
             switch (asset.Length >= 2 ? asset.Substring(0, 2) : "")
             {
-                case "01": return (new Vector3(0f, -0.1f, 0f) * rest, Turn(Vector3.up, 360f), grow);                       // presented, rising
-                case "02": return (new Vector3(0.08f, 0f, 0f) * rest, Turn(Vector3.forward, 720f), grow);                  // swept in, whirling
-                case "03": return (new Vector3(0f, 0f, 0.12f) * rest, Turn(Vector3.up, -360f), grow);                      // thrust out
-                case "05": return (new Vector3(0f, -0.03f, 0f) * rest, Turn(Vector3.up, 180f), Mathf.SmoothStep(0.02f, 1f, a)); // swells slowly
-                case "06": return (new Vector3(-0.03f, 0f, 0f) * rest, Turn(Vector3.forward, 360f), grow);                 // the pair crossing out
-                case "07": return (new Vector3(-0.06f, 0.02f, 0f) * rest, Turn(Vector3.forward, -720f), grow);             // from the left
-                case "08": return (Vector3.zero, Quaternion.AngleAxis(-90f * Mathf.Ceil(rest * 4f - 0.001f), Vector3.right), grow); // ratcheting in
-                case "09":                                                                                                  // a slow arc in from the left
+                case "01": return Unsheathe(-120f, -0.12f);
+                case "02": return (new Vector3(0.08f, 0f, 0f) * rest, Turn(Vector3.forward, 720f), summon, burn);                  // swept in, whirling, out of the flames
+                case "03": return Unsheathe(-100f, -0.1f);
+                case "05": return (new Vector3(0f, -0.03f, 0f) * rest, Turn(Vector3.up, 180f), Mathf.SmoothStep(0.02f, 1f, a), burn); // swelling out of the flames
+                case "06": return (new Vector3(-0.03f, 0f, 0f) * rest, Turn(Vector3.forward, 360f), summon, burn);                 // the pair crossing out of the flames
+                case "07": return Unsheathe(-140f, -0.13f);
+                case "08": return (new Vector3(-0.1f, -0.12f, -0.03f) * rest, Quaternion.AngleAxis(-30f * Mathf.Ceil(rest * 4f - 0.001f), Vector3.forward), pop, burn * 0.25f); // drawn up, ratcheting into place
+                case "09": return Unsheathe(-90f, -0.09f);
+                case "10": return Unsheathe(-110f, -0.1f);
+                case "11": return Unsheathe(-150f, -0.14f);
+                case "12": return (new Vector3(0f, -0.07f, 0f) * rest, Quaternion.AngleAxis(Mathf.Sin(a * 14f) * 12f * rest, Vector3.forward) * Turn(Vector3.up, 270f), Mathf.SmoothStep(0.02f, 1f, a), burn); // rising out of the flames
+                case "13": return (new Vector3(0.02f, -0.02f, -0.16f) * rest, Turn(Vector3.forward, -30f), pop, burn * 0.3f);    // thrust in
+                case "14": return Unsheathe(-120f, -0.11f);
+                case "15":                                                                                                          // snapped out like a katana
                 {
-                    float arc = rest * Mathf.PI * 0.5f;
-                    return (new Vector3(-0.08f * Mathf.Sin(arc), -0.04f * Mathf.Sin(arc * 2f), 0f), Turn(Vector3.forward, 90f), Mathf.SmoothStep(0.05f, 1f, a));
+                    float snap = Mathf.Pow(1f - Mathf.Clamp01(a / 0.3f), 3f);
+                    return (new Vector3(-0.1f, -0.1f, -0.02f) * snap, Quaternion.AngleAxis(-160f * snap, Vector3.forward), 1f, burn * 0.2f);
                 }
-                case "10":                                                                                                  // assembling, shaking
-                {
-                    float shake = a < 0.8f ? Mathf.Sin(a * 80f) * 0.006f * (1f - a) : 0f;
-                    return (new Vector3(shake, -shake, 0f), Turn(Vector3.up, 180f), grow);
-                }
-                case "11": return (new Vector3(0f, -0.08f, 0f) * rest, Turn(Vector3.forward, 1080f), grow);                // erupting, spinning
-                case "12":                                                                                                  // rising slowly, wobbling
-                {
-                    float wob = Mathf.Sin(a * 14f) * 12f * rest;
-                    return (new Vector3(0f, -0.07f, 0f) * rest, Quaternion.AngleAxis(wob, Vector3.forward) * Turn(Vector3.up, 270f), Mathf.SmoothStep(0.02f, 1f, a));
-                }
-                case "13": return (new Vector3(0.07f, -0.02f, 0f) * rest, Turn(Vector3.right, 720f), grow);                // twirled in like a baton
-                case "14": return (new Vector3(-0.04f, 0.06f, 0f) * rest, Turn(Vector3.right, 360f), grow);                // cartwheeling down
-                case "15":                                                                                                  // snapped out
-                {
-                    float snap = Mathf.Pow(1f - Mathf.Clamp01(a / 0.35f), 4f);
-                    return (new Vector3(0.05f, 0f, 0f) * snap, Quaternion.AngleAxis(-360f * snap, Vector3.up), a >= 0.35f ? 1f : Mathf.Max(0.02f, a / 0.35f));
-                }
-                case "16": return (new Vector3(0f, 0.1f, 0f) * rest, Turn(Vector3.forward, 360f), grow);                   // descending from above
-                case "17": return (Vector3.zero, Turn(Vector3.up, 1080f), grow);                                            // flipped in
-                case "18":                                                                                                  // drifting down like a leaf
-                {
-                    float sway = Mathf.Sin(a * Mathf.PI * 3f) * 0.03f * rest;
-                    return (new Vector3(sway, 0.08f * rest, 0f), Quaternion.AngleAxis(Mathf.Sin(a * Mathf.PI * 3f) * 40f * rest, Vector3.forward), grow);
-                }
-                case "28": return (new Vector3(0.04f, 0.03f, 0f) * rest, Turn(Vector3.forward, 360f), grow);              // a gust, swirling in
-                case "29":                                                                                                  // forming, glinting
-                {
-                    float shake = a < 0.7f ? Mathf.Sin(a * 70f) * 0.004f * (1f - a) : 0f;
-                    return (new Vector3(shake, 0f, 0f), Turn(Vector3.up, 90f), Mathf.SmoothStep(0.05f, 1f, a));
-                }
+                case "16": return (new Vector3(0f, 0.1f, 0f) * rest, Turn(Vector3.forward, 360f), summon, burn);                   // descending out of the flames
+                case "17": return FlipUp(-720f);
+                case "18": return Unsheathe(-100f, -0.1f);
+                case "28": return FlipUp(-360f);
+                case "29": return FlipUp(-360f);
                 case "30":
-                case "35": return (new Vector3(0.06f, -0.03f, 0f) * rest, Turn(Vector3.up, -180f), grow);                // hooked in from the right
-                case "31": return (new Vector3(-0.07f, 0f, 0f) * rest, Turn(Vector3.forward, 40f), grow);                 // slid in from the left
-                case "32": return (new Vector3(0f, 0.09f, 0f) * rest, Turn(Vector3.right, 180f), grow);                   // dropped into the hand
-                case "33":                                                                                                  // weaving in like smoke
+                case "35": return (new Vector3(0.04f, -0.08f, 0f) * rest, Turn(Vector3.forward, -540f), pop, burn * 0.3f);         // twirled in on the finger
+                case "31": return (new Vector3(-0.08f, -0.02f, 0f) * rest, Turn(Vector3.forward, 60f), pop, burn * 0.25f);         // slid in from the left
+                case "32": return (new Vector3(0f, 0.1f, 0f) * rest, Turn(Vector3.right, 180f), pop, burn * 0.25f);               // dropped in from above
+                case "33":                                                                                                          // weaving in like smoke
                 {
                     float sway = Mathf.Sin(a * Mathf.PI * 2.5f) * 0.03f * rest;
-                    return (new Vector3(sway, -0.04f * rest, 0f), Quaternion.AngleAxis(sway * 600f, Vector3.forward), Mathf.SmoothStep(0.05f, 1f, a));
+                    return (new Vector3(sway, -0.05f * rest, 0f), Quaternion.AngleAxis(sway * 600f, Vector3.forward), pop, burn * 0.6f);
                 }
-                case "34": return (new Vector3(0f, -0.06f, 0f) * rest, Turn(Vector3.up, 180f), grow);                    // rising like a wave
+                case "34": return FlipUp(-360f);
             }
-            return (Vector3.zero, Turn(Vector3.up, 360f), grow);
+            return (Vector3.zero, Turn(Vector3.up, 360f), summon, burn);
         }
     }
 }
