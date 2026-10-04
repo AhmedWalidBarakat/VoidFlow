@@ -304,7 +304,13 @@ namespace VoidFlow
             BeginBuild();
             // (you are held still while it builds, so each frame can spend a good while on it)
             float started = Time.realtimeSinceStartup;
-            while (!BuildSlice(0.1f)) yield return null;
+            // The loading screen covers everything, so the cameras draw nothing meanwhile: drawing
+            // the half-built course behind it took several times longer than building it
+            var cameras = Camera.allCameras;
+            var masks = new int[cameras.Length];
+            for (int i = 0; i < cameras.Length; i++) { masks[i] = cameras[i].cullingMask; cameras[i].cullingMask = 0; }
+            while (!BuildSlice(0.5f)) yield return null; // (each frame ends with a pass of the browser's collector over everything built so far, so fewer, fuller frames load much faster; a few halls a frame stays well inside memory)
+            for (int i = 0; i < cameras.Length; i++) if (cameras[i]) cameras[i].cullingMask = masks[i];
             Debug.Log($"VoidFlow: course built, {FinalRamp} ramps, {buildWork:0.0}s of work over {buildFrames} frames, {Time.realtimeSinceStartup - started:0.0}s in all");
             building = null;
         }

@@ -96,6 +96,7 @@ namespace VoidFlow
             public float sustainAt = -1f; // held F pauses the routine here...
             public int sustainAxis;       // ...and keeps spinning: 0 nothing, 1 the knife, 2 around the arm, 3 butterfly flips
             public float sustainSpeed;
+            public bool dualArms;         // twin blades: the left arm (with its blade) follows the keys too
             public (float t, AudioClip clip, float volume)[] sounds = System.Array.Empty<(float, AudioClip, float)>();
             public float Length => keys[^1].t;
         }
@@ -293,29 +294,6 @@ namespace VoidFlow
             _ => SwordRoutine(),
         };
 
-        // Real-model Void weapons: each its own take on the Void specials, the trick, spin
-        // direction, number of turns and height of the toss all picked from its name
-        Routine VoidModelRoutine(KnifeModel model)
-        {
-            uint h = NameHash(Skins.Knives[knifeSkin].name);
-            var r = model switch
-            {
-                KnifeModel.ModelScythe => ReaperRoutine(),
-                KnifeModel.ModelDual => h % 2 == 0 ? SaberRoutine() : ReaperRoutine(), // (the left hand keeps its own blade)
-                _ => (h % 3) switch { 0 => SaberRoutine(), 1 => ShardRoutine(), _ => ReaperRoutine() },
-            };
-            // whole turns stay whole, so it still lands back in the grip
-            float turns = (((h >> 2) & 1) == 0 ? 1f : -1f) * (((h >> 3) & 1) == 0 ? 1f : 2f);
-            float lift = ((h >> 4) & 1) == 0 ? 1f : 1.35f;
-            foreach (var k in r.keys)
-            {
-                k.spin *= turns;
-                if (k.hold == Hold.Air) k.ap.y *= lift;
-            }
-            r.sustainSpeed *= turns;
-            return r;
-        }
-
         static uint NameHash(string s)
         {
             uint h = 2166136261;
@@ -331,8 +309,7 @@ namespace VoidFlow
         }
 
         // Drawing a real-model Void weapon: it's called out of the void, growing into the fist
-        // from nothing with a flourish of its own (a twirl about the blade, a cartwheel or a
-        // propeller turn, once or twice, picked from its name) in a burst of dark flames
+        // from nothing with a flourish of its own (see VoidDrawPose) in a burst of dark flames
         public const float VoidDrawTime = 0.75f;
         static bool IsVoidModel(KnifeModel m) => m is KnifeModel.ModelBlade or KnifeModel.ModelScythe or KnifeModel.ModelDual;
         bool voidWhoosh;
@@ -341,13 +318,15 @@ namespace VoidFlow
         {
             if (!IsVoidModel(knife.model)) return;
             float a = current == KnifeSlot ? Mathf.Clamp01(drawTime / VoidDrawTime) : 1f;
-            uint h = NameHash(Skins.Knives[knifeSkin].name);
-            float turns = 1f + ((h >> 5) & 1);
-            Vector3 axis = ((h >> 6) % 3) switch { 0 => Vector3.up, 1 => Vector3.forward, _ => Vector3.right };
-            float angle = -360f * turns * Mathf.Pow(1f - a, 3f); // unwinding to the hold
-            float grow = a >= 1f ? 1f : Mathf.Max(0.02f, BackOut(a));
-            PlaceInFist(knife.root, Quaternion.AngleAxis(angle, axis), grow);
-            if (offhand != null) PlaceInFist(offhand.root, Quaternion.AngleAxis(-angle, axis) * offhandRest, grow);
+            var (offset, turn, grow) = VoidDrawPose(a);
+            hand.localPosition += offset;
+            PlaceInFist(knife.root, turn, grow);
+            if (offhand != null)
+            {
+                turn.ToAngleAxis(out float angle, out Vector3 axis);
+                PlaceInFist(offhand.root, Quaternion.AngleAxis(-angle, axis) * offhandRest, grow); // (the mirror image)
+                leftHand.root.localPosition += new Vector3(-offset.x, offset.y, offset.z);
+            }
             if (a < 1f)
             {
                 if (a < 0.1f) voidWhoosh = false;
@@ -752,7 +731,7 @@ namespace VoidFlow
             SetHandGrip(leftHand, leftHolds ? Fist : Relaxed);
             leftHand.open = Lerp(a.lOpen, b.lOpen);
             // twin blades: the left fist keeps its blade where it rests while the right shows off
-            if (offhand != null) { SetHandGrip(leftHand, Fist); leftHand.open = 0f; left = new Pose(DualLeftIdle, DualLeftRotation); }
+            if (offhand != null) { SetHandGrip(leftHand, Fist); leftHand.open = 0f; if (!routine.dualArms) left = new Pose(DualLeftIdle, DualLeftRotation); }
 
             hand.SetLocalPositionAndRotation(right.p, right.q);
             leftHand.root.gameObject.SetActive(true);

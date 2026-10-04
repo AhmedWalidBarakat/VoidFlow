@@ -42,15 +42,18 @@
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
       status.textContent = "VoidFlow needs a keyboard and mouse: it's made for desktop browsers.";
     var buildUrl = "Build";
+    // Every release stamps its files, so a browser never pairs a cached file from the last
+    // release with the new ones (a mismatched pair crashes on start)
+    var stamp = "?v=" + encodeURIComponent("202610040350");
     var config = {
       arguments: [],
-      dataUrl: buildUrl + "/docs.data.unityweb",
-      frameworkUrl: buildUrl + "/docs.framework.js.unityweb",
-      codeUrl: buildUrl + "/docs.wasm.unityweb",
+      dataUrl: buildUrl + "/docs.data.unityweb" + stamp,
+      frameworkUrl: buildUrl + "/docs.framework.js.unityweb" + stamp,
+      codeUrl: buildUrl + "/docs.wasm.unityweb" + stamp,
       streamingAssetsUrl: "StreamingAssets",
       companyName: "Ahmed Barakat",
       productName: "VoidFlow",
-      productVersion: "0.1.0",
+      productVersion: "202610040350",
       autoSyncPersistentDataPath: true,
       // Render at the page's own pixels, not the screen's (a laptop at 150% scaling would
       // otherwise draw over twice the pixels); the game sharpens and softens itself to keep smooth
@@ -59,7 +62,7 @@
       showBanner: function (msg, type) { if (type === "error") showError(msg); },
     };
     var script = document.createElement("script");
-    script.src = buildUrl + "/docs.loader.js";
+    script.src = buildUrl + "/docs.loader.js" + stamp;
     script.onload = function () {
       createUnityInstance(document.querySelector("#unity-canvas"), config, function (progress) {
         var p = Math.round(progress * 100);

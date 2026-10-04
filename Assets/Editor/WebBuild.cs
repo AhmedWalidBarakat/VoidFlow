@@ -14,6 +14,7 @@ namespace VoidFlow.EditorTools
             PlayerSettings.productName = "VoidFlow";
             PlayerSettings.companyName = "Ahmed Barakat";
             PlayerSettings.WebGL.template = "PROJECT:VoidFlow";
+            PlayerSettings.bundleVersion = System.DateTime.UtcNow.ToString("yyyyMMddHHmm"); // stamps the release's files (see the template)
             // Compiled for speed at runtime (not a quick build): IL2CPP's Master configuration and
             // the web code optimized for runtime speed with link-time optimization
             PlayerSettings.SetIl2CppCompilerConfiguration(UnityEditor.Build.NamedBuildTarget.WebGL, Il2CppCompilerConfiguration.Master);

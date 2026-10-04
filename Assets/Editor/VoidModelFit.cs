@@ -54,14 +54,14 @@ namespace VoidFlow.EditorTools
             new("16_divine_reaper", Kind.Scythe, 0.85f) { grip = 0.3f },
             new("17_squid_dagger", Kind.Blade, 0.36f),
             new("18_autumn_sword", Kind.Blade, 0.6f),
-            new("19_scifi_sniper", Kind.Rifle, 1.15f),
-            new("20_m13_gaus", Kind.Rifle, 1.1f) { flip = true },
-            new("21_futuristic_sniper", Kind.Rifle, 1.15f),
-            new("22_energy_rifle", Kind.Rifle, 1.05f) { flip = true },
-            new("23_stillpiercer", Kind.Rifle, 1.15f),
-            new("24_renegade_railgun", Kind.Rifle, 1.15f),
-            new("26_nexus_railgun", Kind.Rifle, 1.15f),
-            new("27_laser_rifle", Kind.Rifle, 0.85f) { flip = true },
+            new("19_scifi_sniper", Kind.Rifle, 1.15f) { roll = -90f },
+            new("20_m13_gaus", Kind.Rifle, 1.1f) { flip = true, grip = 0.3f },
+            new("21_futuristic_sniper", Kind.Rifle, 1.15f) { roll = 90f },
+            new("22_energy_rifle", Kind.Rifle, 1.05f) { grip = 0.2f, roll = 90f }, // (its glowing emitter is the muzzle; the grip sits far back, no stock)
+            new("23_stillpiercer", Kind.Rifle, 1.15f) { roll = 90f },
+            new("24_renegade_railgun", Kind.Rifle, 1.15f) { flip = true, grip = 0.4f }, // (the barrel shroud is as deep as the stock: the measuring picks the wrong end)
+            new("26_nexus_railgun", Kind.Rifle, 1.15f) { flip = true, grip = 0.4f },
+            new("27_laser_rifle", Kind.Rifle, 0.85f) { flip = true, grip = 0.34f },
         };
 
         // the downloaded models stay out of Resources (everything in there ships in the build); only
@@ -169,7 +169,7 @@ namespace VoidFlow.EditorTools
                 float guard = handleAtMin ? widest / (float)Bins : 1f - (widest + 1) / (float)Bins;
                 gripAt = fit.kind == Kind.Blade ? Mathf.Clamp(guard, 0.06f, 0.35f) : 0.18f;
             }
-            if (fit.flip) { forward = -forward; gripAt = 1f - gripAt; }
+            if (fit.flip) { forward = -forward; if (fit.kind != Kind.Rifle) gripAt = 1f - gripAt; } // (a rifle's trigger share is from the stock whichever end that is)
             if (fit.grip >= 0f) gripAt = fit.grip;
 
             // Rotate: blades' long axis to +Y with the blade's width along X; rifles' to +Z with

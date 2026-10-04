@@ -42,11 +42,14 @@
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
       status.textContent = "VoidFlow needs a keyboard and mouse: it's made for desktop browsers.";
     var buildUrl = "Build";
+    // Every release stamps its files, so a browser never pairs a cached file from the last
+    // release with the new ones (a mismatched pair crashes on start)
+    var stamp = "?v=" + encodeURIComponent({{{ JSON.stringify(PRODUCT_VERSION) }}});
     var config = {
       arguments: [],
-      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
-      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
-      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}" + stamp,
+      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}" + stamp,
+      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}" + stamp,
       streamingAssetsUrl: "StreamingAssets",
       companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
       productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
@@ -59,7 +62,7 @@
       showBanner: function (msg, type) { if (type === "error") showError(msg); },
     };
     var script = document.createElement("script");
-    script.src = buildUrl + "/{{{ LOADER_FILENAME }}}";
+    script.src = buildUrl + "/{{{ LOADER_FILENAME }}}" + stamp;
     script.onload = function () {
       createUnityInstance(document.querySelector("#unity-canvas"), config, function (progress) {
         var p = Math.round(progress * 100);

@@ -93,7 +93,7 @@ namespace VoidFlow
         }
 
         // For testing: start every session owning everything (true), or empty as players do
-        const bool GiveEverything = false;
+        static readonly bool GiveEverything = false;
 
         // Finishing the whole course: every item in the game, straight into the inventory
         public static void GrantEverything()
