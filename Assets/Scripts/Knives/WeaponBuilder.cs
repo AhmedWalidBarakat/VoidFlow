@@ -426,7 +426,7 @@ namespace VoidFlow
         {
             var t = new GameObject(skin.name).transform;
             t.SetParent(parent, false);
-            var parts = new WeaponParts { root = t, model = skin.model, rarity = skin.rarity, hue = new Color(0.75f, 0.4f, 1f) };
+            var parts = new WeaponParts { root = t, model = skin.model, rarity = skin.rarity, hue = Skins.VoidHue(skin.asset) };
             var prefab = Resources.Load<GameObject>($"VoidModels/{skin.asset}/fitted");
             if (!prefab) { Debug.LogWarning($"VoidFlow: model missing for {skin.name}"); return parts; }
             var model = Object.Instantiate(prefab, t, false);
@@ -440,6 +440,36 @@ namespace VoidFlow
                 twin.transform.SetLocalPositionAndRotation(new Vector3(0.03f, 0f, 0f), Quaternion.Euler(0f, 180f, -22f));
             }
             Vivid(model);
+            // Long swords shrunk to a knife's length go thin as needles: those are filled out
+            // across the blade (and a little in thickness) toward a sword's proportions
+            if (skin.model == KnifeModel.ModelBlade)
+            {
+                // (measured in the model's own space, x across the blade and y along it, over the
+                // middle of the blade only: a wide guard doesn't make a needle a sword)
+                var pts = new List<Vector3>();
+                float reach = float.MinValue;
+                foreach (var mf in model.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    if (!mf.sharedMesh || !mf.sharedMesh.isReadable) continue;
+                    var v = mf.sharedMesh.vertices;
+                    for (int i = 0; i < v.Length; i += Mathf.Max(1, v.Length / 3000))
+                    {
+                        var p = model.transform.InverseTransformPoint(mf.transform.TransformPoint(v[i]));
+                        pts.Add(p); reach = Mathf.Max(reach, p.y);
+                    }
+                }
+                float lo = float.MaxValue, hi = float.MinValue;
+                foreach (var p in pts)
+                    if (p.y > reach * 0.35f && p.y < reach * 0.75f) { lo = Mathf.Min(lo, p.x); hi = Mathf.Max(hi, p.x); }
+                bool any = hi > lo && reach > 0f;
+                float width = hi - lo, length = Mathf.Max(reach, 1e-4f);
+                const float Wanted = 0.11f; // the blade's width to the length above the guard, a broad sword's
+                if (any && width / length < Wanted)
+                {
+                    float k = Mathf.Min(2.2f, Wanted / Mathf.Max(width / length, 0.02f));
+                    model.transform.localScale = new Vector3(k, 1f, Mathf.Sqrt(k));
+                }
+            }
             float top = 0f;
             foreach (var tr in model.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = layer;
             foreach (var r in model.GetComponentsInChildren<Renderer>(true))
@@ -488,17 +518,22 @@ namespace VoidFlow
                         made[src] = m;
                         bool hasGlow = m.HasProperty("emissiveTexture") && m.GetTexture("emissiveTexture");
                         Color glow = m.HasProperty("emissiveFactor") ? m.GetColor("emissiveFactor") : Color.black;
+                        Color tint = m.HasProperty("baseColorFactor") ? m.GetColor("baseColorFactor") : Color.white;
+                        // Freshly made, not dug up: the baked-in grime and shadow (occlusion)
+                        // left off, the colours brighter, the surface polished
+                        if (m.HasProperty("occlusionTexture")) m.SetTexture("occlusionTexture", null);
+                        if (m.HasProperty("occlusionTexture_strength")) m.SetFloat("occlusionTexture_strength", 0f);
+                        if (m.HasProperty("baseColorFactor")) m.SetColor("baseColorFactor", new Color(tint.r * 1.12f, tint.g * 1.12f, tint.b * 1.12f, tint.a));
                         if (hasGlow && glow.maxColorComponent > 0.01f)
-                            m.SetColor("emissiveFactor", glow * 2.2f); // its own lights, brighter
+                            m.SetColor("emissiveFactor", glow * 1.1f); // its own lights, a touch brighter
                         else if (m.HasProperty("baseColorTexture") && m.HasProperty("emissiveTexture"))
                         {
                             // its colours lit from within, a little
-                            Color tint = m.HasProperty("baseColorFactor") ? m.GetColor("baseColorFactor") : Color.white;
                             m.SetTexture("emissiveTexture", m.GetTexture("baseColorTexture"));
-                            m.SetColor("emissiveFactor", new Color(tint.r, tint.g, tint.b, 1f) * 0.32f);
+                            m.SetColor("emissiveFactor", new Color(tint.r, tint.g, tint.b, 1f) * 0.28f);
                         }
-                        if (m.HasProperty("metallicFactor")) m.SetFloat("metallicFactor", Mathf.Min(m.GetFloat("metallicFactor"), 0.6f));
-                        if (m.HasProperty("roughnessFactor")) m.SetFloat("roughnessFactor", Mathf.Clamp(m.GetFloat("roughnessFactor") * 0.7f, 0.12f, 0.6f));
+                        if (m.HasProperty("metallicFactor")) m.SetFloat("metallicFactor", Mathf.Min(m.GetFloat("metallicFactor"), 0.5f));
+                        if (m.HasProperty("roughnessFactor")) m.SetFloat("roughnessFactor", Mathf.Clamp(m.GetFloat("roughnessFactor") * 0.5f, 0.07f, 0.4f));
                     }
                     mats[i] = m;
                 }

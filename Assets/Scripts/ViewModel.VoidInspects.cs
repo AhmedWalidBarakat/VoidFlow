@@ -10,7 +10,6 @@ namespace VoidFlow
     //  - Gold Skull Glory Sword: a royal presentation, rolled over to show the skull, raised high
     //  - Desolate Devil Scythe: a reaping sweep across and back, then whirled overhead
     //  - Bloody Rose Sword: offered like a rose, cradled in the left palm, leant in the light
-    //  - Monster Fantasy Sword: heaved up level so its jagged length goes by, hefted, shouldered
     //  - Abyssal Heart: the runic heart brought up close and turned, then let rise off the palm
     //  - Demonic Twinblades: crossed slowly, drawn apart to show both flats, crossed back
     //  - Sword of Golden Blood: the left palm drawn along the blade, then raised into the light
@@ -46,7 +45,6 @@ namespace VoidFlow
                 "01" => RoyalRoutine(),
                 "02" => ReapRoutine(),
                 "03" => RoseRoutine(),
-                "04" => HeftRoutine(),
                 "05" => HeartRoutine(),
                 "06" => TwinShowRoutine(),
                 "07" => OathRoutine(),
@@ -178,24 +176,6 @@ namespace VoidFlow
             k = k.At(3.3f); ks.Add(k);
             k = Home(k, 3.85f); k.spin = new(0f, 360f, 0f); ks.Add(k);
             return Done(ks, 1.6f, 0, 0f, (0.5f, WeaponSounds.Unsheathe, 0.3f), (0.95f, WeaponSounds.Tick, 0.25f), (2.9f, WeaponSounds.Tick, 0.3f));
-        }
-
-        // Monster Fantasy Sword: heaved up level across the view so its whole jagged length goes
-        // by, hefted twice, then rested on the shoulder
-        static Routine HeftRoutine()
-        {
-            var ks = new List<Key>();
-            var k = IdleKey(false); ks.Add(k);
-            k = RaiseKey(k, 0.5f); k.rp = new(0.13f, -0.05f, 0.35f); k.spin = LevelSpin; ks.Add(k);                         // heaved up level
-            k = k.At(1.35f); k.rp = new(0.06f, -0.06f, 0.35f); ks.Add(k);                                                   // the length going by
-            k = k.At(1.55f); k.rp = new(0.065f, -0.042f, 0.35f); ks.Add(k);                                                  // hefted
-            k = k.At(1.75f); k.rp = new(0.06f, -0.06f, 0.35f); ks.Add(k);
-            k = k.At(1.95f); k.rp = new(0.065f, -0.045f, 0.35f); ks.Add(k);
-            k = k.At(2.15f); k.rp = new(0.06f, -0.06f, 0.35f); ks.Add(k);
-            k = k.At(2.75f); k.rp = new(0.12f, -0.07f, 0.3f); k.rq = FB(-0.6f, 0.8f, 0.1f, 0.3f, 0.2f, -1f); k.spin = Vector3.zero; ks.Add(k); // on the shoulder
-            k = k.At(3.15f); k.rp = new(0.12f, -0.066f, 0.3f); ks.Add(k);
-            ks.Add(Home(k, 3.7f));
-            return Done(ks, 1.35f, 0, 0f, (0.45f, WeaponSounds.Slash, 0.35f), (1.55f, WeaponSounds.Tick, 0.4f), (1.95f, WeaponSounds.Tick, 0.4f), (2.75f, WeaponSounds.Tick, 0.3f));
         }
 
         // Abyssal Heart: brought up close so the runic heart at the guard fills the view, turned
@@ -564,11 +544,6 @@ namespace VoidFlow
                 case "01": return (new Vector3(0f, -0.1f, 0f) * rest, Turn(Vector3.up, 360f), grow);                       // presented, rising
                 case "02": return (new Vector3(0.08f, 0f, 0f) * rest, Turn(Vector3.forward, 720f), grow);                  // swept in, whirling
                 case "03": return (new Vector3(0f, 0f, 0.12f) * rest, Turn(Vector3.up, -360f), grow);                      // thrust out
-                case "04":                                                                                                  // slammed down
-                {
-                    float bounce = a < 0.7f ? Mathf.Lerp(0.12f, -0.02f, a / 0.7f) : Mathf.Lerp(-0.02f, 0f, (a - 0.7f) / 0.3f);
-                    return (new Vector3(0f, bounce, 0f), Turn(Vector3.right, -180f), a >= 1f ? 1f : Mathf.Max(0.02f, Mathf.Min(1f, a * 2.5f)));
-                }
                 case "05": return (new Vector3(0f, -0.03f, 0f) * rest, Turn(Vector3.up, 180f), Mathf.SmoothStep(0.02f, 1f, a)); // swells slowly
                 case "06": return (new Vector3(-0.03f, 0f, 0f) * rest, Turn(Vector3.forward, 360f), grow);                 // the pair crossing out
                 case "07": return (new Vector3(-0.06f, 0.02f, 0f) * rest, Turn(Vector3.forward, -720f), grow);             // from the left

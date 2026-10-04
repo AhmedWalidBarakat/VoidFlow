@@ -71,6 +71,24 @@ namespace VoidFlow
             or KnifeModel.Prism or KnifeModel.Bone or KnifeModel.Lance or KnifeModel.Seraph
             || (m >= KnifeModel.Crescent && m <= KnifeModel.Glitch);
 
+        // Each Void weapon's own colour: its swing trail, its draw's embers, the tint of the light
+        // that shines on it
+        public static Color VoidHue(string asset) => (asset != null && asset.Length >= 2 ? asset.Substring(0, 2) : "") switch
+        {
+            "01" => new Color(1f, 0.78f, 0.3f), "02" => new Color(1f, 0.15f, 0.2f), "03" => new Color(1f, 0.2f, 0.35f),
+            "05" => new Color(0.95f, 0.12f, 0.18f), "06" => new Color(0.7f, 0.3f, 1f), "07" => new Color(1f, 0.6f, 0.2f),
+            "08" => new Color(1f, 0.72f, 0.38f), "09" => new Color(0.3f, 1f, 0.6f), "10" => new Color(1f, 0.38f, 0.65f),
+            "11" => new Color(1f, 0.45f, 0.15f), "12" => new Color(0.3f, 1f, 0.7f), "13" => new Color(1f, 0.5f, 0.2f),
+            "14" => new Color(0.45f, 0.5f, 1f), "15" => new Color(0.3f, 0.9f, 1f), "16" => new Color(1f, 0.85f, 0.5f),
+            "17" => new Color(0.3f, 0.6f, 1f), "18" => new Color(1f, 0.55f, 0.15f), "19" => new Color(0.6f, 0.8f, 1f),
+            "21" => new Color(1f, 0.5f, 0.2f), "24" => new Color(0.3f, 0.8f, 1f), "26" => new Color(1f, 0.25f, 0.2f),
+            "28" => new Color(0.55f, 0.75f, 1f), "29" => new Color(0.2f, 1f, 0.85f), "30" => new Color(1f, 0.25f, 0.75f),
+            "31" => new Color(0.2f, 1f, 1f), "32" => new Color(0.6f, 0.95f, 1f), "33" => new Color(0.45f, 1f, 0.2f),
+            "34" => new Color(0.3f, 1f, 0.7f), "35" => new Color(1f, 0.15f, 0.15f),
+            _ => new Color(0.75f, 0.4f, 1f),
+        };
+        public static bool IsVoidKnife(string asset) => asset != null && string.CompareOrdinal(asset, "28") >= 0 && string.CompareOrdinal(asset, "36") < 0;
+
         public static bool IsGlove(KnifeModel m) => m >= KnifeModel.Glove && m <= KnifeModel.GloveWraps;
 
         public static Skin[] Pool(ItemSlot slot) => slot switch { ItemSlot.Primary => Snipers, ItemSlot.Hands => Gloves, _ => Knives };
@@ -134,7 +152,7 @@ namespace VoidFlow
             KnifeModel.ModelScythe => "VOID SCYTHE",
             KnifeModel.ModelDual => "VOID TWIN BLADES",
             KnifeModel.ModelRifle => "VOID SNIPER",
-            _ => IsRifle(skin.model) ? "VOID RIFLE" : skin.asset != null && string.CompareOrdinal(skin.asset, "28") >= 0 && string.CompareOrdinal(skin.asset, "36") < 0 ? "VOID KNIFE" : "VOID BLADE",
+            _ => IsRifle(skin.model) ? "VOID RIFLE" : IsVoidKnife(skin.asset) ? "VOID KNIFE" : "VOID BLADE",
         };
 
         // Gloves: the default black pair and Mythic finishes (no Void gloves: Void is weapons from real models)
@@ -231,13 +249,7 @@ namespace VoidFlow
             new("Butterfly Knife", KnifeModel.Butterfly, KnifeFinish.Vanilla, SkinRarity.Mythic),
             new("M9 Bayonet", KnifeModel.Bayonet, KnifeFinish.Vanilla, SkinRarity.Mythic),
             new("Skeleton Knife", KnifeModel.Skeleton, KnifeFinish.Vanilla, SkinRarity.Mythic),
-            new("Kukri Knife", KnifeModel.KukriKnife, KnifeFinish.Vanilla, SkinRarity.Mythic),
             // Classic fixed blades: our own takes on the real kukri, M9 bayonet and skeleton knife
-            new("Kukri Knife | Sunset Fade", KnifeModel.KukriKnife, KnifeFinish.SunsetFade, SkinRarity.Mythic),
-            new("Kukri Knife | Red Web", KnifeModel.KukriKnife, KnifeFinish.RedWeb, SkinRarity.Mythic),
-            new("Kukri Knife | Nebula", KnifeModel.KukriKnife, KnifeFinish.Nebula, SkinRarity.Mythic),
-            new("Kukri Knife | Emerald Nebula", KnifeModel.KukriKnife, KnifeFinish.EmeraldNebula, SkinRarity.Mythic),
-            new("Kukri Knife | Carbon", KnifeModel.KukriKnife, KnifeFinish.Carbon, SkinRarity.Mythic),
             new("M9 Bayonet | Sunset Fade", KnifeModel.Bayonet, KnifeFinish.SunsetFade, SkinRarity.Mythic),
             new("M9 Bayonet | Nebula", KnifeModel.Bayonet, KnifeFinish.Nebula, SkinRarity.Mythic),
             new("M9 Bayonet | Sapphire", KnifeModel.Bayonet, KnifeFinish.Sapphire, SkinRarity.Mythic),
@@ -255,7 +267,6 @@ namespace VoidFlow
             new("Gold Skull Glory Sword", KnifeModel.ModelBlade, "01_gold_skull_glory_sword", "nodgerty"),
             new("Desolate Devil Scythe", KnifeModel.ModelScythe, "02_desolate_devil_scythe", "nodgerty"),
             new("Bloody Rose Sword", KnifeModel.ModelBlade, "03_bloody_rose_sword", "nodgerty"),
-            new("Monster Fantasy Sword", KnifeModel.ModelBlade, "04_monster_fantasy_sword", "nodgerty"),
             new("Abyssal Heart", KnifeModel.ModelBlade, "05_abyssal_heart", "nodgerty"),
             new("Demonic Twinblades", KnifeModel.ModelDual, "06_demonic_twinblades", "nodgerty"),
             new("Sword of Golden Blood", KnifeModel.ModelBlade, "07_golden_blood", "nodgerty"),

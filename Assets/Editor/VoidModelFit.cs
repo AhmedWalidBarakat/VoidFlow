@@ -39,7 +39,6 @@ namespace VoidFlow.EditorTools
             new("01_gold_skull_glory_sword", Kind.Blade, 0.62f),
             new("02_desolate_devil_scythe", Kind.Scythe, 0.85f) { grip = 0.3f },
             new("03_bloody_rose_sword", Kind.Blade, 0.62f),
-            new("04_monster_fantasy_sword", Kind.Blade, 0.62f) { isolate = 0.05f },
             new("05_abyssal_heart", Kind.Blade, 0.62f),
             new("06_demonic_twinblades", Kind.Blade, 0.4f) { isolate = 0.08f, isolateStraight = true, flip = true, grip = 0.45f },
             new("07_golden_blood", Kind.Blade, 0.66f) { recolor = "GoldCrimson_baseColor.png" }, // gold and crimson, as the name says

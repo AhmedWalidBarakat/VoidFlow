@@ -535,8 +535,12 @@ namespace VoidFlow
             float length = WeaponBuilder.MeshSize(knife).magnitude;
             // (twin blades shorter still, so the pair doesn't cross in the middle of the screen)
             // (scythes a little longer and smaller, so the curved head shows above the hand)
+            // (Void swords a little longer than a knife, so they read as swords; Void knives a
+            // knife's length)
             bool twin = knife.model == KnifeModel.ModelDual, scythe = knife.model == KnifeModel.ModelScythe;
-            knifeScale = length > 0.01f ? Mathf.Clamp((twin ? 0.27f : scythe ? 0.38f : 0.3f) / length, twin || scythe ? 0.3f : 0.6f, 1f) : 1f;
+            string asset = Skins.Knives[knifeSkin].asset;
+            float wanted = twin ? 0.27f : scythe ? 0.38f : asset == null ? 0.3f : Skins.IsVoidKnife(asset) ? 0.29f : 0.35f;
+            knifeScale = length > 0.01f ? Mathf.Clamp(wanted / length, twin || scythe || asset != null ? 0.3f : 0.6f, 1f) : 1f;
             // Twin blades: the second one in the left fist, sized and held the same way
             if (knife.model == KnifeModel.ModelDual)
             {

@@ -81,6 +81,15 @@ namespace VoidFlow
                 Save();
             }
             else if (legacy && PlayerPrefs.HasKey(LegacyItemsKey)) Save();
+            // A one-time gift: the Void knives, so they can be tried straight away
+            const string GiftKey = "VoidFlow.gift.voidKnives";
+            if (!PlayerPrefs.HasKey(GiftKey))
+            {
+                PlayerPrefs.SetInt(GiftKey, 1);
+                for (int i = 0; i < Skins.Knives.Length; i++)
+                    if (Skins.IsVoidKnife(Skins.Knives[i].asset) && !items.Exists(x => x.slot == ItemSlot.Secondary && x.index == i)) Add(ItemSlot.Secondary, i);
+                Save();
+            }
         }
 
         static void Save()

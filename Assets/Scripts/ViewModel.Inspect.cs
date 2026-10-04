@@ -952,6 +952,11 @@ namespace VoidFlow
             }
             Transform rig = hand.parent;
             if (trail.transform.parent != rig) trail.transform.SetParent(rig, false);
+            // a Void weapon's trail in its own colour
+            string asset = Skins.Knives[knifeSkin].asset;
+            Color hue = asset != null ? Color.Lerp(Color.white, Skins.VoidHue(asset), 0.75f) : Color.white;
+            trailMat.SetColor("_BaseColor", new Color(hue.r, hue.g, hue.b, 0.75f));
+            trailMat.SetColor("_EmissionColor", hue * (asset != null ? 2f : 1.2f));
             float now = Time.time;
             trailPoints.RemoveAll(e => now - e.t > TrailLife);
             if (active && knife.tip && knife.root.gameObject.activeInHierarchy)
