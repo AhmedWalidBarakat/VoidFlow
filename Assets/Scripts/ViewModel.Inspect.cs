@@ -943,6 +943,7 @@ namespace VoidFlow
         Texture2D trailFade;
         readonly List<(float t, Vector3 p)> trailPoints = new();
         const float TrailLife = 0.14f;
+        const float MinTrail = 0.03f; // how far the point must have swept in that time to leave one
 
         void UpdateTrail(bool active)
         {
@@ -979,7 +980,11 @@ namespace VoidFlow
             trailPoints.RemoveAll(e => now - e.t > TrailLife);
             if (active && knife.tip && knife.root.gameObject.activeInHierarchy)
                 trailPoints.Insert(0, (now, rig.InverseTransformPoint(knife.tip.position)));
-            trail.enabled = trailPoints.Count >= 2;
+            // (only while the point is really sweeping: a blade held still, or barely moving, would
+            // gather its trail into a blob of colour hanging by it)
+            float length = 0f;
+            for (int i = 1; i < trailPoints.Count; i++) length += Vector3.Distance(trailPoints[i - 1].p, trailPoints[i].p);
+            trail.enabled = trailPoints.Count >= 2 && length > MinTrail;
             if (!trail.enabled) return;
             trail.positionCount = trailPoints.Count;
             for (int i = 0; i < trailPoints.Count; i++) trail.SetPosition(i, trailPoints[i].p);

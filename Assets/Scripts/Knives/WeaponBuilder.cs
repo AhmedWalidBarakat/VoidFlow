@@ -540,7 +540,11 @@ namespace VoidFlow
             }
             parts.ringCenter = n > 0 ? new Vector3(ring.x / n, ring.y / n, 0f) : new Vector3(0f, 0.024f, 0f);
             parts.talonLike = true;
-            return Tip(t, new Vector2(low.x, low.y));
+            // (on the point itself, depth included: a hooked blade curves well off the middle,
+            // and the trail started from a spot hanging in the air beside it)
+            var tip = Tip(t, Vector2.zero);
+            tip.localPosition = low;
+            return tip;
         }
 
         // A thin shell of light round the weapon in its own colour (the inside of a copy pushed

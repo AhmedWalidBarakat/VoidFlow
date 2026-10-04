@@ -45,7 +45,7 @@ namespace VoidFlow
             Vector2 mouse = e.mousePosition;
 
             UiArt.Rounded(new Rect(0f, 0f, w, h), new Color(0.01f, 0f, 0.03f, 0.55f * a), 0f);
-            float cw = 560f * px, ch = 560f * px;
+            float cw = 560f * px, ch = 610f * px;
             card = new Rect((w - cw) * 0.5f, (h - ch) * 0.5f, cw, ch);
             PointerOverCard = card.Contains(mouse);
             UiArt.Rounded(card, new Color(0.05f, 0.04f, 0.09f, 0.94f * a), 18f * px);
@@ -62,9 +62,13 @@ namespace VoidFlow
             float sens = GameSettings.CsSensitivity, fov = GameSettings.Fov, vol = StageMenu.Volume;
             float ns = Slider(0, new Rect(x, y, iw, row), "SENSITIVITY  (CS2)", sens, 0.2f, 8f, v => v.ToString("0.00"), e, a, 0.01f); y += row;
             float nf = Slider(1, new Rect(x, y, iw, row), "FIELD OF VIEW", fov, 80f, 130f, v => $"{v:0}°", e, a, 1f); y += row;
+            // (the 3D view's sharpness: 100% full, lower for a slower machine; the HUD stays sharp)
+            float res = GameSettings.RenderScale * 100f;
+            float nr = Slider(3, new Rect(x, y, iw, row), "3D RESOLUTION", res, 25f, 100f, v => $"{v:0}%", e, a, 5f); y += row;
             float nv = Slider(2, new Rect(x, y, iw, row), "VOLUME", vol, 0f, 1f, v => $"{v * 100f:0}%", e, a, 0.01f); y += row + 8f * px;
             if (ns != sens) GameSettings.CsSensitivity = ns;
             if (nf != fov) GameSettings.Fov = nf;
+            if (nr != res) GameSettings.RenderScale = nr / 100f;
             if (nv != vol) StageMenu.Volume = nv;
 
             float tw = (iw - 12f * px) / 2f, th = 38f * px;
@@ -75,7 +79,9 @@ namespace VoidFlow
             if (Toggle(new Rect(x + tw + 12f * px, y, tw, th), "COLOUR GRADING", GameSettings.Grading, e, a)) GameSettings.Grading = !GameSettings.Grading;
             y += th + 10f * px;
             if (Toggle(new Rect(x, y, tw, th), "SPEED LINES", GameSettings.SpeedLines, e, a)) GameSettings.SpeedLines = !GameSettings.SpeedLines;
-            var xr = new Rect(x + tw + 12f * px, y, tw, th);
+            if (Toggle(new Rect(x + tw + 12f * px, y, tw, th), "SHOW FPS", GameSettings.ShowFps, e, a)) GameSettings.ShowFps = !GameSettings.ShowFps;
+            y += th + 10f * px;
+            var xr = new Rect(x, y, iw, th);
             bool overX = xr.Contains(mouse);
             UiArt.Rounded(xr, new Color(1f, 1f, 1f, (overX ? 0.12f : 0.06f) * a), 10f * px);
             UiArt.Text(new Rect(xr.x + 14f * px, xr.y, xr.width, xr.height), "CROSSHAIR  ·  " + GameSettings.CrosshairNames[GameSettings.Crosshair], Mathf.RoundToInt(13 * px), new Color(1f, 1f, 1f, a));

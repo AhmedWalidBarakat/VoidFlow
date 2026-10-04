@@ -27,6 +27,11 @@ namespace VoidFlow
         public static bool Splits { get => GetBool("splits", true); set => SetBool("splits", value); }
         public static bool Grading { get => GetBool("grade", true); set => SetBool("grade", value); }
         public static bool SpeedLines { get => GetBool("speedlines", true); set => SetBool("speedlines", value); }
+        public static bool ShowFps { get => GetBool("fps", false); set => SetBool("fps", value); }
+
+        // The 3D view's resolution as a share of the screen's (the HUD always stays sharp): 1 is
+        // full sharpness, lower runs on slower machines. Only ever changed by the player.
+        public static float RenderScale { get => Get("res", 1f); set => Set("res", Mathf.Clamp(value, 0.25f, 1f)); }
 
         // The crosshair's colour, one of a few
         public static readonly Color[] CrosshairColors =

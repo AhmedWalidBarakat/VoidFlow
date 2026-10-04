@@ -7,7 +7,7 @@ namespace VoidFlow.EditorTools
     // The glove and jacket textures, baked from CC0 leather and fabric scans (ambientCG, see
     // Assets/Editor/CC0Textures) into a sport-glove design in the style of the classic
     // shooters' gloves (original, not copied): a quilted padded panel over the back of the
-    // hand edged in stitching with a red accent, a rubber knuckle guard with a raised pad per
+    // hand edged in stitching with a black satin accent, a rubber knuckle guard with a raised pad per
     // finger, padded vented panels on the fingers, a perforated palm and grippy dotted
     // fingertips, all on smooth black leather. Colour (smoothness in alpha) and normal maps.
     //
@@ -98,7 +98,8 @@ namespace VoidFlow.EditorTools
                 }
                 if (back)
                 {
-                    // Quilted padded panel over the back of the hand, stitched round, a red accent under it
+                    // Quilted padded panel over the back of the hand, stitched round, an accent line under it
+                    // (black satin, all black like the rest: only a Void glove lights it, in its colour)
                     float panel = Box(x, y, cx, (yW + 0.015f + yK - 0.016f) * 0.5f, 0.03f, (yK - 0.016f - yW - 0.015f) * 0.5f, 0.008f);
                     if (panel < 0f)
                     {
@@ -111,7 +112,7 @@ namespace VoidFlow.EditorTools
                         Stitch(panel, 0.0028f);
                     }
                     float accentY = yK - 0.019f;
-                    if (Mathf.Abs(y - accentY) < 0.0011f && Mathf.Abs(x - cx) < 0.031f) { c = new Color(0.6f, 0.05f, 0.05f); smooth = 0.7f; h += 0.0003f; g = 1f; }
+                    if (Mathf.Abs(y - accentY) < 0.0011f && Mathf.Abs(x - cx) < 0.031f) { c = new Color(0.035f, 0.035f, 0.04f); smooth = 0.7f; h += 0.0003f; g = 1f; }
                     // Rubber knuckle guard: a bar with a raised, grooved pad over each knuckle
                     float bar = Box(x, y, cx, yK - 0.008f, 0.035f, 0.004f, 0.003f);
                     if (bar < 0f) { c = new Color(0.05f, 0.05f, 0.055f); smooth = 0.25f; h += 0.0006f * Mathf.Clamp01(-bar / 0.002f); n = Vector3.forward; }

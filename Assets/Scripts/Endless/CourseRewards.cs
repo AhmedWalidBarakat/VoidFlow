@@ -56,6 +56,10 @@ namespace VoidFlow
         string clearText = "", clearDetail = "";
         Color clearColor = Color.white;
         readonly List<VoidShard> picked = new();
+        // Frames a second (when SHOW FPS is on), counted over half a second at a time
+        int fpsFrames, fpsShown;
+        float fpsTime;
+        string fpsText = "";
 
         void Start()
         {
@@ -70,6 +74,15 @@ namespace VoidFlow
 
         void Update()
         {
+            fpsFrames++;
+            fpsTime += Time.unscaledDeltaTime;
+            if (fpsTime >= 0.5f)
+            {
+                fpsShown = Mathf.RoundToInt(fpsFrames / fpsTime);
+                fpsText = $"{fpsShown} FPS";
+                fpsFrames = 0;
+                fpsTime = 0f;
+            }
             if (!player || !course) return;
             float now = Time.time;
             Vector3 p = player.Position;
@@ -168,12 +181,23 @@ namespace VoidFlow
             GUI.matrix = Matrix4x4.Scale(new Vector3(k, k, 1f));
             float W = Screen.width / k, now = Time.time;
 
-            // Shard counter, top left, popping on each pickup
+            // Frames a second, in the corner (green smooth, amber fair, red struggling)
+            float top = 16f;
+            if (GameSettings.ShowFps && course && course.Ready) // (not over the loading screen, where frames are slow on purpose)
+            {
+                var fr = new Rect(16f, top, 96f, 26f);
+                UiArt.Rounded(fr, new Color(0.05f, 0.02f, 0.09f, 0.75f), 10f);
+                Color fc = fpsShown >= 55 ? new Color(0.45f, 1f, 0.6f) : fpsShown >= 30 ? new Color(1f, 0.85f, 0.3f) : new Color(1f, 0.4f, 0.4f);
+                UiArt.Text(fr, fpsText, 14, fc, TextAnchor.MiddleCenter);
+                top += 34f;
+            }
+
+            // Shard counter, top left (under the frame rate), popping on each pickup
             bool running = timer && timer.Running;
             if (running || shards > 0)
             {
                 float pop = 1f + 0.25f * Mathf.Max(0f, 1f - (now - shardPop) / 0.25f);
-                var r = UiArt.Grow(new Rect(16f, 16f, 200f, 44f), pop);
+                var r = UiArt.Grow(new Rect(16f, top, 200f, 44f), pop);
                 UiArt.Rounded(r, new Color(0.05f, 0.02f, 0.09f, 0.75f), 12f);
                 int into = shards % shardsPerCase;
                 var bar = new Rect(r.x + 10f, r.yMax - 10f, (r.width - 20f), 4f);
