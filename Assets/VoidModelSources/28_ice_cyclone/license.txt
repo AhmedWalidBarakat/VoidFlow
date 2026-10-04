@@ -1,0 +1,11 @@
+Model Information:
+* title:	Ice Cyclone Blade
+* source:	https://sketchfab.com/3d-models/ice-cyclone-blade-3536bb6508d44dd783022af279c243de
+* author:	cyanidecoffee (https://sketchfab.com/cyanidecoffee)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Ice Cyclone Blade" (https://sketchfab.com/3d-models/ice-cyclone-blade-3536bb6508d44dd783022af279c243de) by cyanidecoffee (https://sketchfab.com/cyanidecoffee) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

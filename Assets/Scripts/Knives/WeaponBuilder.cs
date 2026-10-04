@@ -439,6 +439,7 @@ namespace VoidFlow
                 twin.name = "Twin";
                 twin.transform.SetLocalPositionAndRotation(new Vector3(0.03f, 0f, 0f), Quaternion.Euler(0f, 180f, -22f));
             }
+            Vivid(model);
             float top = 0f;
             foreach (var tr in model.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = layer;
             foreach (var r in model.GetComponentsInChildren<Renderer>(true))
@@ -463,6 +464,46 @@ namespace VoidFlow
             }
             parts.Animate(0f, -1f);
             return parts;
+        }
+
+        // The models' metal only mirrors the zone's sky, so in a dark zone their colours sank
+        // into black: each weapon gets copies of its materials that glow a little with their own
+        // colours (their own colour map, or their own glow maps made brighter), metal that's
+        // part paint rather than all mirror, and a glossier finish, so the colours and the
+        // details read in any light
+        void Vivid(GameObject model)
+        {
+            var made = new Dictionary<Material, Material>();
+            foreach (var r in model.GetComponentsInChildren<Renderer>(true))
+            {
+                var mats = r.sharedMaterials;
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    var src = mats[i];
+                    if (!src) continue;
+                    if (!made.TryGetValue(src, out var m))
+                    {
+                        m = new Material(src) { name = src.name + " (vivid)" };
+                        keep.Add(m); materials?.Add(m); // (freed with the weapon)
+                        made[src] = m;
+                        bool hasGlow = m.HasProperty("emissiveTexture") && m.GetTexture("emissiveTexture");
+                        Color glow = m.HasProperty("emissiveFactor") ? m.GetColor("emissiveFactor") : Color.black;
+                        if (hasGlow && glow.maxColorComponent > 0.01f)
+                            m.SetColor("emissiveFactor", glow * 2.2f); // its own lights, brighter
+                        else if (m.HasProperty("baseColorTexture") && m.HasProperty("emissiveTexture"))
+                        {
+                            // its colours lit from within, a little
+                            Color tint = m.HasProperty("baseColorFactor") ? m.GetColor("baseColorFactor") : Color.white;
+                            m.SetTexture("emissiveTexture", m.GetTexture("baseColorTexture"));
+                            m.SetColor("emissiveFactor", new Color(tint.r, tint.g, tint.b, 1f) * 0.32f);
+                        }
+                        if (m.HasProperty("metallicFactor")) m.SetFloat("metallicFactor", Mathf.Min(m.GetFloat("metallicFactor"), 0.6f));
+                        if (m.HasProperty("roughnessFactor")) m.SetFloat("roughnessFactor", Mathf.Clamp(m.GetFloat("roughnessFactor") * 0.7f, 0.12f, 0.6f));
+                    }
+                    mats[i] = m;
+                }
+                r.sharedMaterials = mats;
+            }
         }
 
         // A flat part cut from its side outline in the knife's own plane (x across the blade,

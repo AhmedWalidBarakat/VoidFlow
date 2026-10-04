@@ -1,0 +1,11 @@
+Model Information:
+* title:	Crystal dagger
+* source:	https://sketchfab.com/3d-models/crystal-dagger-cfb7d625a0974b3b9f3cd5ee6669eb02
+* author:	Dekkaebi (https://sketchfab.com/Dekaebi)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Crystal dagger" (https://sketchfab.com/3d-models/crystal-dagger-cfb7d625a0974b3b9f3cd5ee6669eb02) by Dekkaebi (https://sketchfab.com/Dekaebi) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

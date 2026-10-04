@@ -1,0 +1,11 @@
+Model Information:
+* title:	KARAMBIT
+* source:	https://sketchfab.com/3d-models/karambit-bd5b24edd9c54f6a908490f246cb45ff
+* author:	AvnisT (https://sketchfab.com/AvnisT)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "KARAMBIT" (https://sketchfab.com/3d-models/karambit-bd5b24edd9c54f6a908490f246cb45ff) by AvnisT (https://sketchfab.com/AvnisT) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

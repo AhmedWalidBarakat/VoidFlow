@@ -1,0 +1,629 @@
+{
+  "accessors": [
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 838,
+      "max": [
+        3.659688711166382,
+        3.6635825634002686,
+        50.946815490722656
+      ],
+      "min": [
+        -3.65966534614563,
+        -3.6635043621063232,
+        -16.1947078704834
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 10056,
+      "componentType": 5126,
+      "count": 838,
+      "max": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "min": [
+        -1.0,
+        -1.0,
+        -0.39380306005477905
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 838,
+      "max": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "min": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 838,
+      "max": [
+        1.0,
+        1.0
+      ],
+      "min": [
+        0.0,
+        0.0
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "componentType": 5125,
+      "count": 2358,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 20112,
+      "componentType": 5126,
+      "count": 389,
+      "max": [
+        3.659677028656006,
+        3.663543462753296,
+        50.94678497314453
+      ],
+      "min": [
+        -3.659677028656006,
+        -3.663543462753296,
+        0.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 24780,
+      "componentType": 5126,
+      "count": 389,
+      "max": [
+        0.9782316088676453,
+        0.9785315990447998,
+        1.0
+      ],
+      "min": [
+        -0.9782316088676453,
+        -0.9785315990447998,
+        -1.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 3,
+      "byteOffset": 13408,
+      "componentType": 5126,
+      "count": 389,
+      "max": [
+        0.9980540871620178,
+        0.998054027557373,
+        0.9191951155662537,
+        1.0
+      ],
+      "min": [
+        -1.0,
+        -0.998054027557373,
+        -0.9191951155662537,
+        1.0
+      ],
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 6704,
+      "componentType": 5126,
+      "count": 389,
+      "max": [
+        1.0,
+        1.0
+      ],
+      "min": [
+        0.0,
+        0.0
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 9432,
+      "componentType": 5125,
+      "count": 1440,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 29448,
+      "componentType": 5126,
+      "count": 7415,
+      "max": [
+        2.5128426551818848,
+        2.5051794052124023,
+        31.802947998046875
+      ],
+      "min": [
+        -2.512842893600464,
+        -2.5051794052124023,
+        -3.822429656982422
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 118428,
+      "componentType": 5126,
+      "count": 7415,
+      "max": [
+        0.9998477697372437,
+        1.0,
+        1.0
+      ],
+      "min": [
+        -0.9998477101325989,
+        -1.0,
+        -1.0
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 9816,
+      "componentType": 5126,
+      "count": 7415,
+      "max": [
+        0.566561758518219,
+        0.9799999594688416
+      ],
+      "min": [
+        0.019999999552965164,
+        0.019999999552965164
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 15192,
+      "componentType": 5125,
+      "count": 31308,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "extras": {
+      "author": "cyanidecoffee (https://sketchfab.com/cyanidecoffee)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/ice-cyclone-blade-3536bb6508d44dd783022af279c243de",
+      "title": "Ice Cyclone Blade"
+    },
+    "generator": "Sketchfab-12.68.0",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 140424,
+      "name": "floatBufferViews",
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 69136,
+      "byteOffset": 140424,
+      "byteStride": 8,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 207408,
+      "byteOffset": 209560,
+      "byteStride": 12,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 19632,
+      "byteOffset": 416968,
+      "byteStride": 16,
+      "name": "floatBufferViews",
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 436600,
+      "uri": "scene.bin"
+    }
+  ],
+  "extensionsRequired": [
+    "KHR_materials_pbrSpecularGlossiness"
+  ],
+  "extensionsUsed": [
+    "KHR_materials_pbrSpecularGlossiness"
+  ],
+  "images": [
+    {
+      "uri": "textures/02_-_Default_diffuse.jpeg"
+    },
+    {
+      "uri": "textures/02_-_Default_specularGlossiness.png"
+    },
+    {
+      "uri": "textures/02_-_Default_occlusion.png"
+    },
+    {
+      "uri": "textures/03_-_Default_diffuse.jpeg"
+    },
+    {
+      "uri": "textures/03_-_Default_specularGlossiness.png"
+    },
+    {
+      "uri": "textures/03_-_Default_emissive.jpeg"
+    },
+    {
+      "uri": "textures/03_-_Default_normal.png"
+    },
+    {
+      "uri": "textures/Material_24_diffuse.jpeg"
+    },
+    {
+      "uri": "textures/Material_24_specularGlossiness.png"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "extensions": {
+        "KHR_materials_pbrSpecularGlossiness": {
+          "diffuseFactor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "diffuseTexture": {
+            "index": 0
+          },
+          "glossinessFactor": 1.0,
+          "specularFactor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "specularGlossinessTexture": {
+            "index": 1
+          }
+        }
+      },
+      "name": "02_-_Default",
+      "occlusionTexture": {
+        "index": 2
+      }
+    },
+    {
+      "doubleSided": true,
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissiveTexture": {
+        "index": 5
+      },
+      "extensions": {
+        "KHR_materials_pbrSpecularGlossiness": {
+          "diffuseFactor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "diffuseTexture": {
+            "index": 3
+          },
+          "glossinessFactor": 1.0,
+          "specularFactor": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "specularGlossinessTexture": {
+            "index": 4
+          }
+        }
+      },
+      "name": "03_-_Default",
+      "normalTexture": {
+        "index": 6
+      }
+    },
+    {
+      "doubleSided": true,
+      "extensions": {
+        "KHR_materials_pbrSpecularGlossiness": {
+          "diffuseFactor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "diffuseTexture": {
+            "index": 7
+          },
+          "glossinessFactor": 1.0,
+          "specularFactor": [
+            0.44683689024390244,
+            0.44683689024390244,
+            0.44683689024390244
+          ],
+          "specularGlossinessTexture": {
+            "index": 8
+          }
+        }
+      },
+      "name": "Material_24"
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Box002_02 - Default_0",
+      "primitives": [
+        {
+          "attributes": {
+            "COLOR_0": 2,
+            "NORMAL": 1,
+            "POSITION": 0,
+            "TEXCOORD_0": 3
+          },
+          "indices": 4,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "Box003_03 - Default_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 6,
+            "POSITION": 5,
+            "TANGENT": 7,
+            "TEXCOORD_0": 8
+          },
+          "indices": 9,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "Cylinder001_Material #24_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 11,
+            "POSITION": 10,
+            "TEXCOORD_0": 12
+          },
+          "indices": 13,
+          "material": 2,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [
+        1
+      ],
+      "matrix": [
+        0.005728728137910366,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.2720331761052175e-18,
+        -0.005728728137910366,
+        0.0,
+        0.0,
+        0.005728728137910366,
+        1.2720331761052175e-18,
+        0.0,
+        0.0,
+        -6.902532920683853e-31,
+        3.1086244689504383e-15,
+        1.0
+      ],
+      "name": "Sketchfab_model"
+    },
+    {
+      "children": [
+        2
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "Twisty knife.FBX"
+    },
+    {
+      "children": [
+        3,
+        5,
+        7
+      ],
+      "name": "RootNode"
+    },
+    {
+      "children": [
+        4
+      ],
+      "matrix": [
+        0.7692885303455401,
+        -5.551115123125783e-17,
+        0.6389015237724818,
+        0.0,
+        0.6389015237724818,
+        2.220446049250313e-16,
+        -0.7692885303455401,
+        0.0,
+        -6.981920530649787e-17,
+        1.2577509880065918,
+        2.7927682122599147e-16,
+        0.0,
+        0.0,
+        36.392425537109375,
+        0.0,
+        1.0
+      ],
+      "name": "Box002"
+    },
+    {
+      "mesh": 0,
+      "name": "Box002_02 - Default_0"
+    },
+    {
+      "children": [
+        6
+      ],
+      "matrix": [
+        0.314826714500543,
+        2.2717605625095097e-17,
+        0.2614666175996841,
+        0.0,
+        0.2614666175996841,
+        -9.087042250038039e-17,
+        -0.31482671450054306,
+        0.0,
+        3.5583202295830465e-17,
+        0.6410099864006042,
+        -1.4233280918332186e-16,
+        0.0,
+        0.0,
+        33.48531723022461,
+        0.0,
+        1.0
+      ],
+      "name": "Box003"
+    },
+    {
+      "mesh": 1,
+      "name": "Box003_03 - Default_0"
+    },
+    {
+      "children": [
+        8
+      ],
+      "matrix": [
+        2.1802799701690674,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        4.841194046021496e-16,
+        -2.1802799701690674,
+        0.0,
+        0.0,
+        0.9533939957618713,
+        2.116959931268417e-16,
+        0.0,
+        0.0,
+        4.76116943359375,
+        0.0,
+        1.0
+      ],
+      "name": "Cylinder001"
+    },
+    {
+      "mesh": 2,
+      "name": "Cylinder001_Material #24_0"
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Sketchfab_Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    },
+    {
+      "sampler": 0,
+      "source": 3
+    },
+    {
+      "sampler": 0,
+      "source": 4
+    },
+    {
+      "sampler": 0,
+      "source": 5
+    },
+    {
+      "sampler": 0,
+      "source": 6
+    },
+    {
+      "sampler": 0,
+      "source": 7
+    },
+    {
+      "sampler": 0,
+      "source": 8
+    }
+  ]
+}

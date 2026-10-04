@@ -6,7 +6,7 @@ namespace VoidFlow
 {
     // A weapon case in the start hall: an open briefcase with striped sides, light shooting
     // up out of it and its star weapon floating above. Walk up and press E to open it: a
-    // strip of possible drops spins past and slows to a stop on what you got (Void 6% of the
+    // strip of possible drops spins past and slows to a stop on what you got (Void 20% of the
     // time, otherwise Mythic), which is then equipped and saved to your inventory.
     //
     // The Void Case (from the inventory) is a CaseStation with no model: its drops come from

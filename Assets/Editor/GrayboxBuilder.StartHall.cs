@@ -221,7 +221,7 @@ namespace VoidFlow.EditorTools
                     Deco("Edge", sign, new Vector3(x, 0f, -0.02f), new Vector3(0.08f, 4.5f, 0.1f), Quaternion.identity, pink, local: true);
                 Deco("Leg", sign, new Vector3(0f, -3.5f, 0.06f), new Vector3(0.3f, 2.6f, 0.12f), Quaternion.identity, metal, local: true);
                 Label("VOID CASE", sign, new Vector3(0f, 1.55f, -0.03f), 0f, 0.8f, Ink, local: true);
-                Label("knives  ·  snipers  ·  gloves   ·   Void 6%", sign, new Vector3(0f, 0.95f, -0.03f), 0f, 0.26f, Bronze, local: true);
+                Label("knives  ·  snipers  ·  gloves   ·   Void 20%", sign, new Vector3(0f, 0.95f, -0.03f), 0f, 0.26f, Bronze, local: true);
                 Label("HOW TO EARN ONE", sign, new Vector3(0f, 0.35f, -0.03f), 0f, 0.3f, Ink, local: true);
                 Label("hit 4 of 10 at the skeet range\ncollect 25 Void Shards on the course",
                     sign, new Vector3(0f, -0.65f, -0.03f), 0f, 0.3f, Bronze, local: true);

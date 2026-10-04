@@ -54,14 +54,19 @@ namespace VoidFlow.EditorTools
             new("16_divine_reaper", Kind.Scythe, 0.85f) { grip = 0.3f },
             new("17_squid_dagger", Kind.Blade, 0.36f),
             new("18_autumn_sword", Kind.Blade, 0.6f),
+            // Void knives
+            new("28_ice_cyclone", Kind.Blade, 0.4f),
+            new("29_crystal_fantasy", Kind.Blade, 0.4f),
+            new("30_karambit_rubi", Kind.Blade, 0.34f) { roll = 90f },
+            new("31_cyberpunk_knife", Kind.Blade, 0.38f) { roll = 90f },
+            new("32_miraigata_kunai", Kind.Blade, 0.38f) { flip = true, grip = 0.28f },
+            new("33_fel_whisper", Kind.Blade, 0.4f) { flip = true, roll = 90f, grip = 0.25f },
+            new("34_crystal_dagger", Kind.Blade, 0.4f) { roll = 90f },
+            new("35_karambit_red", Kind.Blade, 0.34f) { roll = 90f },
             new("19_scifi_sniper", Kind.Rifle, 1.15f) { roll = -90f },
-            new("20_m13_gaus", Kind.Rifle, 1.1f) { flip = true, grip = 0.3f },
             new("21_futuristic_sniper", Kind.Rifle, 1.15f) { roll = 90f },
-            new("22_energy_rifle", Kind.Rifle, 1.05f) { grip = 0.2f, roll = 90f }, // (its glowing emitter is the muzzle; the grip sits far back, no stock)
-            new("23_stillpiercer", Kind.Rifle, 1.15f) { roll = 90f },
             new("24_renegade_railgun", Kind.Rifle, 1.15f) { flip = true, grip = 0.4f }, // (the barrel shroud is as deep as the stock: the measuring picks the wrong end)
             new("26_nexus_railgun", Kind.Rifle, 1.15f) { flip = true, grip = 0.4f },
-            new("27_laser_rifle", Kind.Rifle, 0.85f) { flip = true, grip = 0.34f },
         };
 
         // the downloaded models stay out of Resources (everything in there ships in the build); only

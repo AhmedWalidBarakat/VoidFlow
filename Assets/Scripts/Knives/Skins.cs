@@ -30,13 +30,13 @@ namespace VoidFlow
     // Every weapon skin in the game. Besides the defaults there are two rarities: Mythic and
     // Void. Mythic knives are a talon knife or butterfly knife with a flashy finish; Void knives
     // are knife-sized takes on legendary swords with glowing edges, an aura and their own
-    // inspect. Cases drop Void 6% of the time.
+    // inspect. Cases drop Void 20% of the time.
     // Loadout slots: the sniper is the primary, the knife the secondary, gloves go on the hands
     public enum ItemSlot { Primary, Secondary, Hands }
 
     public static class Skins
     {
-        public const float VoidChance = 0.06f;
+        public const float VoidChance = 0.2f;
 
         public readonly struct Skin
         {
@@ -134,7 +134,7 @@ namespace VoidFlow
             KnifeModel.ModelScythe => "VOID SCYTHE",
             KnifeModel.ModelDual => "VOID TWIN BLADES",
             KnifeModel.ModelRifle => "VOID SNIPER",
-            _ => IsRifle(skin.model) ? "VOID RIFLE" : "VOID BLADE",
+            _ => IsRifle(skin.model) ? "VOID RIFLE" : skin.asset != null && string.CompareOrdinal(skin.asset, "28") >= 0 && string.CompareOrdinal(skin.asset, "36") < 0 ? "VOID KNIFE" : "VOID BLADE",
         };
 
         // Gloves: the default black pair and Mythic finishes (no Void gloves: Void is weapons from real models)
@@ -270,6 +270,15 @@ namespace VoidFlow
             new("Divine Reaper", KnifeModel.ModelScythe, "16_divine_reaper", "amunozs"),
             new("Squid Dagger", KnifeModel.ModelBlade, "17_squid_dagger", "DigitalBirb"),
             new("Autumn Sword", KnifeModel.ModelBlade, "18_autumn_sword", "SimberGI"),
+            // Void knives
+            new("Ice Cyclone Blade", KnifeModel.ModelBlade, "28_ice_cyclone", "cyanidecoffee"),
+            new("Arcane Crystal Dagger", KnifeModel.ModelBlade, "29_crystal_fantasy", "Shaz"),
+            new("Karambit Rubi", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente"),
+            new("Cyberpunk Knife", KnifeModel.ModelBlade, "31_cyberpunk_knife", "re1monsen"),
+            new("Miraigata Kunai", KnifeModel.ModelBlade, "32_miraigata_kunai", "Tino Hunda"),
+            new("Fel Whisper", KnifeModel.ModelBlade, "33_fel_whisper", "KodaWowo"),
+            new("Tidal Crystal Dagger", KnifeModel.ModelBlade, "34_crystal_dagger", "Dekkaebi"),
+            new("Crimson Karambit", KnifeModel.ModelBlade, "35_karambit_red", "AvnisT"),
         };
 
         public static readonly Skin[] Snipers =
@@ -314,16 +323,12 @@ namespace VoidFlow
             new("Longreach | Holographic", KnifeModel.Rifle, KnifeFinish.Holographic, SkinRarity.Mythic),
             // Void: real models from Sketchfab (CC-BY 4.0, credited in CREDITS.md)
             new("Sci-Fi Sniper", KnifeModel.ModelRifle, "19_scifi_sniper", "Matija Svaco"),
-            new("M13-Gaus", KnifeModel.ModelRifle, "20_m13_gaus", "DigitalTales"),
             new("Futuristic Sniper", KnifeModel.ModelRifle, "21_futuristic_sniper", "trolosqlfod"),
-            new("Energy Rifle", KnifeModel.ModelRifle, "22_energy_rifle", "Michael Wright"),
-            new("Stillpiercer", KnifeModel.ModelRifle, "23_stillpiercer", "Artem Goyko"),
             new("Renegade Railgun", KnifeModel.ModelRifle, "24_renegade_railgun", "Bl4ckGh0st"),
             new("Nexus Railgun", KnifeModel.ModelRifle, "26_nexus_railgun", "Bl4ckGh0st"),
-            new("Laser Rifle", KnifeModel.ModelRifle, "27_laser_rifle", "Fred Drabble"),
         };
 
-        // Picks a case drop: Void 6% of the time, otherwise a Mythic, evenly within each
+        // Picks a case drop: Void 20% of the time, otherwise a Mythic, evenly within each
         public static int Roll(Skin[] pool)
         {
             var wanted = Random.value < VoidChance ? SkinRarity.Void : SkinRarity.Mythic;
