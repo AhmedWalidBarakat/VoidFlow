@@ -532,7 +532,7 @@ namespace VoidFlow
                             m.SetTexture("emissiveTexture", m.GetTexture("baseColorTexture"));
                             m.SetColor("emissiveFactor", new Color(tint.r, tint.g, tint.b, 1f) * 0.28f);
                         }
-                        if (m.HasProperty("metallicFactor")) m.SetFloat("metallicFactor", Mathf.Min(m.GetFloat("metallicFactor"), 0.5f));
+                        if (m.HasProperty("metallicFactor")) m.SetFloat("metallicFactor", Mathf.Min(m.GetFloat("metallicFactor"), 0.25f)); // (more mirror than this and the sky drowns their colours at a glancing angle)
                         if (m.HasProperty("roughnessFactor")) m.SetFloat("roughnessFactor", Mathf.Clamp(m.GetFloat("roughnessFactor") * 0.5f, 0.07f, 0.4f));
                     }
                     mats[i] = m;

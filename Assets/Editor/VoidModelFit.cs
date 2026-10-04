@@ -30,6 +30,7 @@ namespace VoidFlow.EditorTools
             public float grip = -1f;      // where the guard / trigger is, 0..1 from the back end (when the measuring misses it)
             public string[] drop = new string[0]; // parts to leave out (name contains)
             public float isolate;         // > 0: keep only the main connected piece and the pieces along its axis within this share of its length
+            public float handle;          // > 0: the handle is this share of the length from the back end, and runs at an angle to the whole (a karambit): held along its own line, gripped at its middle
             public bool isolateStraight;  // the main piece is the most elongated one, not the longest (a looping chain can be longer than the blade)
             public Fit(string folder, Kind kind, float length) { this.folder = folder; this.kind = kind; this.length = length; }
         }
@@ -56,12 +57,12 @@ namespace VoidFlow.EditorTools
             // Void knives
             new("28_ice_cyclone", Kind.Blade, 0.4f),
             new("29_crystal_fantasy", Kind.Blade, 0.4f),
-            new("30_karambit_rubi", Kind.Blade, 0.34f) { roll = 90f },
+            new("30_karambit_rubi", Kind.Blade, 0.34f) { roll = 90f, handle = 0.42f },
             new("31_cyberpunk_knife", Kind.Blade, 0.38f) { roll = 90f },
             new("32_miraigata_kunai", Kind.Blade, 0.38f) { flip = true, grip = 0.28f },
             new("33_fel_whisper", Kind.Blade, 0.4f) { flip = true, roll = 90f, grip = 0.25f },
             new("34_crystal_dagger", Kind.Blade, 0.4f) { roll = 90f },
-            new("35_karambit_red", Kind.Blade, 0.34f) { roll = 90f },
+            new("35_karambit_red", Kind.Blade, 0.34f) { roll = 90f, handle = 0.42f },
             new("19_scifi_sniper", Kind.Rifle, 1.15f) { roll = -90f },
             new("21_futuristic_sniper", Kind.Rifle, 1.15f) { roll = 90f },
             new("24_renegade_railgun", Kind.Rifle, 1.15f) { flip = true, grip = 0.4f }, // (the barrel shroud is as deep as the stock: the measuring picks the wrong end)
@@ -176,6 +177,39 @@ namespace VoidFlow.EditorTools
             if (fit.flip) { forward = -forward; if (fit.kind != Kind.Rifle) gripAt = 1f - gripAt; } // (a rifle's trigger share is from the stock whichever end that is)
             if (fit.grip >= 0f) gripAt = fit.grip;
 
+            // A karambit's handle runs at an angle to its whole length (ring to the tip of the
+            // curve): it's held along the handle's own line, the fist round its middle, the curve
+            // rising out of the top
+            Vector3? handleGrip = null;
+            if (fit.handle > 0f)
+            {
+                Vector3 backEnd = c + forward * (Vector3.Dot(forward, a1) > 0 ? min : -max);
+                var hp = new List<Vector3>();
+                foreach (var p in points)
+                {
+                    float from = Vector3.Dot(p - backEnd, forward);
+                    if (from >= 0f && from <= fit.handle * (max - min)) hp.Add(p);
+                }
+                if (hp.Count > 10)
+                {
+                    Vector3 hc = Vector3.zero;
+                    foreach (var p in hp) hc += p;
+                    hc /= hp.Count;
+                    var hm = new float[3, 3];
+                    foreach (var p in hp)
+                    {
+                        Vector3 d = p - hc;
+                        for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) hm[i, j] += d[i] * d[j];
+                    }
+                    Vector3 ha = PowerAxis(hm, Vector3.zero, Vector3.zero);
+                    if (Vector3.Dot(ha, forward) < 0f) ha = -ha;
+                    float lo = float.MaxValue, hi = float.MinValue;
+                    foreach (var p in hp) { float t = Vector3.Dot(p - hc, ha); lo = Mathf.Min(lo, t); hi = Mathf.Max(hi, t); }
+                    handleGrip = hc + ha * (hi - (hi - lo) * 0.12f); // (the top of the handle, where the fist's index finger is: the rest of the handle runs down through it)
+                    forward = ha;
+                }
+            }
+
             // Rotate: blades' long axis to +Y with the blade's width along X; rifles' to +Z with
             // up the axis nearest the model's own up
             Quaternion rot;
@@ -206,7 +240,7 @@ namespace VoidFlow.EditorTools
             float span = max - min, scale = fit.length / span;
             // where the back end and the grip land after rotating and scaling
             Vector3 back = c + forward * (Vector3.Dot(forward, a1) > 0 ? min : -max);
-            Vector3 grip = back + forward * (gripAt * span);
+            Vector3 grip = handleGrip ?? back + forward * (gripAt * span);
             var root = new GameObject(fit.folder);
             model.transform.SetParent(root.transform, false);
             model.transform.localScale = Vector3.one * scale;
