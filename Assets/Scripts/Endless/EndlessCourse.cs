@@ -286,6 +286,9 @@ namespace VoidFlow
         public float BuildProgress { get; private set; }
         int builtSeed = int.MinValue;
         Vector3 totalShift; // how far the world has been recentred since it was built
+        // A point's place on the course as built, whatever recentring has happened since (and back)
+        public Vector3 ToCourse(Vector3 world) => transform.InverseTransformPoint(world) - totalShift;
+        public Vector3 FromCourse(Vector3 course) => transform.TransformPoint(course + totalShift);
         Coroutine building;
         double buildWork; // seconds spent building (logged once built)
         int buildFrames;

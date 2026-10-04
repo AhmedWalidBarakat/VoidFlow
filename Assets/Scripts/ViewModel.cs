@@ -88,8 +88,6 @@ namespace VoidFlow
         ReflectionProbe probe;
         float probeTimer;
         Transform anchor, hand;
-        Texture2D panel;
-        GUIStyle nameStyle, detailStyle;
         Vector3 sway, swayVelocity, tilt;
         float bobPhase, inspectTime = -1f, slashTime = -1f;
         readonly List<Material> materials = new();
@@ -144,6 +142,7 @@ namespace VoidFlow
             probe.size = Vector3.one * 5000f;
             probe.importance = 10;
             probe.RenderProbe();
+            SetupStudio();
 
             anchor = new GameObject("ViewModel").transform;
             anchor.SetParent(transform, false);
@@ -208,11 +207,11 @@ namespace VoidFlow
 
         void OnDestroy()
         {
+            StudioDestroy();
             RestoreView();
             foreach (var m in materials) Kill(m);
             foreach (var m in knifeMaterials) Kill(m);
             foreach (var m in rifleMaterials) Kill(m);
-            Kill(panel);
             Kill(dot);
             Kill(gloveTexture);
             foreach (var m in gloveMaterials) Kill(m);
@@ -236,32 +235,30 @@ namespace VoidFlow
             GUI.depth = 10;
             DrawScope();
             if (zoom == 0) DrawCrosshair();
-            if (!panel)
-            {
-                panel = new Texture2D(1, 1);
-                panel.SetPixel(0, 0, new Color(0.02f, 0.02f, 0.04f, 0.45f));
-                panel.Apply();
-                nameStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight };
-                detailStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, alignment = TextAnchor.MiddleRight };
-            }
             // The weapon box only shows in the hall: once the run starts the screen stays clear
             if (!runTimer) runTimer = FindAnyObjectByType<RunTimer>();
             if (runTimer && runTimer.Running && !AutoInspect) return;
             var skin = CurrentSkin;
             Color color = Skins.RarityColor(skin.rarity);
-            const float w = 300f, h = 58f, margin = 16f;
-            var box = new Rect(Screen.width - w - margin, Screen.height - h - margin, w, h);
-            GUI.DrawTexture(box, panel);
-            var old = GUI.color;
-            GUI.color = color;
-            GUI.DrawTexture(new Rect(box.xMax - 4f, box.y, 4f, box.height), Texture2D.whiteTexture);
-            GUI.color = old;
-            GUI.Label(new Rect(box.x, box.y + 6f, w - 14f, 24f), skin.rarity == SkinRarity.Default ? skin.name : "★ " + skin.name, nameStyle);
-            detailStyle.normal.textColor = color;
+            var box = WeaponBox;
+            float px = Mathf.Clamp(Screen.height / 1080f, 0.6f, 2f);
+            UiArt.Rounded(box, new Color(0.02f, 0.02f, 0.05f, 0.62f), 12f * px);
+            UiArt.Rounded(new Rect(box.xMax - 5f * px, box.y + 10f * px, 3f * px, box.height - 20f * px), color, 1.5f * px);
+            UiArt.Text(new Rect(box.x, box.y + 8f * px, box.width - 20f * px, 26f * px), skin.rarity == SkinRarity.Default ? skin.name : "★ " + skin.name, Mathf.RoundToInt(18 * px), Color.white, TextAnchor.MiddleRight);
             string detail = current == SniperSlot ? SniperStatus() : "F inspect";
             if (AutoInspect) detail = "AUTO INSPECT  ·  double tap F to stop";
             string slot = current == SniperSlot ? "PRIMARY" : "SECONDARY";
-            GUI.Label(new Rect(box.x, box.y + 30f, w - 14f, 20f), $"{slot}   ·   {Skins.RarityName(skin.rarity)}   ·   {detail}", detailStyle);
+            UiArt.Text(new Rect(box.x, box.y + 36f * px, box.width - 20f * px, 20f * px), $"{slot}   ·   {Skins.RarityName(skin.rarity)}   ·   {detail}", Mathf.RoundToInt(12 * px), color, TextAnchor.MiddleRight);
+        }
+
+        // Where the weapon box sits (bottom right), so the hall's help panel can keep clear of it
+        public static Rect WeaponBox
+        {
+            get
+            {
+                float px = Mathf.Clamp(Screen.height / 1080f, 0.6f, 2f), w = 360f * px, h = 64f * px, m = 16f * px;
+                return new Rect(Screen.width - w - m, Screen.height - h - m, w, h);
+            }
         }
 
         [Header("Crosshair")]
@@ -296,7 +293,7 @@ namespace VoidFlow
             var old = GUI.color;
             GUI.color = new Color(0f, 0f, 0f, 0.6f);
             GUI.DrawTexture(new Rect(center.x - d * 0.5f - 1f, center.y - d * 0.5f - 1f, d + 2f, d + 2f), dot);
-            GUI.color = crosshairDotColor;
+            GUI.color = GameSettings.CrosshairColor;
             GUI.DrawTexture(new Rect(center.x - d * 0.5f, center.y - d * 0.5f, d, d), dot);
 
             // Hit marker: an X that snaps out and fades when a shot breaks a target
@@ -318,6 +315,7 @@ namespace VoidFlow
 
         void Update()
         {
+            UpdateStudio();
             anchor.gameObject.SetActive(!HideWeapons);
             if (sheath) sheath.gameObject.SetActive(!HideWeapons);
             var kb = InputBlocked ? null : Keyboard.current;

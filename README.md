@@ -15,7 +15,7 @@
 
 I grew up on CS surf maps, so I made my own take on it. You drop off a start terrace and surf one fixed course of 696 ramps through 116 stages, with a checkpoint at the start of each stage and a finish at the end. Along the way are recreations of real surf maps (utopia, summer and mesa early on, then the hardest maps there are: corruption, deity, anubis, essentia, trofle, spin, before, frags_nightmare and ten more tier 7 maps), laid out ramp by ramp after watching their record runs, and a final stage that is almost impossible. They are my own rebuilds from video, not the original map files. The stages before them are built to be hard in the way the classic hard maps are (surf_sinsane and the maps stitched into it): long gaps with big sideways shifts onto short landings, small windows in the walls to fly through, ramps broken into pieces, and gates of blocks on the ramp face that leave a narrow lane to thread, on ramps of every shape (snipes, drops, stepped dives, kickers, zigzags, bowls, spins and loops), and runs of bhop platforms to hop across. Like a real map, each enclosed stage is one big solid hall round all its ramps, joined to the next and split into chambers by cave mouths (after boreas and aquaflow: every ramp waits round the bend in a room of its own, and you only see the next one as you fly through the mouth), with walls dressed to fit the zone the way the great maps dress theirs: crystal caves, castle battlements, honeycombs, furnace mouths, warehouse windows, neon shapes, library shelves, arcades of arches and more, plus ivy on the old stone, chandeliers, lava floors in the hot zones, tunnels of light rings over some ramps, pillars, floating platforms and stacked blocks. The view is CS2's (106 degrees across at 16:9). Before the real maps comes LIMINAL, eight stages of my own after the empty, uncanny rooms of murglegurgle's surf_liminal (inspired by it, not its files). Movement is tuned to feel like classic Source surf (air strafing, ramp sliding, the whole thing).
 
-Along the way you grab Void Shards, which earn Void Cases, which drop knives, gloves and snipers with their own inspect animations; every Void weapon is summoned with a draw of its own and has an inspect made for it (a fencer's lunge, a reaping sweep, a blade that floats above your palm, a sword that falls like a leaf, and more). Your items and your last checkpoint are saved in the browser, so you can come back to them.
+Along the way you grab Void Shards, which earn Void Cases, which drop knives, gloves and snipers with their own inspect animations; every Void weapon is summoned with a draw of its own and has an inspect made for it (a fencer's lunge, a reaping sweep, a blade that floats above your palm, a sword that falls like a leaf, and more). Every stage is timed like on a surf server: reach the next checkpoint and you see your split against your best (green faster, red slower, gold for a new best), and from then on a glowing ghost of your best run rides each stage with you. The HUD shows the course's progress, the stage, the run and stage clocks, your speed (coloured cool to hot) and the keys you're pressing. At the finish a results card shows your time against your best, your falls, your top speed, the stage bests you set and your sum of best, with a strip of every stage's split. Press Esc for the settings: sensitivity in CS2's units, field of view, volume, colour grading and the HUD's options. Your items, your best times and ghosts, your settings and your last checkpoint are saved in the browser, so you can come back to them.
 
 ## Controls
 
@@ -25,13 +25,14 @@ Along the way you grab Void Shards, which earn Void Cases, which drop knives, gl
 | Space | Jump (hold to bhop) |
 | 1 / 2 / Q | Sniper, knife, last weapon |
 | Click / Right click | Fire / scope |
-| F | Inspect |
+| F | Inspect (hold to show off a Void weapon) |
 | I | Inventory |
 | E | Use |
 | M | Stages you've reached (teleport) and volume |
 | C | Continue from your last checkpoint (in the start area) |
+| T | Restart the stage (back to its checkpoint) |
 | R | Restart the run |
-| Esc | Release the mouse |
+| Esc | Settings (and release the mouse) |
 
 ## Built with
 

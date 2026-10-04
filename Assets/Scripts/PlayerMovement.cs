@@ -209,7 +209,7 @@ namespace VoidFlow
 
             if (Cursor.lockState != CursorLockMode.Locked)
             {
-                if (mouse.leftButton.wasPressedThisFrame)
+                if (mouse.leftButton.wasPressedThisFrame && !PauseMenu.PointerOverCard) // (clicks on the settings card are for the settings)
                 {
                     Cursor.lockState = CursorLockMode.Locked;
                     Cursor.visible = false;

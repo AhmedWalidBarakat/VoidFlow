@@ -619,6 +619,24 @@ namespace VoidFlow.EditorTools
             bloom.threshold.Override(0.9f);
             bloom.scatter.Override(0.6f);
             AssetDatabase.AddObjectToAsset(bloom, profile);
+            // A cinematic grade: a filmic curve (so bright glows roll off instead of clipping), a
+            // touch more contrast and colour, a soft vignette. (Built into the scene's profile so
+            // the web build keeps these effects; PostGrade turns them off if the player does.)
+            var tone = profile.Add<Tonemapping>(true);
+            tone.name = "Tonemapping";
+            tone.mode.Override(TonemappingMode.Neutral);
+            AssetDatabase.AddObjectToAsset(tone, profile);
+            var colour = profile.Add<ColorAdjustments>(true);
+            colour.name = "ColorAdjustments";
+            colour.postExposure.Override(0.15f);
+            colour.contrast.Override(12f);
+            colour.saturation.Override(10f);
+            AssetDatabase.AddObjectToAsset(colour, profile);
+            var vignette = profile.Add<Vignette>(true);
+            vignette.name = "Vignette";
+            vignette.intensity.Override(0.22f);
+            vignette.smoothness.Override(0.45f);
+            AssetDatabase.AddObjectToAsset(vignette, profile);
 
             var go = new GameObject("GlowVolume");
             go.transform.SetParent(parent, false);

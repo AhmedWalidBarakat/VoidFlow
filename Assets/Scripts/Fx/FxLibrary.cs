@@ -387,7 +387,7 @@ namespace VoidFlow
             }
 
             // Speed streaks: faster than a run and they start rushing past
-            if (speedLines && player)
+            if (speedLines && player && (!Application.isPlaying || GameSettings.SpeedLines))
             {
                 float speed = player.Velocity.magnitude;
                 float rate = Mathf.Clamp((speed - 13f) * 4f, 0f, 90f);

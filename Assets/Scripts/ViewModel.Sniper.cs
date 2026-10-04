@@ -84,6 +84,12 @@ namespace VoidFlow
         void ApplyFov()
         {
             if (!view) return;
+            // the player's settings (CS2 sensitivity, field of view)
+            if (Application.isPlaying)
+            {
+                horizontalFov = GameSettings.Fov;
+                if (player) baseSens = GameSettings.DegreesPerCount;
+            }
             float aspect = view.aspect > 0f ? view.aspect : 16f / 9f;
             baseFov = Camera.HorizontalToVerticalFieldOfView(horizontalFov, aspect);
             // The scope zooms in over about a tenth of a second instead of snapping (quick

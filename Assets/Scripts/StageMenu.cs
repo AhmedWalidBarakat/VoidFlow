@@ -154,6 +154,10 @@ namespace VoidFlow
                 UiArt.Rounded(new Rect(r.x, r.y, 6f, r.height), new Color(glow.r, glow.g, glow.b, (usable ? 1f : 0.35f) * t), 3f);
                 var text = new Color(1f, 1f, 1f, (usable ? 1f : 0.45f) * t);
                 UiArt.Text(new Rect(r.x + 14, r.y + 6, r.width - 18, 26), i == 0 ? "1  START" : $"{i + 1}", 20, text);
+                // your best time on it, if you've ridden it through
+                float best = StageClock.Instance ? StageClock.Instance.BestFor(i) : 0f;
+                if (best > 0f)
+                    UiArt.Text(new Rect(r.x, r.y + 8, r.width - 10, 22), $"{(int)(best / 60f)}:{best % 60f:00.00}", 13, new Color(1f, 0.82f, 0.3f, t), TextAnchor.MiddleRight);
                 UiArt.Text(new Rect(r.x + 14, r.y + 32, r.width - 18, 18), b.name, 12, text, TextAnchor.MiddleLeft, false);
                 string tier = !usable ? "no checkpoint" : b.tier ?? (i >= Biome.LegendFrom ? "LEGEND" : i >= Biome.FinaleFrom ? "EXPERT" : EndlessCourse.TierNames[(int)EndlessCourse.TierOf(i)]);
                 if (i == total - 1) tier = "FINALE";
