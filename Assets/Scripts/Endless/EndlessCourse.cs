@@ -453,6 +453,18 @@ namespace VoidFlow
                 {
                     plans[st] = StageHalls.Plan(st, pts, Mathf.Max(30f, Architecture.DepthFor(biome.style)), Architecture.OpenTop(biome.style), kits[BiomeOf(st * rampsPerBiome)]);
                     plans[st].design = StageHalls.DesignFor(biome, st);
+                    // A cave mouth halfway along every flight into one of the stage's ramps (not
+                    // the real maps: they keep their own rooms)
+                    if (biome.script == null)
+                    {
+                        plans[st].doors = new List<(Vector3, Vector3)>();
+                        foreach (var sg in segments)
+                        {
+                            if (sg.index / rampsPerBiome != st || sg.index < 2 || sg.flight.Length < 3) continue;
+                            int m = sg.flight.Length / 2;
+                            plans[st].doors.Add((sg.flight[m], sg.flight[m + 1] - sg.flight[m - 1]));
+                        }
+                    }
                 }
             }
         }
@@ -1125,6 +1137,21 @@ namespace VoidFlow
                 AddPart(seg, "Twin", twin.ridge[0], RampShapes.BuildMesh(twin, $"Twin {i}"), kit.ramp, solid: true);
                 AddPart(seg, "TwinTrim", twin.ridge[0], RampShapes.TrimMesh(twin, $"TwinTrim {i}"), kit.trim, solid: false);
             }
+            // A tunnel of light, after aquaflow's: rings of glow round the middle of a ramp now
+            // and then, wide enough to stay well clear of anyone riding it (visual only)
+            if (biome.script == null && i >= 2 && twin == null && holeWall == null && i % 5 == 3 && path.Length > 140f)
+            {
+                float radius = path.width + path.Depth * 0.5f + 11f;
+                for (int k = 0; k < 7; k++)
+                {
+                    float d = path.Length * 0.3f + k * 15f;
+                    if (d > path.Length * 0.8f) break;
+                    int at = 0;
+                    while (at < path.distance.Count - 1 && path.distance[at] < d) at++;
+                    Vector3 c = path.ridge[at] + Vector3.down * (path.Depth * 0.5f);
+                    AddPart(seg, "LightRing", c, RampShapes.RingMesh(c, path.forward[at], radius, $"LightRing {i}.{k}", 0.9f, 28), k % 2 == 0 ? kit.glow : kit.glowAlt, solid: false);
+                }
+            }
             // (Checkpoints and new stages have no gates to see: you just get the notice as you
             // reach the ramp)
             if (IsCheckpoint(i)) BuildPad(seg, path, landingEnd, kit);
@@ -1612,7 +1639,7 @@ namespace VoidFlow
                 "CANYON" => new List<(string, float)> { ("hole", 4f), ("corner", 2f), ("sweep", 1f) },
                 "TWIN PEAKS" => new List<(string, float)> { ("twin", 5f), ("blade", 1f) },
                 "BIG AIR" => new List<(string, float)> { ("launch", 4f), ("blade", 2f), ("plunge", 2f), ("climb", 2f), ("sweep", 1f) },
-                _ => new List<(string, float)> { ("blade", 3f), ("sweep", 3f), ("loop", 2f), ("corner", 1.5f), ("launch", 1.5f), ("plunge", 1f), ("climb", 1f) },
+                _ => new List<(string, float)> { ("blade", 3f), ("sweep", 3f), ("loop", 2f), ("corner", 2.5f), ("launch", 1.5f), ("plunge", 1f), ("climb", 1f) },
             };
             // Shapes from the hard maps, everywhere once the course gets going: snipes flicked
             // off sideways, drops, stepped dives, kickers in the middle of a ramp, quick zigzags
@@ -1677,13 +1704,14 @@ namespace VoidFlow
                     m.bend = new[] { (20f, 0f), (380f, degrees), (400f, degrees) };
                     break;
                 }
-                case "corner": // a slab sweeping 40-65 degrees around, banked into the turn
+                case "corner": // a slab sweeping hard round, banked into the turn: the sharp turns of the cave maps, where the next ramp waits round the bend
                 {
                     m.kind = RampShapes.Kind.Slab;
                     m.width = Mathf.Lerp(13f, 10f, t);
-                    m.shape = new[] { (220f, 0f), (250f, 0.06f) };
-                    float degrees = Mathf.Lerp(55f, 95f, t) * Rand(0.85f, 1f);
-                    m.bend = new[] { (20f, 0f), (220f, degrees), (250f, degrees) };
+                    float degrees = Mathf.Lerp(65f, 110f, t) * Rand(0.85f, 1f);
+                    float length = Mathf.Max(220f, degrees * Mathf.Deg2Rad * 158f + 20f); // (a radius of 150m+ however far it turns)
+                    m.shape = new[] { (length, 0f), (length + 30f, 0.06f) };
+                    m.bend = new[] { (20f, 0f), (length, degrees), (length + 30f, degrees) };
                     break;
                 }
                 case "hole": // a slab with a wall facing it, bending up to 35 degrees

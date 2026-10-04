@@ -145,6 +145,7 @@ namespace VoidFlow
             public BiomeKit kit;
             public List<Vector3> course;    // a sample of the stage's riding lines and flights (set dressing keeps clear of it)
             public Design design;           // how its walls and roof are shaped and lit
+            public List<(Vector3 at, Vector3 dir)> doors; // cave mouths: where the flights between ramps cross the hall, and which way
 
             public bool Contains(Vector3 p, float inset)
             {
@@ -161,6 +162,19 @@ namespace VoidFlow
         }
 
         static readonly string[] Heart = { ".##.##.", "#######", "#######", ".#####.", "..###..", "...#..." };
+
+        // Ivy: a leafy green made from the hall's own wall material (one per material)
+        static readonly Dictionary<Material, Material> ivy = new();
+        static Material Ivy(Material from)
+        {
+            if (!from) return from;
+            if (ivy.TryGetValue(from, out var m) && m) return m;
+            m = new Material(from) { name = from.name + "_Ivy" };
+            if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", null);
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", new Color(0.2f, 0.36f, 0.14f));
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", 0.15f);
+            return ivy[from] = m;
+        }
 
         public const float Margin = 95f, Headroom = 95f, Panel = 30f; // room for every line and speed, not just the designed one
 
@@ -222,6 +236,9 @@ namespace VoidFlow
             }
 
             Material wall = kit.scenery ? kit.scenery : kit.slab, floor = kit.floor ? kit.floor : kit.slab, ceiling = kit.slab ? kit.slab : wall;
+            // The hot zones' floors are a sea of lava, after cannonball's (falling in is a fall,
+            // as any floor is)
+            if (v.design is Design.Furnace or Design.Spikes && (kit.glowAlt || kit.glow)) floor = kit.glowAlt ? kit.glowAlt : kit.glow;
             var o = v.outline;
             Vector2 center = Vector2.zero;
             foreach (var p in o) center += p;
@@ -516,8 +533,73 @@ namespace VoidFlow
                             break;
                     }
                     walked += pw;
+                    // Ivy hanging down the old stone walls, after atrium's
+                    if (design is Design.Ruins or Design.Arches or Design.Castle or Design.Stepped && dr.NextDouble() < 0.5)
+                    {
+                        float S = Mathf.Clamp(height / 140f, 1f, 4f);
+                        Vector3 at = Vector3.Lerp(f0, f1, (float)dr.NextDouble()) + inward * 1.4f;
+                        float y1 = v.openTop ? v.ceiling - 2f : v.ceiling - 4f, y0 = y1 - height * (0.15f + 0.45f * (float)dr.NextDouble());
+                        for (float y = y0; y < y1; y += 3.2f * S)
+                            Box(Ivy(wall), at.WithY(y) + along * ((float)dr.NextDouble() - 0.5f) * 2f * S,
+                                new Vector3(1f, 3f * S, (1.5f + (float)dr.NextDouble() * 2f) * S), Mathf.Atan2(along.x, along.z) * Mathf.Rad2Deg + ((float)dr.NextDouble() - 0.5f) * 40f);
+                    }
                 }
             }
+
+            // Cave mouths, after the cave maps (boreas, aquaflow): a wall right across the hall
+            // between one ramp and the next, the flight through it the only way on, so each ramp
+            // waits in a chamber of its own round the turn and the next one only shows as you
+            // come through the mouth. The wall gives way wherever the course passes (the flight
+            // through the mouth, and anywhere else a ramp crosses it), and it stands as a whole
+            // with its hall (not left out where a neighbouring hall overlaps, or the chambers
+            // would see into each other there)
+            if (v.doors != null)
+                foreach (var (at, dirIn) in v.doors)
+                {
+                    Vector3 n = new Vector3(dirIn.x, 0f, dirIn.z);
+                    if (n.sqrMagnitude < 1e-4f) continue;
+                    n.Normalize();
+                    Vector3 t = new(-n.z, 0f, n.x), basePoint = new(at.x, 0f, at.z);
+                    // where the wall's line crosses the outline (it's convex: one span)
+                    float s0 = float.MaxValue, s1 = float.MinValue;
+                    Vector2 P = new(at.x, at.z), T = new(t.x, t.z);
+                    for (int k = 0; k < o.Count; k++)
+                    {
+                        Vector2 a = o[k], e = o[(k + 1) % o.Count] - a, d = a - P;
+                        float den = T.x * e.y - T.y * e.x;
+                        if (Mathf.Abs(den) < 1e-5f) continue;
+                        float u = (d.x * T.y - d.y * T.x) / den;
+                        if (u < -1e-4f || u > 1f + 1e-4f) continue;
+                        float sAt = (d.x * e.y - d.y * e.x) / den;
+                        s0 = Mathf.Min(s0, sAt); s1 = Mathf.Max(s1, sAt);
+                    }
+                    if (s1 - s0 < 20f) continue;
+                    bool Near(Vector3 q, float r) { foreach (var c in v.course) if ((c - q).sqrMagnitude < r * r) return true; return false; }
+                    Vector3 W(float sw, float y) => basePoint + t * sw + Vector3.up * y;
+                    void Tile(float sa, float sb, float ya, float yb)
+                    {
+                        Vector3 a = W(sa, ya), b = W(sb, ya), c = W(sb, yb), d = W(sa, yb);
+                        if (rock) { a += n * Bulge(a); b += n * Bulge(b); c += n * Bulge(c); d += n * Bulge(d); }
+                        Quad(wall, a, b, c, d);
+                    }
+                    whole = 1;
+                    const float Big = 60f, Small = 30f;
+                    for (float sa = s0; sa < s1 - 0.5f; sa += Big)
+                        for (float ya = v.floor; ya < v.ceiling - 0.5f; ya += Big)
+                        {
+                            float sb = Mathf.Min(sa + Big, s1), yb = Mathf.Min(ya + Big, v.ceiling);
+                            if (!Near(W((sa + sb) * 0.5f, (ya + yb) * 0.5f), 75f)) { Tile(sa, sb, ya, yb); continue; }
+                            // near the course: finer, and open wherever it passes
+                            for (float sc = sa; sc < sb - 0.5f; sc += Small)
+                                for (float yc = ya; yc < yb - 0.5f; yc += Small)
+                                {
+                                    float sd = Mathf.Min(sc + Small, sb), yd = Mathf.Min(yc + Small, yb);
+                                    if (Near(W((sc + sd) * 0.5f, (yc + yd) * 0.5f), 24f)) continue;
+                                    Tile(sc, sd, yc, yd);
+                                }
+                        }
+                    whole = 0;
+                }
 
             // Floor and ceiling: a grid of panels over the outline
             float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
@@ -556,6 +638,25 @@ namespace VoidFlow
                         }
                         if (design == Design.Cave && dr.NextDouble() < 0.3)
                             Box(trimA, new Vector3((x + x1) * 0.5f, v.ceiling - 6f, (z + z1) * 0.5f), new Vector3(4f, 12f, 4f), (float)dr.NextDouble() * 90f);
+                        // Chandeliers hanging from the roof, after cannonball's: a ring of lights
+                        // on chains, high above everything
+                        if (design is Design.Tomb or Design.Castle or Design.Warehouse or Design.Library or Design.Arches or Design.Sanctum && dr.NextDouble() < 0.1)
+                        {
+                            float S = Mathf.Clamp(height / 140f, 1f, 3f);
+                            Vector3 top = new((x + x1) * 0.5f, v.ceiling, (z + z1) * 0.5f);
+                            float drop = 14f * S, rr = 4f * S;
+                            if (ClearOf(top.WithY(v.ceiling - drop), 40f))
+                            {
+                                Box(trimA, top.WithY(v.ceiling - drop * 0.5f), new Vector3(0.4f, drop, 0.4f), 0f);
+                                for (int k = 0; k < 8; k++)
+                                {
+                                    float a = k * Mathf.PI / 4f;
+                                    Vector3 p = top.WithY(v.ceiling - drop) + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * rr;
+                                    Box(trimA, p, new Vector3(rr * 0.8f, 0.4f * S, 0.4f * S), -k * 45f + 90f);
+                                    Box(kit.glow, p + Vector3.up * (0.8f * S), new Vector3(0.5f, 1.2f, 0.5f) * S, 0f);
+                                }
+                            }
+                        }
                         if (design == Design.Crystal && dr.NextDouble() < 0.3)
                             for (int k = 0; k < 3; k++)
                                 Shard(k == 0 ? kit.glow : lightA, new Vector3(Mathf.Lerp(x, x1, (float)dr.NextDouble()), v.ceiling, Mathf.Lerp(z, z1, (float)dr.NextDouble())),

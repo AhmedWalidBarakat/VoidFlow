@@ -26,7 +26,7 @@ namespace VoidFlow
         [Tooltip("Saved materials whose shader variants runtime materials use (see-through glows), so builds keep them")]
         public Material[] keepVariants;
         [Tooltip("Field of view of the world, horizontal like CS (the same on any screen shape)")]
-        public float horizontalFov = 120f;
+        public float horizontalFov = 106.26f; // CS2's: 90 at 4:3, the same view at 16:9
         [Tooltip("Field of view of the hands and weapon (vertical), kept separate so they never stretch")]
         public float fieldOfView = 58f;
         [Tooltip("Optional: a clip to use for the sniper shot instead of the generated one")]

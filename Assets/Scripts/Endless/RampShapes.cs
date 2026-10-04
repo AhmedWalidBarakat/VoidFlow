@@ -297,10 +297,8 @@ namespace VoidFlow
 
         // A ring of glowing blocks (visual only), hung at the top of a big-air flight to fly
         // through. Vertices relative to `center`.
-        public static Mesh RingMesh(Vector3 center, Vector3 facing, float radius, string name)
+        public static Mesh RingMesh(Vector3 center, Vector3 facing, float radius, string name, float thickness = 0.5f, int blocks = 16)
         {
-            const int blocks = 16;
-            const float thickness = 0.5f;
             var mesh = new MeshBuilder(center);
             Vector3 right = Vector3.Cross(Vector3.up, facing).normalized, up = Vector3.up;
             for (int b = 0; b < blocks; b++)
