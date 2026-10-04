@@ -87,6 +87,10 @@ namespace VoidFlow
             "34" => new Color(0.3f, 1f, 0.7f), "35" => new Color(1f, 0.15f, 0.15f),
             _ => new Color(0.75f, 0.4f, 1f),
         };
+        // The Void karambits are held and spun like the talon knife (reverse grip, the finger ring
+        // above the index finger)
+        public static bool IsKarambit(string asset) => asset != null && (asset.StartsWith("30") || asset.StartsWith("35"));
+        public static bool TalonHeld(Skin skin) => skin.model == KnifeModel.Talon || IsKarambit(skin.asset);
         public static bool IsVoidKnife(string asset) => asset != null && string.CompareOrdinal(asset, "28") >= 0 && string.CompareOrdinal(asset, "36") < 0;
 
         public static bool IsGlove(KnifeModel m) => m >= KnifeModel.Glove && m <= KnifeModel.GloveWraps;

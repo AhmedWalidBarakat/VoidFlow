@@ -13,6 +13,7 @@ namespace VoidFlow
         public Transform blade, swingHandle, aura, bolt, magazine; // butterfly / Void / rifle parts
         public Transform tip; // the blade's point (knives), for motion trails
         public Vector3 ringCenter, boltRest, magRest;
+        public bool talonLike; // held, and spun on its ring, like the talon knife
         public float ringSpin; // talon knife: degrees spun around the finger ring (set by the view)
         public readonly List<Material> glowMaterials = new();
         public readonly List<Color> glowColors = new();
@@ -439,7 +440,7 @@ namespace VoidFlow
                 twin.name = "Twin";
                 twin.transform.SetLocalPositionAndRotation(new Vector3(0.03f, 0f, 0f), Quaternion.Euler(0f, 180f, -22f));
             }
-            Vivid(model);
+            Vivid(model, skin.asset != null && skin.asset.Length >= 2 ? skin.asset.Substring(0, 2) : "");
             // Long swords shrunk to a knife's length go thin as needles: those are filled out
             // across the blade (and a little in thickness) toward a sword's proportions
             if (skin.model == KnifeModel.ModelBlade)
@@ -470,6 +471,8 @@ namespace VoidFlow
                     model.transform.localScale = new Vector3(k, 1f, Mathf.Sqrt(k));
                 }
             }
+            Transform karambitTip = Skins.IsKarambit(skin.asset) ? TalonFit(parts, model) : null;
+            if (!Skins.IsRifle(skin.model)) Outline(parts, model, Skins.VoidHue(skin.asset));
             float top = 0f;
             foreach (var tr in model.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = layer;
             foreach (var r in model.GetComponentsInChildren<Renderer>(true))
@@ -478,7 +481,8 @@ namespace VoidFlow
                 r.receiveShadows = shadows;
                 top = Mathf.Max(top, t.InverseTransformPoint(r.bounds.center + Vector3.up * r.bounds.extents.y).y);
             }
-            if (!Skins.IsRifle(skin.model)) parts.tip = Tip(t, new Vector2(0f, top));
+            if (karambitTip) parts.tip = karambitTip;
+            else if (!Skins.IsRifle(skin.model)) parts.tip = Tip(t, new Vector2(0f, top));
             else
             {
                 // the model's own bolt and magazine don't move: empty stand-ins where the hand
@@ -496,12 +500,96 @@ namespace VoidFlow
             return parts;
         }
 
+        // The model's points in the weapon's space
+        static List<Vector3> PointsOf(Transform space, GameObject model)
+        {
+            var pts = new List<Vector3>();
+            foreach (var mf in model.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (!mf.sharedMesh || !mf.sharedMesh.isReadable) continue;
+                var v = mf.sharedMesh.vertices;
+                for (int i = 0; i < v.Length; i += Mathf.Max(1, v.Length / 3000)) pts.Add(space.InverseTransformPoint(mf.transform.TransformPoint(v[i])));
+            }
+            return pts;
+        }
+
+        // A karambit laid into the talon knife's space: turned over so the finger ring is at the
+        // top (y 0.024, above the index finger) and the hooked blade below the fist, the handle
+        // running down through the fist between them. Returns its point, for the trail.
+        Transform TalonFit(WeaponParts parts, GameObject model)
+        {
+            var t = parts.root;
+            var pts = PointsOf(t, model);
+            if (pts.Count < 10) return null;
+            float yMin = float.MaxValue;
+            foreach (var p in pts) yMin = Mathf.Min(yMin, p.y);
+            const float Guard = 0.005f; // (where the fitting put the top of the handle)
+            float k = 0.128f / Mathf.Max(Guard - yMin, 0.02f), off = -0.085f + Guard * k;
+            var pivot = new GameObject("Talon Hold").transform;
+            pivot.SetParent(t, false);
+            pivot.SetLocalPositionAndRotation(new Vector3(0f, off, 0f), Quaternion.Euler(0f, 0f, 180f));
+            pivot.localScale = Vector3.one * k;
+            model.transform.SetParent(pivot, false);
+            // the ring: the points above the fist; the point: the lowest
+            pts = PointsOf(t, model);
+            Vector3 ring = Vector3.zero; int n = 0; Vector3 low = Vector3.up;
+            foreach (var p in pts)
+            {
+                if (p.y > 0f) { ring += p; n++; }
+                if (p.y < low.y) low = p;
+            }
+            parts.ringCenter = n > 0 ? new Vector3(ring.x / n, ring.y / n, 0f) : new Vector3(0f, 0.024f, 0f);
+            parts.talonLike = true;
+            return Tip(t, new Vector2(low.x, low.y));
+        }
+
+        // A thin shell of light round the weapon in its own colour (the inside of a copy pushed
+        // out along the surface): it outlines the weapon against any background, so its shape
+        // reads in the darkest zone and the brightest
+        void Outline(WeaponParts parts, GameObject model, Color hue)
+        {
+            var glow = Glow(hue, 1.8f, parts);
+            glow.SetFloat("_Cull", 1f); // (front faces culled: only the rim round the weapon shows)
+            materials?.Add(glow);
+            const float Thick = 0.0016f; // in the weapon's space
+            foreach (var mf in model.GetComponentsInChildren<MeshFilter>(true))
+            {
+                var src = mf.sharedMesh;
+                if (!src || !src.isReadable) continue;
+                var v = src.vertices; var nrm = src.normals;
+                if (nrm == null || nrm.Length != v.Length) continue;
+                // smooth normals (welded by position), so the shell doesn't crack at hard edges
+                var sum = new Dictionary<Vector3Int, Vector3>();
+                Vector3Int Key(Vector3 p) => new(Mathf.RoundToInt(p.x * 2000f), Mathf.RoundToInt(p.y * 2000f), Mathf.RoundToInt(p.z * 2000f));
+                for (int i = 0; i < v.Length; i++) { var key = Key(v[i]); sum[key] = (sum.TryGetValue(key, out var s0) ? s0 : Vector3.zero) + nrm[i]; }
+                float local = Thick / Mathf.Max(1e-6f, parts.root.InverseTransformVector(mf.transform.TransformVector(Vector3.one.normalized)).magnitude);
+                var moved = new Vector3[v.Length];
+                for (int i = 0; i < v.Length; i++) moved[i] = v[i] + sum[Key(v[i])].normalized * local;
+                var shell = new Mesh { name = "Outline", indexFormat = src.indexFormat };
+                shell.vertices = moved;
+                var tris = new List<int>();
+                for (int sm = 0; sm < src.subMeshCount; sm++) tris.AddRange(src.GetTriangles(sm));
+                shell.SetTriangles(tris, 0);
+                shell.RecalculateNormals();
+                shell.RecalculateBounds();
+                var go = new GameObject("Outline");
+                go.transform.SetParent(mf.transform, false);
+                go.AddComponent<MeshFilter>().sharedMesh = shell;
+                var r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = glow;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
+            }
+        }
+
         // The models' metal only mirrors the zone's sky, so in a dark zone their colours sank
         // into black: each weapon gets copies of its materials that glow a little with their own
         // colours (their own colour map, or their own glow maps made brighter), metal that's
         // part paint rather than all mirror, and a glossier finish, so the colours and the
         // details read in any light
-        void Vivid(GameObject model)
+        static readonly Dictionary<string, float> brighter = new() { { "03", 1.3f } };
+
+        void Vivid(GameObject model, string asset)
         {
             var made = new Dictionary<Material, Material>();
             foreach (var r in model.GetComponentsInChildren<Renderer>(true))
@@ -523,7 +611,8 @@ namespace VoidFlow
                         // left off, the colours brighter, the surface polished
                         if (m.HasProperty("occlusionTexture")) m.SetTexture("occlusionTexture", null);
                         if (m.HasProperty("occlusionTexture_strength")) m.SetFloat("occlusionTexture_strength", 0f);
-                        if (m.HasProperty("baseColorFactor")) m.SetColor("baseColorFactor", new Color(tint.r * 1.12f, tint.g * 1.12f, tint.b * 1.12f, tint.a));
+                        float lift = brighter.TryGetValue(asset, out float b) ? b : 1.12f; // (a few models are painted darker than the rest)
+                        if (m.HasProperty("baseColorFactor")) m.SetColor("baseColorFactor", new Color(tint.r * lift, tint.g * lift, tint.b * lift, tint.a));
                         if (hasGlow && glow.maxColorComponent > 0.01f)
                             m.SetColor("emissiveFactor", glow * 1.1f); // its own lights, a touch brighter
                         else if (m.HasProperty("baseColorTexture") && m.HasProperty("emissiveTexture"))

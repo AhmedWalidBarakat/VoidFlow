@@ -97,6 +97,8 @@ namespace VoidFlow
             public int sustainAxis;       // ...and keeps spinning: 0 nothing, 1 the knife, 2 around the arm, 3 butterfly flips
             public float sustainSpeed;
             public bool dualArms;         // twin blades: the left arm (with its blade) follows the keys too
+            public bool showcase;         // held F: eases into the show pose (a sword held up sideways, turning in the light)
+            public bool chain;            // ...or, for a scythe, let out on a chain and whirled round the hand
             public (float t, AudioClip clip, float volume)[] sounds = System.Array.Empty<(float, AudioClip, float)>();
             public float Length => keys[^1].t;
         }
@@ -441,6 +443,8 @@ namespace VoidFlow
         void UpdateKnife(Keyboard kb, Mouse mouse, bool locked, bool ready, float dt)
         {
             InspectTaps(kb);
+            showcase = Mathf.MoveTowards(showcase, sustaining && routine != null && (routine.showcase || routine.chain) ? 1f : 0f, dt * 2.2f);
+            if (routine != null && routine.chain) chainAngle += dt * 520f * Mathf.SmoothStep(0f, 1f, showcase);
             bool held = (kb != null && kb.fKey.isPressed) || AutoInspect;
             if (((kb != null && kb.fKey.wasPressedThisFrame) || AutoInspect) && inspectTime < 0f && slashTime < 0f && ready) StartInspect();
             if (ready && locked && mouse != null && mouse.leftButton.wasPressedThisFrame && (slashTime < 0f || slashTime > CutReady))
@@ -511,6 +515,8 @@ namespace VoidFlow
         void StopInspect()
         {
             inspectTime = -1f;
+            showcase = 0f;
+            HideChain();
             sustaining = false;
             sustainExtra = 0f;
         }
@@ -532,7 +538,7 @@ namespace VoidFlow
         // rot), or the inspect routine at `inspect` seconds
         void PoseKnife(Vector3 pos, Vector3 rot, float inspect)
         {
-            bool talon = knife.model == KnifeModel.Talon;
+            bool talon = knife.model == KnifeModel.Talon || knife.talonLike;
             if (talon) SetTalonGrip(rightHand);
             else SetGrip(rightHand, false);
             SetGrip(leftHand, false);
@@ -576,7 +582,7 @@ namespace VoidFlow
             else leftHand.root.SetLocalPositionAndRotation(LeftIdle + LeftHandAway * slashAway, LeftIdleRotation);
             knife.ringSpin = 0f;
             knife.root.localScale = Vector3.one * knifeScale;
-            if (knife.model != KnifeModel.Talon) knife.root.localPosition = (1f - knifeScale) * KnifeHandle;
+            if (!talon) knife.root.localPosition = (1f - knifeScale) * KnifeHandle;
             VoidDraw(time);
             knife.Animate(time, -1f, current == KnifeSlot ? drawTime : 99f);
         }
@@ -593,6 +599,7 @@ namespace VoidFlow
 
         Vector3 KnifePivot => knife.model switch
         {
+            _ when knife.talonLike => knife.ringCenter,
             KnifeModel.Talon => knife.ringCenter,
             KnifeModel.Butterfly => Vector3.zero,
             KnifeModel.Skeleton => knife.ringCenter,
@@ -676,6 +683,9 @@ namespace VoidFlow
                 return (u3 - 2f * u2 + u) * m1 + (3f * u2 - 2f * u3) + (u3 - u2) * m2;
             }
             right = new Pose(CurveV(k => RightArm(k).p), Quaternion.Slerp(RightArm(a).q, RightArm(b).q, TurnEase(k => RightArm(k).q)));
+            // Held F: the show pose (see Showcase)
+            float shown = Mathf.SmoothStep(0f, 1f, showcase);
+            if (shown > 0f) right = Pose.Blend(right, ShowcaseHand(time), shown);
             left = new Pose(CurveV(k => LeftArm(k).p), Quaternion.Slerp(LeftArm(a).q, LeftArm(b).q, TurnEase(k => LeftArm(k).q)));
             // Knife tricks stay low on the screen so you can still see the run: anything above
             // the resting height is pulled down (the swords' sheath moves are low already)
@@ -714,6 +724,7 @@ namespace VoidFlow
             Vector3 spin = CurveV(k => k.spin);
             float orbit = Curve(before.orbit, a.orbit, b.orbit, after.orbit);
             if (routine.sustainAxis == 1) spin.z += Mathf.Sign(routine.sustainSpeed) * sustainExtra;
+            spin *= 1f - shown;
             if (routine.sustainAxis == 2) orbit += sustainExtra;
             Vector3 pivotAt = knifePose.p + knifePose.q * pivot;
             knifePose.q = knifePose.q * Quaternion.Euler(spin);
@@ -741,6 +752,8 @@ namespace VoidFlow
             hand.SetLocalPositionAndRotation(right.p, right.q);
             leftHand.root.gameObject.SetActive(true);
             leftHand.root.SetLocalPositionAndRotation(left.p, left.q);
+            if (routine.chain && shown > 0f) knifePose = ChainPose(right, knifePose, shown, size);
+            else HideChain();
             if (knife.root.parent != rig) knife.root.SetParent(rig, false);
             knife.ringSpin = 0f;
             knife.Animate(time, knife.IsSword ? t : -1f);

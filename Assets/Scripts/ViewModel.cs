@@ -522,24 +522,27 @@ namespace VoidFlow
 
         void BuildKnifeModel()
         {
+            ResetChain();
             if (knife != null) Kill(knife.root.gameObject);
             if (offhand != null) { Kill(offhand.root.gameObject); offhand = null; }
             foreach (var m in knifeMaterials) Kill(m);
             knifeMaterials.Clear();
-            if (Skins.Knives[knifeSkin].model == KnifeModel.Talon) SetTalonGrip(rightHand);
+            if (Skins.TalonHeld(Skins.Knives[knifeSkin])) SetTalonGrip(rightHand);
             else SetGrip(rightHand, false);
             var builder = new WeaponBuilder(template, Layer, false, knifeMaterials) { pairs = false };
             knife = builder.Knife(Skins.Knives[knifeSkin], rightHand.grip);
             // Every knife is sized like the talon knife (about 0.3 long), so none reaches across
             // the middle of the screen; it's scaled about its handle, so the grip stays put
-            float length = WeaponBuilder.MeshSize(knife).magnitude;
+            var extent = WeaponBuilder.MeshSize(knife);
+            // (a Void blade by its length alone: a wide guard or a filled-out blade mustn't shrink it)
+            float length = knife.model == KnifeModel.ModelBlade && !knife.talonLike ? extent.y : extent.magnitude;
             // (twin blades shorter still, so the pair doesn't cross in the middle of the screen)
             // (scythes a little longer and smaller, so the curved head shows above the hand)
             // (Void swords a little longer than a knife, so they read as swords; Void knives a
             // knife's length)
             bool twin = knife.model == KnifeModel.ModelDual, scythe = knife.model == KnifeModel.ModelScythe;
             string asset = Skins.Knives[knifeSkin].asset;
-            float wanted = twin ? 0.27f : scythe ? 0.38f : asset == null ? 0.3f : Skins.IsVoidKnife(asset) ? 0.29f : 0.35f;
+            float wanted = twin ? 0.27f : scythe ? 0.38f : asset == null ? 0.3f : Skins.IsVoidKnife(asset) ? 0.25f : 0.34f;
             knifeScale = length > 0.01f ? Mathf.Clamp(wanted / length, twin || scythe || asset != null ? 0.3f : 0.6f, 1f) : 1f;
             // Twin blades: the second one in the left fist, sized and held the same way
             if (knife.model == KnifeModel.ModelDual)

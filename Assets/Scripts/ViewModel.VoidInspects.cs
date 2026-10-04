@@ -40,6 +40,23 @@ namespace VoidFlow
         Routine VoidModelRoutine(KnifeModel model)
         {
             string asset = Skins.Knives[knifeSkin].asset ?? "";
+            var r = PickRoutine(model, asset);
+            // Held F: the swords ease into the show pose, the scythes let out on a chain and
+            // whirled round the hand, from the first move of their inspect, for as long as it's held
+            bool sword = model == KnifeModel.ModelBlade && !Skins.IsVoidKnife(asset), scythe = model == KnifeModel.ModelScythe;
+            if ((sword || scythe) && r.keys.Length > 2)
+            {
+                r.showcase = sword;
+                r.chain = scythe;
+                r.sustainAt = r.keys[1].t;
+                r.sustainAxis = 0;
+                r.sustainSpeed = 0f;
+            }
+            return r;
+        }
+
+        Routine PickRoutine(KnifeModel model, string asset)
+        {
             return asset.Substring(0, Mathf.Min(2, asset.Length)) switch
             {
                 "01" => RoyalRoutine(),
@@ -61,8 +78,7 @@ namespace VoidFlow
                 "18" => BreezeRoutine(),
                 "28" => CycloneRoutine(),
                 "29" => GlintRoutine(),
-                "30" => ClawRoutine(),
-                "35" => CrimsonRoutine(),
+                "30" or "35" => TalonRoutine(), // (held, and spun on the finger ring, like the talon)
                 "31" => CircuitRoutine(),
                 "32" => KunaiRoutine(),
                 "33" => WhisperRoutine(),
@@ -170,8 +186,8 @@ namespace VoidFlow
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
             k = Show(k, 0.5f, ShowA, ShowAt); k.rOpen = 0.1f; ks.Add(k);
-            k = k.At(0.95f); k.lp = new(-0.01f, -0.15f, 0.31f); k.lq = LeftCatchQ; k.lOpen = 0.85f; ks.Add(k);     // cradled
-            k = k.At(1.6f); k.rp = ShowAt + new Vector3(-0.005f, 0.02f, 0.01f); k.rq = Lean(ShowA, -14f); k.lp = new(-0.005f, -0.13f, 0.32f); ks.Add(k); // offered up
+            k = k.At(0.95f); k.lp = new(-0.01f, -0.16f, 0.37f); k.lq = LeftCatchQ; k.lOpen = 0.85f; ks.Add(k);     // cradled (from behind)
+            k = k.At(1.6f); k.rp = ShowAt + new Vector3(-0.005f, 0.02f, 0.01f); k.rq = Lean(ShowA, -14f); k.lp = new(-0.005f, -0.14f, 0.38f); ks.Add(k); // offered up
             k = k.At(2.15f); k.rq = Lean(TurnQ(ShowA, 18f), 6f); ks.Add(k);
             k = k.At(2.45f); k.lp = LeftIdle; k.lq = LeftIdleRotation; k.lOpen = 0f; ks.Add(k);
             k = k.At(2.95f); k.spin = new(0f, 180f, 0f); k.rq = ShowB; ks.Add(k);                                  // the other face
@@ -223,8 +239,8 @@ namespace VoidFlow
             var ks = new List<Key>();
             var k = IdleKey(false); ks.Add(k);
             k = Show(k, 0.45f, ShowA, ShowAt); ks.Add(k);
-            k = k.At(0.8f); k.lp = new(-0.02f, -0.15f, 0.31f); k.lq = LeftCatchQ; k.lOpen = 0.8f; ks.Add(k);     // the left palm on the blade...
-            k = k.At(1.6f); k.lp = new(0.005f, -0.1f, 0.33f); k.rq = ShowB; ks.Add(k);                           // ...drawn along it
+            k = k.At(0.8f); k.lp = new(-0.02f, -0.16f, 0.37f); k.lq = LeftCatchQ; k.lOpen = 0.8f; ks.Add(k);     // the left palm behind the blade...
+            k = k.At(1.6f); k.lp = new(0.005f, -0.11f, 0.38f); k.rq = ShowB; ks.Add(k);                           // ...drawn along it
             k = k.At(1.9f); k.lp = LeftIdle; k.lq = LeftIdleRotation; k.lOpen = 0f; ks.Add(k);
             k = Show(k, 2.45f, RaiseQ, RaiseAt); ks.Add(k);                                                     // raised high
             k = k.At(2.95f); k.rq = TurnQ(RaiseQ, 25f); ks.Add(k);
@@ -428,23 +444,6 @@ namespace VoidFlow
             return Done(ks, 0.9f, 0, 0f, (0.45f, WeaponSounds.Unsheathe, 0.25f), (1.65f, WeaponSounds.Slash, 0.15f), (1.95f, WeaponSounds.Tick, 0.4f));
         }
 
-        // Karambits: the hand turns over so the curve hangs from the fist, claw-like, the colour
-        // all along the hook, then rolls back, a slow pull across like a claw drawn through
-        static Routine ClawRoutine()
-        {
-            Quaternion over = FB(-0.5f, 0.15f, 0.85f, 0.1f, 1f, 0.2f);
-            var ks = new List<Key>();
-            var k = IdleKey(false); ks.Add(k);
-            k = Show(k, 0.5f, over, new Vector3(0.075f, -0.1f, 0.3f)); ks.Add(k);                   // turned over, the hook hanging
-            k = k.At(1.1f); k.rq = TurnQ(over, 25f); ks.Add(k);
-            k = k.At(1.6f); k.rq = Lean(TurnQ(over, -15f), 10f); ks.Add(k);
-            k = Show(k, 2.1f, ShowA, ShowAt); ks.Add(k);                                             // the flat of the hook
-            k = k.At(2.5f); k.rp = new(0.13f, -0.08f, 0.33f); k.rq = RightUp; ks.Add(k);
-            k = k.At(2.85f); k.rp = new(0.0f, -0.12f, 0.35f); k.rq = SweepQ; ks.Add(k);             // drawn through like a claw
-            k = k.At(3.05f); ks.Add(k);
-            ks.Add(Home(k, 3.5f));
-            return Done(ks, 1.1f, 0, 0f, (0.5f, WeaponSounds.Tick, 0.3f), (2.65f, WeaponSounds.Slash, 0.45f));
-        }
 
         // Cyberpunk Knife: brought close so its lit edge reads, slid along under the eye, flipped
         // once to show the circuitry on the other side
@@ -512,22 +511,6 @@ namespace VoidFlow
             return Done(ks, 1.5f, 0, 0f, (0.85f, WeaponSounds.Tick, 0.25f), (2.2f, WeaponSounds.Unsheathe, 0.2f));
         }
 
-        // Crimson Karambit: once round the back of the hand on the finger ring, caught, and shown
-        // turned over, the red curve hanging from the fist
-        static Routine CrimsonRoutine()
-        {
-            Quaternion over = FB(-0.5f, 0.15f, 0.85f, 0.1f, 1f, 0.2f);
-            var ks = new List<Key>();
-            var k = IdleKey(false); ks.Add(k);
-            k = k.At(0.35f); k.rp = new(0.1f, -0.08f, 0.32f); k.rOpen = 0.6f; k.rKeep = true; ks.Add(k);
-            k = k.At(1.0f); k.orbit = 360f; ks.Add(k);                                               // once round the back of the hand
-            k = k.At(1.2f); k.rOpen = 0f; k.rKeep = false; ks.Add(k);
-            k = Show(k, 1.75f, over, new Vector3(0.075f, -0.1f, 0.3f)); ks.Add(k);                  // shown turned over
-            k = k.At(2.3f); k.rq = TurnQ(over, 22f); ks.Add(k);
-            k = Show(k, 2.8f, ShowA, ShowAt); ks.Add(k);
-            k = Home(k, 3.3f); k.orbit = 360f; ks.Add(k);
-            return Done(ks, 2.3f, 0, 0f, (0.6f, WeaponSounds.Slash, 0.35f), (1.2f, WeaponSounds.Tick, 0.45f));
-        }
 
         // ------------------------------------------------------------------ draws
 
