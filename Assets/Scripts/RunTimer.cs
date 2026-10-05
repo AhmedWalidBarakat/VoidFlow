@@ -60,8 +60,16 @@ namespace VoidFlow
 
         void Restart()
         {
-            course.ResetCourse();
+            EndRun();
             player.Teleport(spawnPoint.position, spawnPoint.eulerAngles.y);
+        }
+
+        // The run stops where it is and the course goes back to its start (the start hall shown,
+        // the world recentred), for a fresh run from the hall; the saved checkpoint stays for C.
+        // Leaving for the bhop challenge from the stage menu ends a run this way.
+        public void EndRun()
+        {
+            course.ResetCourse();
             running = false;
             falls = 0;
             runStage = 0;

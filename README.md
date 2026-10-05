@@ -32,7 +32,7 @@ Along the way you grab Void Shards, which earn Void Cases, which drop knives, gl
 | F | Inspect (hold to show off a Void weapon) |
 | I | Inventory |
 | E | Use |
-| M | Stages you've reached (teleport) and volume |
+| M | Stages you've reached (teleport), the bhop challenge's ten stages and volume |
 | C | Continue from your last checkpoint (in the start area) |
 | T | Restart the stage (back to its checkpoint) |
 | R | Restart the run |

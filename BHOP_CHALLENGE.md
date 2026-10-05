@@ -29,8 +29,9 @@ you back to the stage's start.
 | Start | Step onto the stage 1 pad. The clock starts when you hop off it |
 | Checkpoints | Every stage's start pad is a checkpoint. Miss and you're back on the start pad of the stage you're on |
 | A miss | Touching the room's floor, or dropping more than 4 m below the blocks around you |
-| Exit portals | Each room ends in an exit pad under a gold arch filled with the next stage's light. Land on it and you're on the next room's start pad |
+| Exit zones | Each room ends in an exit pad under a glowing box in the next stage's colour, like a bhop server's end zone, with the next stage's number over it (it turns to face you). Land on it and you're on the next room's start pad |
 | T | Restart the stage you're on (from its start pad) |
+| M | The stage menu: under the surf stages, a row of the bhop challenge's ten. Click one to go straight to its start pad. Stage 1 is a full run; up to the furthest stage you've reached it carries on (like C); further on it's practice, with nothing won |
 | R | Back to stage 1 (the clock resets) |
 | C | At the plaza: carry on from the furthest stage you've reached (it counts for the prize, not for a best time) |
 | Finish | Land on the finish platform at the end of stage 10. Every karambit and its matching gloves go into your inventory (any you already have stay as they are), and the Velocity set is equipped; step into the ring to go back up |
@@ -51,7 +52,9 @@ Each stage is a room of its own:
 - **The blocks**, standing up from the floor as pillars. Each has a cap in the room's colour, and
   some have a square set into the top or a glowing edge.
 - **A start pad** up on its own pillar, with the stage's sign hanging over the first hop.
-- **An exit portal** at the far end.
+- **An exit zone** at the far end: a glowing box over the exit pad, in the next stage's colour.
+- **Surf ramps** in the room's colour, standing on solid bases down to the floor (stopping short
+  only where a flight passes underneath).
 
 A room follows its stage's route. It's a chain of rectangular chambers, a new one wherever the
 route turns more than 70 degrees or runs on 55 m, each just big enough round its stretch with the
@@ -180,8 +183,8 @@ gently when it's over. On a surf ramp it presses into the face. Four players:
 | 6 Neon Grid | clears it (14.4s) | 12/12 (14.4s) | 2/12 (14.7s) | 1/12 (14.9s) | hop 9 (7x), hop 8 (2x), hop 5 (1x) |
 | 7 Glass Slalom | clears it (13.8s) | 12/12 (13.8s) | 3/12 (13.7s) | 0/12 | hop 6 (3x), hop 14 (2x), hop 8 (2x) |
 | 8 Shard Field | clears it (10.0s) | 11/12 (10.0s) | 3/12 (10.0s) | 0/12 | hop 5 (3x), hop 7 (2x), hop 6 (2x) |
-| 9 Gauntlet | clears it (16.3s) | 12/12 (16.3s) | 3/12 (16.3s) | 0/12 | hop 11 (2x), hop 5 (2x), hop 15 (2x) |
-| 10 Ascension | clears it (19.2s) | 12/12 (18.9s) | 2/12 (18.9s) | 0/12 | hop 4 (5x), hop 5 (2x), hop 17 (2x) |
+| 9 Gauntlet | clears it (16.3s) | 12/12 (16.3s) | 2/12 (16.3s) | 0/12 | hop 11 (2x), hop 5 (2x), hop 15 (2x) |
+| 10 Ascension | clears it (19.0s) | 12/12 (19.0s) | 4/12 (19.0s) | 0/12 | hop 4 (5x), hop 5 (1x), hop 20 (1x) |
 
 Every stage was finished by the perfect bot, and by the near-perfect one in 11 or 12 runs of 12, so
 none is impossible. The expert finishes stage 1 every time and the later stages less and less often,
@@ -197,6 +200,10 @@ The playtest found and fixed, before release:
 - Stages 3 to 9 retuned until the difficulty climbs stage by stage (stage 3's long gaps eased a
   little; stage 4's banks narrowed to 2 m; stage 5's tiny blocks to 1.1 m; stage 7's slalom blocks
   to 1.6 m; stage 9's climb onto 1.4 m blocks at a faster pace).
+- Stage 9's end folded back under its own surf ramp: its exit pad sat right under the ramp's
+  start, a confusing sight from the climb. Its hairpin now turns the other way, so the stage swings
+  out and ends well clear of the ramp (still cleared by the perfect bot, the near-perfect one every
+  time).
 - From the first version: landing near an edge killing your speed (every landing window keeps your
   middle 0.2 m in), blocks after surf ramps placed where a perfect exit would land (real exits land
   2 to 4 m short), and a curved final ramp too tight to hold.
@@ -377,9 +384,9 @@ of the expert's pace: over 100% means better than that). Speeds in u/s (1 m/s = 
 | 11 | block | 8.4 m | +0.0 m | left 30° | 0.76 s | 1.0 x 1.0 | 422 | 453 | 413 | 102% |
 | 12 | surf ramp (ramp) | 10.3 m onto it, then 24 m of ramp | -1.0 m | left 60° along the ramp | 0.87 s | its face | 422 | - | 413 | - |
 | 13 | block (ramp to plank) | 9.6 m | -2.5 m (fall) | sync (L/R) | 0.50 s | 7.0 x 2.0 | 499 | 1023 | 587 | 85% |
-| 14 | block (hairpin) | 6.0 m | +0.0 m | left 60° | 0.76 s | 2.0 x 2.0 | 271 | 355 | 587 | 46% |
-| 15 | block | 6.0 m | +0.0 m | left 60° | 0.76 s | 2.0 x 2.0 | 271 | 355 | 389 | 70% |
-| 16 | block | 6.0 m | +0.0 m | left 60° | 0.76 s | 2.0 x 2.0 | 271 | 355 | 389 | 70% |
+| 14 | block (hairpin) | 6.0 m | +0.0 m | right 60° | 0.76 s | 2.0 x 2.0 | 271 | 355 | 587 | 46% |
+| 15 | block | 6.0 m | +0.0 m | right 60° | 0.76 s | 2.0 x 2.0 | 271 | 355 | 389 | 70% |
+| 16 | block | 6.0 m | +0.0 m | right 60° | 0.76 s | 2.0 x 2.0 | 271 | 355 | 389 | 70% |
 | 17 | block | 7.1 m | +0.0 m | sync (L/R) | 0.76 s | 2.0 x 2.0 | 327 | 411 | 389 | 85% |
 | 18 | block (max gap) | 10.8 m | -2.0 m | sync (L/R) | 0.96 s | 2.0 x 2.0 | 409 | 474 | 413 | 100% |
 | 19 | exit portal | 6.0 m | +0.0 m | sync (L/R) | 0.76 s | 6.0 x 6.0 | 248 | 373 | 413 | 60% |

@@ -368,7 +368,7 @@ namespace VoidFlow.EditorTools
                     {
                         case BhopKind.Again: break;
                         case BhopKind.Ramp:
-                            BuildRamp(batch, colliders, p, th, rampMat);
+                            BuildRamp(batch, colliders, p, th, StageRamp(rampMat, s), floorY, path);
                             break;
                         case BhopKind.Pad:
                         {
@@ -380,7 +380,7 @@ namespace VoidFlow.EditorTools
                             batch.Rim(themes[start ? s : Mathf.Min(s + 1, 10)].rim ?? th.band, p.center, rot, new Vector2(p.size.y - 0.3f, p.size.x - 0.3f), 0.1f);
                             Solid(p.center, rot, new Vector3(size.x, depth, size.z), "Pad");
                             if (start) StartSign(stageRoot, p, s, headings[s - 1], padTop, th);
-                            else if (!finish) ExitPortal(batch, stageRoot, p, s, themes, gold);
+                            else if (!finish) ExitPortal(batch, stageRoot, p, s, themes);
                             break;
                         }
                         default:
@@ -639,37 +639,65 @@ namespace VoidFlow.EditorTools
             Label(BhopLayout.Stages[s - 1].line, stage, at - Vector3.up * 0.35f - dir * Vector3.forward * 0.02f, heading, 0.24f, new Color(0.85f, 0.9f, 1f));
         }
 
-        // A stage's exit: an arch over its pad with the next stage's light in it. Land on the pad
-        // and you're through, onto the next room's start pad.
-        static readonly Dictionary<int, Material> portalGlows = new();
-        static void ExitPortal(Batch b, Transform stage, in BhopPiece p, int s, Theme[] themes, Material gold)
+        // A stage's exit: a zone of light over its pad in the next stage's colour, its edges lit,
+        // like a bhop server's end zone (it reads as the way out from any side, not only head
+        // on), the next stage's number over it. Land on the pad and you're through, onto the
+        // next room's start pad.
+        static readonly Dictionary<int, (Material fill, Material edge)> zoneMats = new();
+        static void ExitPortal(Batch b, Transform stage, in BhopPiece p, int s, Theme[] themes)
         {
             var next = themes[s + 1];
-            if (!portalGlows.TryGetValue(s + 1, out var glow) || !glow)
+            if (!zoneMats.TryGetValue(s + 1, out var m) || !m.fill || !m.edge)
             {
-                glow = LightMaterial(next.glow, null, 0.55f, 1.2f);
-                glow.name = $"BhopPortal{s + 1}";
-                AssetDatabase.CreateAsset(glow, $"{Root}/BhopPortal{s + 1}.mat");
-                portalGlows[s + 1] = glow;
+                var fill = LightMaterial(next.glow, null, 0.2f, 0.9f);
+                fill.name = $"BhopZone{s + 1}";
+                AssetDatabase.CreateAsset(fill, $"{Root}/BhopZone{s + 1}.mat");
+                zoneMats[s + 1] = m = (fill, MakeGlow($"BhopZoneEdge{s + 1}", next.glow, 2.2f));
             }
-            var face = Quaternion.Euler(0f, p.yaw, 0f);
-            Vector3 side = face * Vector3.right, fwd = face * Vector3.forward;
-            float half = p.size.y * 0.5f - 0.35f, hgt = 4.6f;
-            var at = p.center + fwd * 0.6f;
+            var rot = Quaternion.Euler(0f, p.yaw, 0f);
+            Vector3 right = rot * Vector3.right, fwd = rot * Vector3.forward, up = Vector3.up;
+            float hx = p.size.y * 0.5f - 0.25f, hz = p.size.x * 0.5f - 0.25f, hgt = 3.4f;
+            var c = p.center + up * 0.04f;
+            b.Box(m.fill, m.fill, c + up * hgt, rot, new Vector3(hx * 2f, hgt, hz * 2f), 0.25f);
+            // its twelve edges
+            const float w = 0.08f;
             foreach (float sx in new[] { -1f, 1f })
-                b.Box(gold, gold, at + side * (sx * half) + Vector3.up * hgt, face, new Vector3(0.45f, hgt, 0.45f), 0.5f);
-            b.Box(gold, gold, at + Vector3.up * (hgt + 0.5f), face, new Vector3(half * 2f + 0.9f, 0.5f, 0.6f), 0.5f);
-            b.Box(next.rim ?? next.band, next.rim ?? next.band, at + Vector3.up * (hgt + 0.02f) - fwd * 0.32f, face, new Vector3(half * 2f, 0.07f, 0.07f), 1f);
-            b.Quad(glow, at - side * half + Vector3.up * 0.05f, at - side * half + Vector3.up * hgt, at + side * half + Vector3.up * hgt, at + side * half + Vector3.up * 0.05f, 0.25f);
-            b.Quad(glow, at + side * half + Vector3.up * 0.05f, at + side * half + Vector3.up * hgt, at - side * half + Vector3.up * hgt, at - side * half + Vector3.up * 0.05f, 0.25f);
-            Label($"STAGE {s + 1}", stage, at + Vector3.up * (hgt + 1.2f) - fwd * 0.4f, p.yaw, 0.7f, next.glow);
-            Label("EXIT", stage, p.center + Vector3.up * 0.03f - fwd * 1.2f, p.yaw, 1f, new Color(1f, 1f, 1f, 0.85f), pitch: 90f);
+                foreach (float sz in new[] { -1f, 1f })
+                    b.Box(m.edge, m.edge, c + right * (sx * hx) + fwd * (sz * hz) + up * hgt, rot, new Vector3(w, hgt, w), 1f);
+            foreach (float y in new[] { w, hgt })
+                foreach (float sgn in new[] { -1f, 1f })
+                {
+                    b.Box(m.edge, m.edge, c + fwd * (sgn * hz) + up * y, rot, new Vector3(hx * 2f + w, w, w), 1f);
+                    b.Box(m.edge, m.edge, c + right * (sgn * hx) + up * y, rot, new Vector3(w, w, hz * 2f + w), 1f);
+                }
+            // the next stage's number over it, turning to face you wherever you are
+            Label($"STAGE {s + 1}", stage, c + up * (hgt + 0.8f), p.yaw, 0.75f, next.glow).AddComponent<FaceViewer>();
+            Label("EXIT", stage, p.center + up * 0.05f - fwd * 1.2f, p.yaw, 1f, new Color(1f, 1f, 1f, 0.85f), pitch: 90f);
+        }
+
+        // A room's surf ramps take on its colour (the white grid of the ramps tinted)
+        static Material StageRamp(Material rampMat, int s)
+        {
+            Color tint = s switch
+            {
+                6 => new Color(0.45f, 0.45f, 0.68f),
+                7 => new Color(0.74f, 0.9f, 1f),
+                9 => new Color(0.48f, 0.4f, 0.36f),
+                10 => new Color(1f, 0.96f, 0.88f),
+                _ => Color.white,
+            };
+            var m = new Material(rampMat) { name = $"BhopRamp{s}" };
+            m.SetColor("_BaseColor", rampMat.GetColor("_BaseColor") * tint);
+            AssetDatabase.CreateAsset(m, $"{Root}/BhopRamp{s}.mat");
+            return m;
         }
 
         // A surf ramp along its riding line: a prism whose 60 degree face the line runs down,
         // on the inside of its curve (so the face turns you), a lit ridge along its top. It
-        // starts a little before the line, to catch a short landing.
-        static void BuildRamp(Batch batch, Transform colliders, in BhopPiece p, Theme th, Material rampMat)
+        // starts a little before the line, to catch a short landing. Under it, a solid base down
+        // to the room's floor (stopping 3m above any flight that passes beneath it), so it
+        // stands on the floor like a map's ramp instead of floating.
+        static void BuildRamp(Batch batch, Transform colliders, in BhopPiece p, Theme th, Material rampMat, float floorY, List<Vector3> path)
         {
             var line = p.line;
             int n = line.Length;
@@ -715,6 +743,46 @@ namespace VoidFlow.EditorTools
                 if (Vector3.Cross(F1 - F0, B0 - F0).y < 0f) batch.Quad(th.pillar, F0, F1, B1, B0, 0.15f);
                 else batch.Quad(th.pillar, F0, B0, B1, F1, 0.15f);
                 batch.Box(trim, trim, (R0 + R1) * 0.5f + Vector3.up * 0.06f, Quaternion.LookRotation(R1 - R0), new Vector3(0.12f, 0.12f, (R1 - R0).magnitude + 0.05f), 1f);
+            }
+            // the base: from the face's and the back's lower edges straight down
+            float bottom = floorY, lowest = float.MaxValue;
+            for (int k = 0; k <= n; k++) lowest = Mathf.Min(lowest, Mathf.Min(faces[k].y, backs[k].y));
+            foreach (var q in path)
+                for (int k = 0; k < n; k++)
+                {
+                    Vector3 a0 = pts[k], a1 = pts[k + 1], seg = a1 - a0;
+                    seg.y = 0f;
+                    float len2 = seg.sqrMagnitude;
+                    if (len2 < 1e-4f) continue;
+                    Vector3 d = q - a0;
+                    d.y = 0f;
+                    float t = Vector3.Dot(d, seg) / len2;
+                    if (t < 0f || t > 1f || (d - seg * t).magnitude > 3.5f) continue;
+                    float lineY = Mathf.Lerp(a0.y, a1.y, t);
+                    if (q.y < lineY - 1.5f) bottom = Mathf.Max(bottom, q.y + 3f);
+                }
+            if (bottom < lowest - 0.5f)
+            {
+                Vector3 Down(Vector3 v) => new(v.x, bottom, v.z);
+                void Wall(Vector3 a, Vector3 b2, Vector3 outward)
+                {
+                    Vector3 a1 = Down(a), b1 = Down(b2);
+                    if (Vector3.Dot(Vector3.Cross(b2 - a, a1 - a), outward) > 0f) { batch.Quad(th.pillar, a, b2, b1, a1, 0.15f); Q(a, b2, b1, a1); }
+                    else { batch.Quad(th.pillar, b2, a, a1, b1, 0.15f); Q(b2, a, a1, b1); }
+                }
+                for (int k = 0; k < n; k++)
+                {
+                    Vector3 mid = (pts[k] + pts[k + 1]) * 0.5f;
+                    Wall(faces[k], faces[k + 1], (faces[k] + faces[k + 1]) * 0.5f - mid);
+                    Wall(backs[k], backs[k + 1], (backs[k] + backs[k + 1]) * 0.5f - mid);
+                    // (its underside, should it stop short of the floor)
+                    Vector3 F0 = Down(faces[k]), F1 = Down(faces[k + 1]), B0 = Down(backs[k]), B1 = Down(backs[k + 1]);
+                    if (Vector3.Cross(F1 - F0, B0 - F0).y < 0f) batch.Quad(th.pillar, F0, F1, B1, B0, 0.15f);
+                    else batch.Quad(th.pillar, F0, B0, B1, F1, 0.15f);
+                }
+                Wall(faces[0], backs[0], -f0);
+                Vector3 fe = pts[n] - pts[n - 1]; fe.y = 0f;
+                Wall(faces[n], backs[n], fe);
             }
             if (Vector3.Dot(Vector3.Cross(faces[0] - ridges[0], backs[0] - ridges[0]), -f0) > 0f) batch.Tri(th.pillar, ridges[0], faces[0], backs[0]);
             else batch.Tri(th.pillar, ridges[0], backs[0], faces[0]);

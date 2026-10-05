@@ -190,6 +190,25 @@ namespace VoidFlow
             Note("BACK TO STAGE 1");
         }
 
+        // The stage the player is on out here (0 the trail and plaza, 11 finished)
+        public int Stage => inside ? stage : 0;
+
+        // From the stage menu: onto a stage's start pad. Stage 1 is a full run (the clock starts
+        // as you hop off); up to the furthest stage you've reached it's like carrying on (C);
+        // further on it's practice, with nothing won
+        public void GoToStage(int s)
+        {
+            s = Mathf.Clamp(s, 1, StageCount);
+            inside = true; // (so arriving doesn't count as coming in from the hall)
+            stage = s;
+            practice = s > Mathf.Max(1, Reached);
+            fullRun = s == 1;
+            timing = s > 1;
+            runStart = stageStart = Time.time;
+            Respawn(s == 1 ? "STAGE 1" : practice ? $"PRACTICE  ·  STAGE {s}  ·  NOTHING WON" : $"CARRYING ON FROM STAGE {s}");
+            Banner();
+        }
+
         void Finish()
         {
             stage = StageCount + 1;

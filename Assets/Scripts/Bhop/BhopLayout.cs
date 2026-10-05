@@ -253,9 +253,9 @@ namespace VoidFlow
                 B(0, -30, 1f, 1f),
                 Ramp(24, 3, -60, "ramp"),
                 B(-2.5f, 0, 7f, 2f, r: 0.85f, fall: true, label: "ramp to plank"),
-                B(0, -60, 2f, 2f, L: 6f, label: "hairpin"),
-                B(0, -60, 2f, 2f, L: 6f),
-                B(0, -60, 2f, 2f, L: 6f),
+                B(0, 60, 2f, 2f, L: 6f, label: "hairpin"), // (turning back the other way from the ramp's curve: the stage swings out, its end clear of the ramp)
+                B(0, 60, 2f, 2f, L: 6f),
+                B(0, 60, 2f, 2f, L: 6f),
                 B(0, 0, 2f, 2f, r: 0.85f),
                 B(-2, 0, 2f, 2f, r: 1f, label: "max gap"),
                 Pad(6f, r: 0.6f),
