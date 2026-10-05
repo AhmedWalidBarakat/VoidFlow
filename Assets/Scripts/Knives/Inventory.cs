@@ -87,7 +87,7 @@ namespace VoidFlow
             {
                 PlayerPrefs.SetInt(GiftKey, 1);
                 for (int i = 0; i < Skins.Knives.Length; i++)
-                    if (Skins.IsVoidKnife(Skins.Knives[i].asset) && !items.Exists(x => x.slot == ItemSlot.Secondary && x.index == i)) Add(ItemSlot.Secondary, i);
+                    if (Skins.IsVoidKnife(Skins.Knives[i].asset) && !Skins.Exclusive(Skins.Knives[i]) && !items.Exists(x => x.slot == ItemSlot.Secondary && x.index == i)) Add(ItemSlot.Secondary, i);
                 Save();
             }
             // ...and of the karambit colourways, when they came out
@@ -96,7 +96,7 @@ namespace VoidFlow
             {
                 PlayerPrefs.SetInt(KarambitGiftKey, 1);
                 for (int i = 0; i < Skins.Knives.Length; i++)
-                    if (Skins.Knives[i].paint != null && !items.Exists(x => x.slot == ItemSlot.Secondary && x.index == i)) Add(ItemSlot.Secondary, i);
+                    if (Skins.Knives[i].paint != null && !Skins.Exclusive(Skins.Knives[i]) && !items.Exists(x => x.slot == ItemSlot.Secondary && x.index == i)) Add(ItemSlot.Secondary, i);
                 Save();
             }
             // ...and of the Void gloves made to match them
@@ -105,7 +105,7 @@ namespace VoidFlow
             {
                 PlayerPrefs.SetInt(GloveGiftKey, 1);
                 for (int i = 0; i < Skins.Gloves.Length; i++)
-                    if (Skins.Gloves[i].paint != null && !items.Exists(x => x.slot == ItemSlot.Hands && x.index == i)) Add(ItemSlot.Hands, i);
+                    if (Skins.Gloves[i].paint != null && !Skins.Exclusive(Skins.Gloves[i]) && !items.Exists(x => x.slot == ItemSlot.Hands && x.index == i)) Add(ItemSlot.Hands, i);
                 Save();
             }
         }
@@ -122,7 +122,8 @@ namespace VoidFlow
         // For testing: start every session owning everything (true), or empty as players do
         static readonly bool GiveEverything = false;
 
-        // Finishing the whole course: every item in the game, straight into the inventory
+        // Finishing the whole course: every item in the game, straight into the inventory (all
+        // but the bhop challenge's prize, which is only won there)
         public static void GrantEverything()
         {
             EnsureLoaded();
@@ -130,9 +131,15 @@ namespace VoidFlow
             {
                 var pool = Skins.Pool((ItemSlot)slot);
                 for (int i = 1; i < pool.Length; i++)
-                    if (!items.Exists(it => it.slot == (ItemSlot)slot && it.index == i)) Add((ItemSlot)slot, i);
+                    if (!Skins.Exclusive(pool[i]) && !items.Exists(it => it.slot == (ItemSlot)slot && it.index == i)) Add((ItemSlot)slot, i);
             }
             Save();
+        }
+
+        public static bool Owns(ItemSlot slot, int index)
+        {
+            EnsureLoaded();
+            return items.Exists(it => it.slot == slot && it.index == index);
         }
 
         // An unboxed skin

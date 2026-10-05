@@ -206,6 +206,7 @@ namespace VoidFlow
             new("Void Gloves | Abyss Sapphire", "sapphire"),
             new("Void Gloves | Emerald Venom", "emerald"),
             new("Void Gloves | Fire & Ice", "fireice"),
+            new("Void Gloves | Velocity", "velocity"), // (the bhop challenge's prize)
         };
 
         public static int EquippedGlove
@@ -321,6 +322,8 @@ namespace VoidFlow
             new("Karambit | Abyss Sapphire", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente", "sapphire"),
             new("Karambit | Emerald Venom", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente", "emerald"),
             new("Karambit | Fire & Ice", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente", "fireice"),
+            // The bhop challenge's prize (see Exclusive)
+            new("Karambit | Velocity", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente", "velocity"),
         };
 
         public static readonly Skin[] Snipers =
@@ -370,20 +373,23 @@ namespace VoidFlow
             new("Nexus Railgun", KnifeModel.ModelRifle, "26_nexus_railgun", "Bl4ckGh0st"),
         };
 
+        // Only won, never dropped or given: the bhop challenge's Karambit | Velocity and its gloves
+        public static bool Exclusive(Skin skin) => skin.paint == "velocity";
+
         // Picks a case drop: Void 20% of the time, otherwise a Mythic, evenly within each
         public static int Roll(Skin[] pool)
         {
             var wanted = Random.value < VoidChance ? SkinRarity.Void : SkinRarity.Mythic;
             int count = 0;
-            foreach (var s in pool) if (s.rarity == wanted) count++;
+            foreach (var s in pool) if (s.rarity == wanted && !Exclusive(s)) count++;
             if (count == 0) // (no Void items of this kind: a Mythic one)
             {
                 wanted = SkinRarity.Mythic;
-                foreach (var s in pool) if (s.rarity == wanted) count++;
+                foreach (var s in pool) if (s.rarity == wanted && !Exclusive(s)) count++;
             }
             int pick = Random.Range(0, count);
             for (int i = 0; i < pool.Length; i++)
-                if (pool[i].rarity == wanted && pick-- == 0) return i;
+                if (pool[i].rarity == wanted && !Exclusive(pool[i]) && pick-- == 0) return i;
             return 0;
         }
 

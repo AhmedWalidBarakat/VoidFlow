@@ -66,6 +66,14 @@ namespace VoidFlow
                 metal = 0.4f, rough = 0.12f, glow = 0.25f,
                 blade = FireIce,
             },
+            // Velocity (the bhop challenge's prize): midnight steel streaked with fine lines of
+            // cyan turning violet toward the point, like speed
+            ["velocity"] = new Scheme
+            {
+                hue = new Color(0.3f, 0.9f, 1f), ring = new Color(0.35f, 0.88f, 1f), handle = new Color(0.03f, 0.035f, 0.05f),
+                metal = 0.65f, rough = 0.1f, glow = 0.2f,
+                blade = Velocity,
+            },
         };
 
         public static bool Has(string id) => id != null && schemes.ContainsKey(id);
@@ -211,6 +219,18 @@ namespace VoidFlow
             var c = Ramp(stops, Mathf.Pow(w, 1.25f) * 1.15f);
             float fleck = Noise(u * 11f, v * 11f, seed + 5);
             return Color.Lerp(c, stops[0], 0.75f * Edge(0.76f, 0.82f, fleck));
+        }
+
+        // Fine streaks running along the blade over dark steel, cyan at the heel and violet at
+        // the point, each one starting and stopping like a light trail
+        static Color Velocity(float u, float v)
+        {
+            float bend = Noise(u * 2f, v * 1.5f, 61);
+            float lanes = Mathf.Pow(Mathf.Abs(Mathf.Sin((u * 6.5f + bend * 0.8f) * Mathf.PI)), 24f);
+            float run = Edge(0.38f, 0.62f, Noise(u * 9f, v * 2.2f, 63));
+            var steel = Color.Lerp(new Color(0.015f, 0.02f, 0.045f), new Color(0.06f, 0.075f, 0.12f), Ripple(u, v, 67) * 0.5f);
+            var streak = Color.Lerp(new Color(0.15f, 0.95f, 1f), new Color(0.65f, 0.3f, 1f), Mathf.Clamp01(v));
+            return Color.Lerp(steel, streak, lanes * run);
         }
 
         // Bands of fire and ice folded through each other, a dark seam where they meet

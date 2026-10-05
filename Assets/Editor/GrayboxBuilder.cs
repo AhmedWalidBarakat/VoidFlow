@@ -59,6 +59,8 @@ namespace VoidFlow.EditorTools
             AddGlowVolume(map);
 
             PlayerMovement player = MakePlayer(spawn, rampMat);
+            // The 10 stage bhop challenge, out through the hall's back archway
+            BuildBhop(hall, player, hallMarble, AssetDatabase.LoadAssetAtPath<Material>($"{Root}/HallMetal.mat"), rampMat);
 
             var course = map.gameObject.AddComponent<EndlessCourse>();
             course.player = player;

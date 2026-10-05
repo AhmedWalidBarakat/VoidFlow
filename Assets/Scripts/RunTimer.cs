@@ -144,6 +144,7 @@ namespace VoidFlow
         void Update()
         {
             var kb = Keyboard.current;
+            if (BhopChallenge.Active && !running) return; // (out at the bhop challenge: it has its own rules)
             if (kb != null && kb.rKey.wasPressedThisFrame && !ViewModel.InputBlocked) { Restart(); return; }
 
             Vector3 p = player.Position;
@@ -257,8 +258,9 @@ namespace VoidFlow
             }
             bool menu = PauseMenu.Showing || Inventory.IsOpen || StageMenu.IsOpen;
 
+            bool bhop = BhopChallenge.Active && !running;
             if (running) DrawRunHud(w, h, px);
-            else if (!menu) DrawHallHud(w, h, px);
+            else if (!menu && !bhop) DrawHallHud(w, h, px);
 
             float age = Time.time - bannerTime;
             if (banner != null && age < BannerSeconds)
@@ -271,13 +273,13 @@ namespace VoidFlow
             if (FinishedRun && !menu) DrawResults(w, h, px, Time.time - finishTime);
 
             if (menu) return;
-            if (running) DrawSpeed(w, h, px); // (in the hall the controls card sits there)
-            if (GameSettings.ShowKeys && running && !FinishedRun) DrawKeys(w, h, px); // (the results card sits there at the end)
+            if (running || bhop) DrawSpeed(w, h, px); // (in the hall the controls card sits there)
+            if (GameSettings.ShowKeys && (running || bhop) && !FinishedRun) DrawKeys(w, h, px); // (the results card sits there at the end)
 
             if (player.Flying)
                 UiArt.Text(new Rect(0, 120f * px, w, 24f * px), "NOCLIP   ·   WASD fly · SPACE up · CTRL down · SHIFT fast · double tap SPACE to land", Mathf.RoundToInt(13 * px), Gold, TextAnchor.MiddleCenter);
             // The controls only show in the hall; once you drop in the screen is clear for the run
-            if (!running) DrawHelp(w, h, px);
+            if (!running && !bhop) DrawHelp(w, h, px);
         }
     }
 }

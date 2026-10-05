@@ -80,6 +80,15 @@ namespace VoidFlow
                 strap = new Color(0.02f, 0.3f, 0.13f), stitch = new Color(0.5f, 1f, 0.55f),
                 panel = (u, v) => GloveGem(u * 1.3f, v * 1.1f, EmeraldStops, 23),
             },
+            // Velocity (the bhop challenge's prize): speed streaks over midnight panels, cyan
+            // pads and stitching, a violet strap
+            ["velocity"] = new GloveScheme
+            {
+                hue = new Color(0.3f, 0.9f, 1f),
+                leather = Grey(0.03f), guard = Grey(0.025f), pads = new Color(0.2f, 0.75f, 0.95f), palm = Grey(0.045f),
+                strap = new Color(0.35f, 0.12f, 0.7f), stitch = new Color(0.3f, 0.85f, 1f),
+                panel = (u, v) => Velocity(u * 1.2f, v * 0.9f),
+            },
             // Fire & Ice: bands of fire and ice on the panels, ice-blue pads and strap, fire stitching
             ["fireice"] = new GloveScheme
             {

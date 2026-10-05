@@ -142,7 +142,7 @@ namespace VoidFlow
             var kb = Inventory.IsOpen ? null : Keyboard.current;
             if (kb != null && kb.spaceKey.wasPressedThisFrame)
             {
-                if (Time.unscaledTime - lastSpaceTap < 0.3f)
+                if (Time.unscaledTime - lastSpaceTap < 0.3f && (Flying || !BhopChallenge.Active))
                 {
                     Flying = !Flying;
                     lastSpaceTap = -99f;

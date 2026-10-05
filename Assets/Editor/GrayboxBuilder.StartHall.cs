@@ -82,14 +82,20 @@ namespace VoidFlow.EditorTools
             Box("DropEdge", new Vector3(lane, -0.5f, HallFront - 0.5f), new Vector3(width, 1f, 1f), purple, hall);
             Box("HallWallLeft", new Vector3(left - 0.5f, HallHeight * 0.5f, midZ), new Vector3(1f, HallHeight, HallDepth), wall, hall, stripes: true);
             Box("HallWallRight", new Vector3(right + 0.5f, HallHeight * 0.5f, midZ), new Vector3(1f, HallHeight, HallDepth), wall, hall, stripes: true);
-            Box("HallWallBack", new Vector3(lane, HallHeight * 0.5f, HallBack - 0.5f), new Vector3(width + 2f, HallHeight, 1f), wall, hall, stripes: true);
+            // The back wall, open in the middle: an archway out to the bhop challenge
+            const float ArchHalf = 3.5f, ArchHeight = 8f;
+            float backLeft = (left - 1f + lane - ArchHalf) * 0.5f, backRight = (lane + ArchHalf + right + 1f) * 0.5f;
+            Box("HallWallBackL", new Vector3(backLeft, HallHeight * 0.5f, HallBack - 0.5f), new Vector3(lane - ArchHalf - (left - 1f), HallHeight, 1f), wall, hall, stripes: true);
+            Box("HallWallBackR", new Vector3(backRight, HallHeight * 0.5f, HallBack - 0.5f), new Vector3(right + 1f - (lane + ArchHalf), HallHeight, 1f), wall, hall, stripes: true);
+            Box("HallWallBackTop", new Vector3(lane, (HallHeight + ArchHeight) * 0.5f, HallBack - 0.5f), new Vector3(ArchHalf * 2f, HallHeight - ArchHeight, 1f), wall, hall, stripes: true);
             // A gold coping along the tops of the walls (the court is open to the sky)
             foreach (float x in new[] { left - 0.5f, right + 0.5f })
                 Deco("Coping", hall, new Vector3(x, HallHeight + 0.2f, midZ), new Vector3(1.6f, 0.4f, HallDepth + 1f), Quaternion.identity, metal);
             Deco("Coping", hall, new Vector3(lane, HallHeight + 0.2f, HallBack - 0.5f), new Vector3(width + 2.6f, 0.4f, 1.6f), Quaternion.identity, metal);
 
             // Crisp edges: a dark baseboard with a gold line along every wall, a purple line up top
-            foreach (var (a, b) in new[] { (new Vector3(left, 0f, HallBack), new Vector3(left, 0f, HallFront - 1f)), (new Vector3(right, 0f, HallBack), new Vector3(right, 0f, HallFront - 1f)), (new Vector3(left, 0f, HallBack), new Vector3(right, 0f, HallBack)) })
+            foreach (var (a, b) in new[] { (new Vector3(left, 0f, HallBack), new Vector3(left, 0f, HallFront - 1f)), (new Vector3(right, 0f, HallBack), new Vector3(right, 0f, HallFront - 1f)),
+                (new Vector3(left, 0f, HallBack), new Vector3(lane - ArchHalf, 0f, HallBack)), (new Vector3(lane + ArchHalf, 0f, HallBack), new Vector3(right, 0f, HallBack)) })
             {
                 Vector3 mid = (a + b) * 0.5f, dir = (b - a).normalized;
                 Vector3 inward = dir.x != 0f ? Vector3.forward : (a.x < lane ? Vector3.right : Vector3.left);
@@ -294,6 +300,22 @@ namespace VoidFlow.EditorTools
             Label("SKEET RANGE", hall, new Vector3(right - 0.15f, 9f, HallBack + 9f), 90f, 1f, Ink);
             Label("snipe the discs before they land  ·  hit 4 for a Void Case", hall, new Vector3(right - 0.15f, 7.8f, HallBack + 9f), 90f, 0.35f, Bronze);
 
+            // The archway's gold frame, its name over it, and a way-marker on the floor by the spawn
+            foreach (float sx in new[] { -1f, 1f })
+                Deco("ArchJamb", hall, new Vector3(lane + sx * (ArchHalf + 0.2f), ArchHeight * 0.5f, HallBack - 0.5f), new Vector3(0.4f, ArchHeight, 1.3f), Quaternion.identity, metal);
+            Deco("ArchHead", hall, new Vector3(lane, ArchHeight + 0.2f, HallBack - 0.5f), new Vector3(ArchHalf * 2f + 0.8f, 0.4f, 1.3f), Quaternion.identity, metal);
+            Deco("ArchGlow", hall, new Vector3(lane, ArchHeight - 0.05f, HallBack + 0.2f), new Vector3(ArchHalf * 2f, 0.08f, 0.08f), Quaternion.identity, purple);
+            Box("ArchBanner", new Vector3(lane, ArchHeight + 2.1f, HallBack + 0.15f), new Vector3(9f, 2.4f, 0.2f), hallMarble, hall);
+            Deco("ArchBannerEdge", hall, new Vector3(lane, ArchHeight + 0.95f, HallBack + 0.28f), new Vector3(9f, 0.08f, 0.06f), Quaternion.identity, purple);
+            Label("BHOP CHALLENGE", hall, new Vector3(lane, ArchHeight + 2.45f, HallBack + 0.3f), 180f, 0.75f, Ink);
+            Label("10 stages  ·  win a karambit and matching gloves", hall, new Vector3(lane, ArchHeight + 1.55f, HallBack + 0.3f), 180f, 0.28f, Bronze);
+            Label("BHOP CHALLENGE", hall, new Vector3(lane, 0.03f, HallBack + 4.2f), 180f, 0.55f, new Color(0.45f, 0.75f, 1f), pitch: 90f);
+            for (float z = HallBack + 2f; z > HallBack + 0.5f; z -= 1.4f)
+            {
+                Deco("BhopArrowL", hall, new Vector3(lane - 0.35f, 0.016f, z), new Vector3(0.18f, 0.02f, 1f), Quaternion.Euler(0f, -45f, 0f), purple);
+                Deco("BhopArrowR", hall, new Vector3(lane + 0.35f, 0.016f, z), new Vector3(0.18f, 0.02f, 1f), Quaternion.Euler(0f, 45f, 0f), purple);
+            }
+
             // Title over the opening, on a dark banner so it reads against the sky
             Box("TitleBanner", new Vector3(lane, 11.4f, HallFront - 1.1f), new Vector3(26f, 4.6f, 0.2f), hallMarble, hall);
             Deco("TitleBannerEdge", hall, new Vector3(lane, 9.05f, HallFront - 1.15f), new Vector3(26f, 0.12f, 0.2f), Quaternion.identity, gold);
@@ -356,6 +378,9 @@ namespace VoidFlow.EditorTools
             var rng = new System.Random(777);
             float Rand(float min, float max) => min + (float)rng.NextDouble() * (max - min);
             var root = new GameObject("Utopia").transform;
+            // (none of it in the bhop challenge's sky, behind the hall)
+            var keep = BhopBounds(BhopLayout.Build(out _));
+            keep.Expand(new Vector3(60f, 80f, 60f));
             root.SetParent(hall, false);
             Vector3 centre = new(lane, 0f, HallFront - 30f);
             for (int i = 0; i < 16; i++)
@@ -366,6 +391,7 @@ namespace VoidFlow.EditorTools
                 island.SetParent(root, false);
                 island.position = centre + new Vector3(Mathf.Sin(angle) * dist, Rand(-120f, 60f), Mathf.Cos(angle) * dist);
                 float size = Rand(90f, 180f);
+                if (keep.SqrDistance(island.position) < size * size * 1.6f) { Object.DestroyImmediate(island.gameObject); continue; }
                 // The island: a flattened white disc over a rounded underside
                 Shape(PrimitiveType.Sphere, "Top", island, island.position, new Vector3(size, size * 0.14f, size), ivory);
                 Shape(PrimitiveType.Sphere, "Underside", island, island.position + Vector3.down * size * 0.22f, new Vector3(size * 0.8f, size * 0.5f, size * 0.8f), ivory);
