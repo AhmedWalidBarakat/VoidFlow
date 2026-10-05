@@ -21,6 +21,10 @@ namespace VoidFlow
             public readonly Dictionary<Vector3Int, List<int>> grid = new();
             public Bounds bounds;
             public int Count => lo.Count;
+            // (which triangles one building face has been tested against already: marked with
+            // the test's number, so nothing needs clearing between faces)
+            internal int[] tested;
+            internal int test;
         }
 
         public static Ramps Prepare(IEnumerable<MeshFilter> surfaces)
@@ -71,7 +75,8 @@ namespace VoidFlow
             ramps = ramps.FindAll(r => r != null && r.Count > 0);
             if (ramps.Count == 0) return 0;
             int removed = 0;
-            var seen = new HashSet<int>();
+            foreach (var r in ramps)
+                if (r.tested == null || r.tested.Length < r.Count) { r.tested = new int[r.Count]; r.test = 0; }
             foreach (var mf in buildings)
             {
                 var mesh = mf ? mf.sharedMesh : null;
@@ -79,7 +84,9 @@ namespace VoidFlow
                 var tr = mf.transform;
                 // whole building piece clear of every ramp: nothing to do
                 Bounds mb = TransformBounds(tr, mesh.bounds);
-                if (!ramps.Exists(r => r.bounds.Intersects(mb))) continue;
+                bool near = false;
+                foreach (var r in ramps) if (r.bounds.Intersects(mb)) { near = true; break; }
+                if (!near) continue;
                 var v = mesh.vertices; var t = mesh.triangles;
                 var w = new Vector3[v.Length];
                 for (int i = 0; i < v.Length; i++) w[i] = tr.TransformPoint(v[i]);
@@ -106,7 +113,7 @@ namespace VoidFlow
                         if (hit) break;
                         if (lo.x > r.bounds.max.x || hi.x < r.bounds.min.x || lo.y > r.bounds.max.y || hi.y < r.bounds.min.y || lo.z > r.bounds.max.z || hi.z < r.bounds.min.z) continue;
                         Vector3Int ca = Vector3Int.FloorToInt(Vector3.Max(lo, r.bounds.min) / Cell), cb = Vector3Int.FloorToInt(Vector3.Min(hi, r.bounds.max) / Cell);
-                        seen.Clear();
+                        int test = ++r.test;
                         for (int x = ca.x; x <= cb.x && !hit; x++)
                             for (int y = ca.y; y <= cb.y && !hit; y++)
                                 for (int z = ca.z; z <= cb.z && !hit; z++)
@@ -114,7 +121,8 @@ namespace VoidFlow
                                     if (!r.grid.TryGetValue(new Vector3Int(x, y, z), out var list)) continue;
                                     foreach (int id in list)
                                     {
-                                        if (!seen.Add(id)) continue;
+                                        if (r.tested[id] == test) continue;
+                                        r.tested[id] = test;
                                         Vector3 l2 = r.lo[id], h2 = r.hi[id];
                                         if (lo.x > h2.x || hi.x < l2.x || lo.y > h2.y || hi.y < l2.y || lo.z > h2.z || hi.z < l2.z) continue;
                                         if (TrianglesMeet(a, b, c, r.tris[id * 3], r.tris[id * 3 + 1], r.tris[id * 3 + 2])) { hit = true; break; }

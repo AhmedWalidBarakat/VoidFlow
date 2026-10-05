@@ -177,6 +177,33 @@ namespace VoidFlow
                 }
                 return true;
             }
+
+            // Is any of the course within `reach` across of (x, z) and below `top`? (The course
+            // filed in cells of FloorClearance on first use: a neighbour's floor asks this for
+            // every panel, and walking the whole course each time made the halls slow to build.)
+            Dictionary<Vector2Int, List<Vector3>> courseCells;
+            public bool CourseBelow(float x, float z, float reach, float top)
+            {
+                if (courseCells == null)
+                {
+                    courseCells = new Dictionary<Vector2Int, List<Vector3>>();
+                    foreach (var q in course)
+                    {
+                        var c = new Vector2Int(Mathf.FloorToInt(q.x / FloorClearance), Mathf.FloorToInt(q.z / FloorClearance));
+                        if (!courseCells.TryGetValue(c, out var list)) courseCells[c] = list = new List<Vector3>();
+                        list.Add(q);
+                    }
+                }
+                int cx = Mathf.FloorToInt(x / FloorClearance), cz = Mathf.FloorToInt(z / FloorClearance), span = Mathf.CeilToInt(reach / FloorClearance);
+                for (int i = cx - span; i <= cx + span; i++)
+                    for (int k = cz - span; k <= cz + span; k++)
+                    {
+                        if (!courseCells.TryGetValue(new Vector2Int(i, k), out var list)) continue;
+                        foreach (var q in list)
+                            if ((q.x - x) * (q.x - x) + (q.z - z) * (q.z - z) < reach * reach && q.y < top) return true;
+                    }
+                return false;
+            }
         }
 
         // A wall across a hall at a flight: a window (the hole planned for that jump, framed and
@@ -809,8 +836,7 @@ namespace VoidFlow
                     // that hall's room as a block, a wall across the way. It gives way, and its
                     // edge is a terrace's drop like any other)
                     if (at.y > n.Terrace(at.x, at.z) + TerraceStep) return false;
-                    foreach (var q in n.course)
-                        if ((q.x - at.x) * (q.x - at.x) + (q.z - at.z) * (q.z - at.z) < FloorClearance * FloorClearance && q.y < at.y + FloorHeadroom) return false;
+                    if (n.CourseBelow(at.x, at.z, FloorClearance, at.y + FloorHeadroom)) return false;
                 }
                 return true;
             }

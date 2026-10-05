@@ -317,7 +317,7 @@ namespace VoidFlow
             for (int i = 0; i < cameras.Length; i++) { masks[i] = cameras[i].cullingMask; cameras[i].cullingMask = 0; }
             while (!BuildSlice(0.5f)) yield return null; // (each frame ends with a pass of the browser's collector over everything built so far, so fewer, fuller frames load much faster; a few halls a frame stays well inside memory)
             for (int i = 0; i < cameras.Length; i++) if (cameras[i]) cameras[i].cullingMask = masks[i];
-            Debug.Log($"VoidFlow: course built, {FinalRamp} ramps, {buildWork:0.0}s of work over {buildFrames} frames, {Time.realtimeSinceStartup - started:0.0}s in all");
+            Debug.Log($"VoidFlow: course built, {FinalRamp} ramps, {buildWork:0.0}s of work over {buildFrames} frames, {Time.realtimeSinceStartup - started:0.0}s in all, ready {Time.realtimeSinceStartup:0.0}s after the engine started");
             building = null;
         }
 
@@ -371,6 +371,7 @@ namespace VoidFlow
             }
             hallPlans = null;
             rampTris.Clear();
+            tubes.Clear();
             ShowHalls();
             TrimMeshes();
             buildWork += clock.Elapsed.TotalSeconds;
@@ -392,6 +393,22 @@ namespace VoidFlow
             if (!rampTris.TryGetValue(s, out var r))
                 rampTris[s] = r = RampClearance.Prepare(System.Array.FindAll(s.root.GetComponentsInChildren<MeshFilter>(true),
                     mf => mf.name.StartsWith("Surface") || mf.name.StartsWith("Trim") || mf.name == "Twin" || mf.name == "TwinTrim"));
+            return r;
+        }
+
+        // The tube round one ramp's riding line, platforms and flight that a hall's panels give
+        // way to (see BuildHall). Made once per ramp: each ramp's tube is used by three halls.
+        readonly Dictionary<Segment, RampClearance.Ramps> tubes = new();
+        RampClearance.Ramps TubeOf(Segment s)
+        {
+            if (!tubes.TryGetValue(s, out var r))
+            {
+                var tube = new List<Vector3>();
+                tube.AddRange(StageHalls.FlightTube(Every(s.line, 3), 16f, false)); // (a ring of lines 12m apart: no 30m panel slips between)
+                tube.AddRange(StageHalls.FlightTube(Every(s.extra, 3), 16f, false));
+                tube.AddRange(StageHalls.FlightTube(s.flight, 30f));
+                tubes[s] = r = RampClearance.FromTriangles(tube);
+            }
             return r;
         }
 
@@ -514,7 +531,6 @@ namespace VoidFlow
                 var go = StageHalls.Build(plans[st], near, transform, meshes, cube);
                 // Wherever a ramp, a rider on it or a flight passes, the panels give way
                 var cutters = new List<RampClearance.Ramps>();
-                var tube = new List<Vector3>();
                 foreach (var sg in segments)
                 {
                     int sst = sg.index / rampsPerBiome;
@@ -524,11 +540,8 @@ namespace VoidFlow
                     // ramps are all well inside its walls
                     int within = sg.index % rampsPerBiome;
                     if ((sst == st - 1 && within >= rampsPerBiome - 2) || (sst == st + 1 && within <= 1)) cutters.Add(RampsOf(sg));
-                    tube.AddRange(StageHalls.FlightTube(Every(sg.line, 3), 16f, false)); // (a ring of lines 12m apart: no 30m panel slips between)
-                    tube.AddRange(StageHalls.FlightTube(Every(sg.extra, 3), 16f, false));
-                    tube.AddRange(StageHalls.FlightTube(sg.flight, 30f));
+                    cutters.Add(TubeOf(sg)); // (and every ramp's tube: its line, platforms and flight)
                 }
-                cutters.Add(RampClearance.FromTriangles(tube));
                 // (the floor and the dividing walls are laid out round the course already: only a
                 // ramp's body passing through takes a panel out of them)
                 var bodies = new List<RampClearance.Ramps>();
@@ -579,7 +592,7 @@ namespace VoidFlow
         void ReleaseStage(int stage)
         {
             foreach (var sg in segments)
-                if (sg.index / rampsPerBiome == stage) rampTris.Remove(sg);
+                if (sg.index / rampsPerBiome == stage) { rampTris.Remove(sg); tubes.Remove(sg); }
         }
 
         // The halls of the stage you're on and the ones either side (they share open sides)

@@ -11,6 +11,10 @@ namespace VoidFlow.EditorTools
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
             PlayerSettings.WebGL.decompressionFallback = true;
             PlayerSettings.WebGL.dataCaching = true;
+            // Straight from the page's own loading bar into the game: no engine splash screen
+            // in between (optional since Unity 6, for every licence)
+            PlayerSettings.SplashScreen.show = false;
+            PlayerSettings.SplashScreen.showUnityLogo = false;
             PlayerSettings.productName = "VoidFlow";
             PlayerSettings.companyName = "Ahmed Barakat";
             PlayerSettings.WebGL.template = "PROJECT:VoidFlow";
