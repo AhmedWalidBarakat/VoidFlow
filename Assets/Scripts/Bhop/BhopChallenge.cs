@@ -8,9 +8,10 @@ namespace VoidFlow
     // its start pad is a checkpoint: miss (touch the room's floor, or drop well below the blocks
     // round you) and you're back on it (T does the same, R goes back to stage 1). Land on a
     // room's exit pad and its portal takes you to the next room's start pad. The run's clock
-    // starts as you leave stage 1's pad. Finish stage 10 and the Karambit | Velocity and its
-    // matching Void Gloves are yours (not with noclip: it's locked out here anyway, so a double
-    // tap of jump can't switch it on mid-hop).
+    // starts as you leave stage 1's pad. Finish stage 10 and every karambit and the Void gloves
+    // painted to match each are yours, the Karambit | Velocity set (only won here) among them and
+    // equipped (not with noclip: it's locked out here anyway, so a double tap of jump can't
+    // switch it on mid-hop).
     public class BhopChallenge : MonoBehaviour
     {
         public static BhopChallenge Instance { get; private set; }
@@ -18,6 +19,7 @@ namespace VoidFlow
         // (Worked out from where they are now, not last frame: whichever runs first must agree)
         public static bool Active => Instance && Instance.player && Instance.area.Contains(Instance.Local(Instance.player.Position));
 
+        // The set on show at the plaza and equipped at the finish; the prize is every karambit and its gloves (Prizes)
         public const string PrizeKnife = "Karambit | Velocity", PrizeGloves = "Void Gloves | Velocity";
         const string ReachedKey = "VoidFlow.bhop.reached", BestKey = "VoidFlow.bhop.best", WonKey = "VoidFlow.bhop.won";
         public const int StageCount = 10;
@@ -200,9 +202,9 @@ namespace VoidFlow
             PlayerPrefs.SetInt(WonKey, 1);
             PlayerPrefs.Save();
             won = true;
+            foreach (var (slot, index) in Prizes())
+                if (!Inventory.Owns(slot, index)) Inventory.Add(slot, index);
             int knife = Skins.IndexOf(ItemSlot.Secondary, PrizeKnife), gloves = Skins.IndexOf(ItemSlot.Hands, PrizeGloves);
-            if (knife >= 0 && !Inventory.Owns(ItemSlot.Secondary, knife)) Inventory.Add(ItemSlot.Secondary, knife);
-            if (gloves >= 0 && !Inventory.Owns(ItemSlot.Hands, gloves)) Inventory.Add(ItemSlot.Hands, gloves);
             var view = FindAnyObjectByType<ViewModel>();
             if (view)
             {
@@ -210,6 +212,22 @@ namespace VoidFlow
                 if (gloves >= 0) view.EquipSkin(ItemSlot.Hands, gloves);
             }
             FxLibrary.Celebrate(player.Position + Vector3.up * 1.5f, new Color(0.3f, 0.9f, 1f), true);
+        }
+
+        // The prize: every karambit, and the Void gloves painted to match each
+        public static System.Collections.Generic.IEnumerable<(ItemSlot slot, int index)> Prizes()
+        {
+            for (int i = 0; i < Skins.Knives.Length; i++)
+                if (Skins.IsKarambit(Skins.Knives[i].asset)) yield return (ItemSlot.Secondary, i);
+            for (int i = 0; i < Skins.Gloves.Length; i++)
+                if (KarambitPaints.HasGlove(Skins.Gloves[i].paint)) yield return (ItemSlot.Hands, i);
+        }
+
+        static int KarambitCount()
+        {
+            int n = 0;
+            foreach (var (slot, _) in Prizes()) if (slot == ItemSlot.Secondary) n++;
+            return n;
         }
 
         void Banner()
@@ -252,8 +270,8 @@ namespace VoidFlow
                 bool carry = Reached > 1;
                 UiArt.Rounded(new Rect((w - cw) * 0.5f, y, cw, (carry ? 108f : 84f) * px), Panel, 14f * px);
                 UiArt.Text(new Rect(0f, y + 6f * px, w, 36f * px), "10 STAGE BHOP CHALLENGE", fs(24), Color.white, TextAnchor.MiddleCenter);
-                UiArt.Text(new Rect(0f, y + 42f * px, w, 22f * px), Won ? "won  ·  the Karambit | Velocity and its gloves are yours" + (Best > 0f ? "   ·   best " + Clock(Best) : "")
-                    : "finish all 10 for the Karambit | Velocity and its matching gloves", fs(14), Won ? Gold : Cyan, TextAnchor.MiddleCenter);
+                UiArt.Text(new Rect(0f, y + 42f * px, w, 22f * px), Won ? $"won  ·  all {KarambitCount()} karambits and their gloves are yours" + (Best > 0f ? "   ·   best " + Clock(Best) : "")
+                    : $"finish all 10 for every karambit ({KarambitCount()}) and the gloves that match them", fs(14), Won ? Gold : Cyan, TextAnchor.MiddleCenter);
                 UiArt.Text(new Rect(0f, y + 62f * px, w, 20f * px), stage == 1 ? "hop off the pad to start the clock" : "stage 1's pad is in the doorway at the end of the plaza", fs(12), Soft, TextAnchor.MiddleCenter);
                 if (carry) UiArt.Text(new Rect(0f, y + 82f * px, w, 22f * px), $"or press  C  to carry on from stage {Mathf.Min(Reached, StageCount)}", fs(14), Gold, TextAnchor.MiddleCenter);
             }
@@ -287,7 +305,7 @@ namespace VoidFlow
                 UiArt.Rounded(new Rect(x, y, cw, ch), new Color(Panel.r, Panel.g, Panel.b, 0.8f * a), 18f * px);
                 UiArt.Text(new Rect(x, y + 14f * px, cw, 40f * px), practice ? "FINISHED  ·  PRACTICE" : "CHALLENGE COMPLETE", fs(32), new Color(1f, 1f, 1f, a), TextAnchor.MiddleCenter);
                 UiArt.Text(new Rect(x, y + 58f * px, cw, 36f * px), Clock(runTime) + (fullRun ? "" : "   (carried on)"), fs(28), new Color(Gold.r, Gold.g, Gold.b, a), TextAnchor.MiddleCenter);
-                UiArt.Text(new Rect(x, y + 100f * px, cw, 26f * px), won ? "the Karambit | Velocity and Void Gloves | Velocity are yours  ·  equipped" : "noclip was used: nothing won this time", fs(15), new Color(Cyan.r, Cyan.g, Cyan.b, a), TextAnchor.MiddleCenter);
+                UiArt.Text(new Rect(x, y + 100f * px, cw, 26f * px), won ? $"all {KarambitCount()} karambits and their matching gloves are yours  ·  Velocity set equipped" : "noclip was used: nothing won this time", fs(15), new Color(Cyan.r, Cyan.g, Cyan.b, a), TextAnchor.MiddleCenter);
                 UiArt.Text(new Rect(x, y + 132f * px, cw, 24f * px), "step into the ring to go back up  ·  R for stage 1", fs(13), new Color(Soft.r, Soft.g, Soft.b, a), TextAnchor.MiddleCenter);
             }
         }

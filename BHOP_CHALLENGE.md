@@ -1,8 +1,10 @@
 # VoidFlow bhop challenge
 
-A 10 stage bunny hop map behind the start hall. Finish all ten stages to win the
-**Karambit | Velocity** and its matching **Void Gloves | Velocity**, a set you can't get any other
-way (not from cases, gifts, or finishing the surf course).
+A 10 stage bunny hop map behind the start hall. Finish all ten stages to win **every karambit
+and the Void gloves painted to match each** (nine of each). Among them is the **Karambit |
+Velocity** and its matching **Void Gloves | Velocity**, a set you can't get any other way (not from
+cases, gifts, or finishing the surf course). It's the set on show at the plaza, and it's equipped
+when you finish.
 
 It's an original design built around CS-style movement (Source physics, 64 tick, auto-hop,
 air-accelerate 150). No layouts, names or assets were taken from existing maps. The look and the
@@ -17,8 +19,8 @@ you back to the stage's start.
 - Through it: a terrace, then a **bhop trail** of five wide marble steps. Hold W and jump; you can
   hop them at running speed.
 - The trail ends at the **plaza**. Low parapets run along its sides. At its far end is stage 1's
-  wall, with the challenge's sign over a gold-framed doorway. The prize turns on two pedestals
-  either side of the doorway, and stage 1's pad is in the doorway.
+  wall, with the challenge's sign over a gold-framed doorway. The Velocity set turns on two
+  pedestals either side of the doorway, and stage 1's pad is in the doorway.
 
 ## Rules and controls
 
@@ -31,7 +33,7 @@ you back to the stage's start.
 | T | Restart the stage you're on (from its start pad) |
 | R | Back to stage 1 (the clock resets) |
 | C | At the plaza: carry on from the furthest stage you've reached (it counts for the prize, not for a best time) |
-| Finish | Land on the finish platform at the end of stage 10. The set is yours and equipped; step into the ring to go back up |
+| Finish | Land on the finish platform at the end of stage 10. Every karambit and its matching gloves go into your inventory (any you already have stay as they are), and the Velocity set is equipped; step into the ring to go back up |
 | Noclip | Locked out here (a fast double tap of jump would otherwise switch it on mid-hop). Flying in from the hall makes the attempt practice, with nothing won |
 
 The HUD shows the stage, the run's time, the stage's time, your best, your speed and your keys.

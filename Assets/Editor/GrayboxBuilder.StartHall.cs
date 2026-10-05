@@ -308,7 +308,7 @@ namespace VoidFlow.EditorTools
             Box("ArchBanner", new Vector3(lane, ArchHeight + 2.1f, HallBack + 0.15f), new Vector3(9f, 2.4f, 0.2f), hallMarble, hall);
             Deco("ArchBannerEdge", hall, new Vector3(lane, ArchHeight + 0.95f, HallBack + 0.28f), new Vector3(9f, 0.08f, 0.06f), Quaternion.identity, purple);
             Label("BHOP CHALLENGE", hall, new Vector3(lane, ArchHeight + 2.45f, HallBack + 0.3f), 180f, 0.75f, Ink);
-            Label("10 stages  ·  win a karambit and matching gloves", hall, new Vector3(lane, ArchHeight + 1.55f, HallBack + 0.3f), 180f, 0.28f, Bronze);
+            Label("10 stages  ·  win every karambit and its matching gloves", hall, new Vector3(lane, ArchHeight + 1.55f, HallBack + 0.3f), 180f, 0.28f, Bronze);
             Label("BHOP CHALLENGE", hall, new Vector3(lane, 0.03f, HallBack + 4.2f), 180f, 0.55f, new Color(0.45f, 0.75f, 1f), pitch: 90f);
             for (float z = HallBack + 2f; z > HallBack + 0.5f; z -= 1.4f)
             {

@@ -780,17 +780,19 @@ namespace VoidFlow.EditorTools
             // (dark like the stages' signs, so it reads from across the plaza)
             Material ink = Mat("BhopSignPanel", new Color(0.05f, 0.07f, 0.17f), metal, 0.6f, 0.3f);
             Material edge = MakeGlow("BhopSignEdge", new Color(0.3f, 0.9f, 1f), 1.6f);
+            int karambits = 0;
+            foreach (var (slot, _) in BhopChallenge.Prizes()) if (slot == ItemSlot.Secondary) karambits++;
             Deco("Panel", sign, new Vector3(0f, 0f, 0.06f), new Vector3(12f, 4.2f, 0.14f), Quaternion.identity, ink, local: true);
             foreach (float y in new[] { -2.15f, 2.15f })
                 Deco("Edge", sign, new Vector3(0f, y, -0.02f), new Vector3(12.2f, 0.1f, 0.1f), Quaternion.identity, edge, local: true);
             foreach (float x in new[] { -6.05f, 6.05f })
                 Deco("Edge", sign, new Vector3(x, 0f, -0.02f), new Vector3(0.1f, 4.4f, 0.1f), Quaternion.identity, edge, local: true);
-            Label("10 STAGE BHOP CHALLENGE", sign, new Vector3(0f, 1.25f, -0.04f), 0f, 0.8f, Color.white, local: true);
-            Label("for a karambit and matching gloves set", sign, new Vector3(0f, 0.35f, -0.04f), 0f, 0.42f, new Color(1f, 0.82f, 0.4f), local: true);
-            Label("KARAMBIT | VELOCITY   +   VOID GLOVES | VELOCITY", sign, new Vector3(0f, -0.4f, -0.04f), 0f, 0.34f, new Color(0.35f, 0.9f, 1f), local: true);
+            Label("10 STAGE BHOP CHALLENGE", sign, new Vector3(0f, 1.25f, -0.04f), 0f, 0.7f, Color.white, local: true);
+            Label("for every karambit and its matching gloves", sign, new Vector3(0f, 0.35f, -0.04f), 0f, 0.42f, new Color(1f, 0.82f, 0.4f), local: true);
+            Label($"ALL {karambits} KARAMBITS   +   THE VOID GLOVES TO MATCH EACH", sign, new Vector3(0f, -0.4f, -0.04f), 0f, 0.34f, new Color(0.35f, 0.9f, 1f), local: true);
             Label("ten rooms  ·  every stage's pad is a checkpoint  ·  touch the floor and you're back on it\nT  restart the stage   ·   R  back to stage 1", sign, new Vector3(0f, -1.35f, -0.04f), 0f, 0.26f, new Color(0.82f, 0.85f, 0.95f), local: true);
 
-            // The prize on two pedestals either side of the doorway
+            // The prize's one new set (only won here) on two pedestals either side of the doorway
             int knife = Skins.IndexOf(ItemSlot.Secondary, BhopChallenge.PrizeKnife), gloves = Skins.IndexOf(ItemSlot.Hands, BhopChallenge.PrizeGloves);
             var rampMat = AssetDatabase.LoadAssetAtPath<Material>($"{Root}/Ramp.mat");
             foreach (var (index, glove, off) in new[] { (knife, false, -6.5f), (gloves, true, 6.5f) })
@@ -811,7 +813,7 @@ namespace VoidFlow.EditorTools
                 display.shelfBelow = 0.8f;
                 display.useRange = 3f;
                 display.template = rampMat;
-                Label(glove ? "VOID GLOVES | VELOCITY" : "KARAMBIT | VELOCITY", deco, foot + up * 0.6f - fw * 0.62f, plaza.yaw, 0.2f, new Color(0.3f, 0.9f, 1f));
+                Label((glove ? "VOID GLOVES | VELOCITY" : "KARAMBIT | VELOCITY") + "\nonly won here", deco, foot + up * 0.6f - fw * 0.62f, plaza.yaw, 0.2f, new Color(0.3f, 0.9f, 1f));
             }
             PointLight("BhopPlazaLight", deco, plaza.center + up * 6f, new Color(0.7f, 0.95f, 1f), 1.2f, 24f);
         }
