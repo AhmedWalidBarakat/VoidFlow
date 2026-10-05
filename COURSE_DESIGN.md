@@ -131,6 +131,24 @@ Seven laps round four stages each. Every stage in a lap is a new zone:
 
 ---
 
+## Measured difficulty
+
+The test bot surfs the whole course with Source physics and the same skill throughout. How
+often it falls shows the difficulty curve (latest full run, falls per ramp):
+
+| Section | Falls per ramp |
+|---|---|
+| Beginner | 0.12 |
+| Intermediate | 0.14 |
+| Advanced | 0.26 |
+| Technical | 0.17 |
+| Expert | 0.30 |
+| Legend | 0.43 |
+| Real maps (tier 3 to 8) | 0.46 |
+
+The hardest sections make it fall about four times as often as the first ones. Every gap is
+still proven possible (0 impossible ramps); "hard" means precise, never unfair.
+
 ## Routes and risk
 
 - **Primary route:** the riding line on every ramp (where the bot surfs).

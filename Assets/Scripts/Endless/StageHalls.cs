@@ -224,6 +224,10 @@ namespace VoidFlow
         // The floor's terraces sit this far under the lowest of the course within reach (ramp
         // bodies, flights, platforms), in steps of this much
         const float TerraceGap = 18f, TerraceStep = 36f, TerraceReach = 60f;
+        // ...and never stand more than TerraceRise above the lowest of the course within TerraceView
+        // (a panel out by the walls would otherwise take the height of the nearest course, and
+        // where that's high, tower over the lower course beside it like a wall across the way)
+        const float TerraceRise = 90f, TerraceView = 150f;
 
         // A stage's hall round its course points (riding lines and flights). `lows` are the
         // lowest the course reaches (the bottoms of ramp bodies, flights less a rider's
@@ -268,14 +272,17 @@ namespace VoidFlow
                 for (int gz = 0; gz < nz; gz++)
                 {
                     float cx = minX + (gx + 0.5f) * Panel, cz = minZ + (gz + 0.5f) * Panel;
-                    float best = float.MaxValue, nearest = float.MaxValue, nearestY = 0f;
+                    float best = float.MaxValue, view = float.MaxValue, nearest = float.MaxValue, nearestY = 0f;
                     foreach (var q in lows)
                     {
                         float d2 = (q.x - cx) * (q.x - cx) + (q.z - cz) * (q.z - cz);
                         if (d2 < TerraceReach * TerraceReach) best = Mathf.Min(best, q.y);
+                        if (d2 < TerraceView * TerraceView) view = Mathf.Min(view, q.y);
                         if (d2 < nearest) { nearest = d2; nearestY = q.y; }
                     }
-                    float h = (best < float.MaxValue ? best : nearestY) - TerraceGap;
+                    float h = best < float.MaxValue ? best : nearestY;
+                    if (view < float.MaxValue) h = Mathf.Min(h, view + TerraceRise);
+                    h -= TerraceGap;
                     raw[new Vector2Int(gx, gz)] = h;
                     lowest = Mathf.Min(lowest, h);
                 }
@@ -797,6 +804,10 @@ namespace VoidFlow
                 {
                     if (!n.Contains(at, 0.5f)) continue;
                     if (n.course == null) return false;
+                    // (nor may it tower over the next hall's own floor there: it would stand in
+                    // that hall's room as a block, a wall across the way. It gives way, and its
+                    // edge is a terrace's drop like any other)
+                    if (at.y > n.Terrace(at.x, at.z) + TerraceStep) return false;
                     foreach (var q in n.course)
                         if ((q.x - at.x) * (q.x - at.x) + (q.z - at.z) * (q.z - at.z) < FloorClearance * FloorClearance && q.y < at.y + FloorHeadroom) return false;
                 }
