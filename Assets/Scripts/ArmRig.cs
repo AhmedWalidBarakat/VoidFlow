@@ -14,6 +14,10 @@ namespace VoidFlow
         // in alpha, and normal maps; the glove's are laid out on its own side-on chart
         public Texture2D gloveAlbedo, gloveNormal, jacketAlbedo, jacketNormal, cuffNormal;
         public Texture2D gloveGlow; // Void gloves: the stitching, grooves and accent strip that light up
+        // The glove's zones, to paint it in a karambit's design (KarambitPaints.Gloves), and its
+        // chart: the wrist's, knuckles' and fingertips' height up the hand and the fingers' middle
+        public Texture2D gloveZones;
+        public Vector4 gloveChart;
         public string[] boneNames;
         public int[] parents;                 // -1: the rig root
         public Vector3[] bindPositions;       // local to the parent

@@ -4,8 +4,8 @@ using UnityEngine;
 namespace VoidFlow
 {
     // Glove skins: the equipped gloves go on every arm (the knife arms and the sniper arms).
-    // Mythic gloves wear a finish on the glove; Void gloves also get their own add-ons
-    // (armour, claws, runes, scales...) and flames, and a glowing knuckle plate.
+    // Mythic gloves wear a finish on the glove; Void gloves are painted to match a karambit
+    // (the glove and its wrist strap, see KarambitPaints.Gloves).
     public partial class ViewModel
     {
         int gloveSkin;
@@ -48,9 +48,11 @@ namespace VoidFlow
 
             var skin = Skins.Gloves[gloveSkin];
             var builder = new WeaponBuilder(template, Layer, false, gloveMaterials);
-            Material body = skin.finish == KnifeFinish.Polished ? glove : builder.SkinMaterial(skin.finish);
+            bool painted = skin.paint != null;
+            Material body = painted ? builder.PaintedGlove(skin.paint) : skin.finish == KnifeFinish.Polished ? glove : builder.SkinMaterial(skin.finish);
             // Skins keep the glove's stitching, padding and grain as relief under their finish
-            if (body != glove) Resources.Load<ArmRig>("Arms/RightArm")?.DressGlove(body, false);
+            if (body != glove && !painted) Resources.Load<ArmRig>("Arms/RightArm")?.DressGlove(body, false);
+            Material strap = painted ? builder.PaintedStrap(skin.paint) : cuff;
             Color hue = KnifeFinishes.Get(skin.finish).glow;
             if (hue.maxColorComponent > 0f) hue /= hue.maxColorComponent;
             Material plate = skin.rarity == SkinRarity.Void ? builder.Glow(hue, 2.4f, null) : gloveRubber;
@@ -60,9 +62,10 @@ namespace VoidFlow
                 foreach (var r in arm.root.GetComponentsInChildren<Renderer>(true))
                 {
                     if (r.name == "GloveBlock") SetArmMaterial(r, body);
+                    else if (r.name == "GloveStrap" && strap) SetArmMaterial(r, strap);
                     else if (r.name == "GlovePlate") r.gameObject.SetActive(false); // (the fitted add-ons glow instead)
                 }
-                if (skin.rarity == SkinRarity.Void)
+                if (skin.rarity == SkinRarity.Void && !painted)
                 {
                     // Fitted to the glove with the fingers straight, then back to the hand's pose
                     var fit = HandFit.Measure(arm.rig, arm.bones, FindSkin(arm, "GloveBlock"), FindSkin(arm, "GloveStrap"));

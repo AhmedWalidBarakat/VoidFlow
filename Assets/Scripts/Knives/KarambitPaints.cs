@@ -8,11 +8,11 @@ namespace VoidFlow
     // fire and ice). The blade's own texture mapping is a patchwork no pattern could follow, so
     // the blade is mapped afresh, flat across its side (it is flat: x is its thickness), u across
     // and v along it, and painted; the finger ring takes an accent colour, the handle a colour.
-    public static class KarambitPaints
+    public static partial class KarambitPaints
     {
         public sealed class Scheme
         {
-            public Color hue;          // its outline, swing trail and embers
+            public Color hue;          // its swing trail and embers
             public Color ring, handle; // flat colours (the handle keeps its moulding)
             public float metal, rough, glow;
             public System.Func<float, float, Color> blade; // u across, v along (0 base, 1 point)
@@ -109,7 +109,7 @@ namespace VoidFlow
                         if (ring || c.grayscale > 0.3f) m.SetTexture("baseColorTexture", null);
                         m.SetColor("baseColorFactor", ring || c.grayscale > 0.3f ? c : c * 4f);
                         m.SetTexture("emissiveTexture", null);
-                        m.SetColor("emissiveFactor", ring ? c * s.glow * 0.6f : Color.black);
+                        m.SetColor("emissiveFactor", Color.black);
                         m.SetFloat("metallicFactor", ring ? 0.6f : 0.15f);
                         m.SetFloat("roughnessFactor", ring ? 0.2f : 0.45f);
                     }

@@ -49,6 +49,8 @@ namespace VoidFlow.EditorTools
                 rig.gloveAlbedo = albedo; rig.gloveNormal = normal;
                 rig.jacketAlbedo = jacket; rig.jacketNormal = jacketNormal; rig.cuffNormal = cuffNormal;
                 rig.gloveGlow = AssetDatabase.LoadAssetAtPath<Texture2D>($"{ArmsFolder}/GloveGlow.png");
+                rig.gloveZones = AssetDatabase.LoadAssetAtPath<Texture2D>($"{ArmsFolder}/GloveZones.png");
+                rig.gloveChart = new Vector4(right.wristY, right.knuckleY, right.tipY, right.fingerX.Average());
                 EditorUtility.SetDirty(rig);
             }
             AssetDatabase.SaveAssets();

@@ -99,6 +99,15 @@ namespace VoidFlow
                     if (Skins.Knives[i].paint != null && !items.Exists(x => x.slot == ItemSlot.Secondary && x.index == i)) Add(ItemSlot.Secondary, i);
                 Save();
             }
+            // ...and of the Void gloves made to match them
+            const string GloveGiftKey = "VoidFlow.gift.karambitGloves";
+            if (!PlayerPrefs.HasKey(GloveGiftKey))
+            {
+                PlayerPrefs.SetInt(GloveGiftKey, 1);
+                for (int i = 0; i < Skins.Gloves.Length; i++)
+                    if (Skins.Gloves[i].paint != null && !items.Exists(x => x.slot == ItemSlot.Hands && x.index == i)) Add(ItemSlot.Hands, i);
+                Save();
+            }
         }
 
         static void Save()

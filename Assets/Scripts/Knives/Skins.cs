@@ -70,6 +70,9 @@ namespace VoidFlow
 
             // A colourway of a real-model Void weapon: the same model, repainted
             public Skin(string name, KnifeModel model, string asset, string credit, string paint) : this(name, model, asset, credit) => this.paint = paint;
+
+            // Void gloves painted to match a karambit (KarambitPaints.Gloves)
+            public Skin(string name, string paint) : this(name, KnifeModel.Glove, KnifeFinish.Polished, SkinRarity.Void) => this.paint = paint;
         }
 
         public static bool IsRifle(KnifeModel m) => m is KnifeModel.ModelRifle or KnifeModel.Rifle or KnifeModel.Railgun or KnifeModel.Hellfire
@@ -93,7 +96,8 @@ namespace VoidFlow
             _ => new Color(0.75f, 0.4f, 1f),
         };
         // A skin's own colour: its colourway's, or its model's
-        public static Color HueOf(Skin skin) => KarambitPaints.Has(skin.paint) ? KarambitPaints.Hue(skin.paint) : VoidHue(skin.asset);
+        public static Color HueOf(Skin skin) => IsGlove(skin.model) && KarambitPaints.HasGlove(skin.paint) ? KarambitPaints.GloveHue(skin.paint)
+            : KarambitPaints.Has(skin.paint) ? KarambitPaints.Hue(skin.paint) : VoidHue(skin.asset);
 
         // The Void karambits are held and spun like the talon knife (reverse grip, the finger ring
         // above the index finger)
@@ -134,7 +138,7 @@ namespace VoidFlow
         // What kind of item a skin is, for cards
         public static string KindName(Skin skin) => skin.model switch
         {
-            var m when IsGlove(m) => m == KnifeModel.Glove ? "GLOVES" : "VOID GLOVES",
+            var m when IsGlove(m) => skin.rarity == SkinRarity.Void ? "VOID GLOVES" : "GLOVES",
             KnifeModel.Talon => "TALON KNIFE",
             KnifeModel.Butterfly => "BUTTERFLY",
             KnifeModel.Bayonet => "M9 BAYONET",
@@ -167,7 +171,7 @@ namespace VoidFlow
             _ => IsRifle(skin.model) ? "VOID RIFLE" : IsVoidKnife(skin.asset) ? "VOID KNIFE" : "VOID BLADE",
         };
 
-        // Gloves: the default black pair and Mythic finishes (no Void gloves: Void is weapons from real models)
+        // Gloves: the default black pair, Mythic finishes, and Void gloves to match the karambits
         public static readonly Skin[] Gloves =
         {
             new("Gloves", KnifeModel.Glove, KnifeFinish.Polished, SkinRarity.Default),
@@ -193,6 +197,15 @@ namespace VoidFlow
             new("Gloves | Amethyst", KnifeModel.Glove, KnifeFinish.Amethyst, SkinRarity.Mythic),
             new("Gloves | Obsidian", KnifeModel.Glove, KnifeFinish.Obsidian, SkinRarity.Mythic),
             new("Gloves | Confetti", KnifeModel.Glove, KnifeFinish.Confetti, SkinRarity.Mythic),
+            // Void: a pair for each karambit, painted in its design
+            new("Void Gloves | Rubi", "rubi"),
+            new("Void Gloves | Crimson", "crimson"),
+            new("Void Gloves | Blackout", "blackout"),
+            new("Void Gloves | Whiteout", "whiteout"),
+            new("Void Gloves | Sunset Fade", "sunset"),
+            new("Void Gloves | Abyss Sapphire", "sapphire"),
+            new("Void Gloves | Emerald Venom", "emerald"),
+            new("Void Gloves | Fire & Ice", "fireice"),
         };
 
         public static int EquippedGlove

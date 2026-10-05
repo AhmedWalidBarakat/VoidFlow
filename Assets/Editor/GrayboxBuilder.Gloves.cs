@@ -14,6 +14,10 @@ namespace VoidFlow.EditorTools
     // The glove's UVs are a side-on chart (GloveChart): the left half of the texture is the
     // back of the hand, the right half the palm, x across and y up the hand in metres of arm
     // space, so the design lands on the actual knuckles and fingers.
+    //
+    // Alongside them, the glove's zones (GloveZones, read by KarambitPaints to paint the Void
+    // gloves): which part of the design each texel is, the leather's grain, the glow mask and
+    // the smoothness, so a glove can be repainted in any colours without losing its detail.
     public static partial class GrayboxBuilder
     {
         public struct GloveChart
@@ -74,6 +78,7 @@ namespace VoidFlow.EditorTools
             var height = new float[W * H];
             var detail = new Vector3[W * H];
             var glow = new float[W * H]; // Void gloves: what lights up (stitching, grooves, the accent strip)
+            var zone = new byte[W * H];  // which part of the design (see ZoneLeather...)
             float cx = 0f;
             foreach (var f in chart.fingerX) cx += f / 4f;
             float yW = chart.wristY, yK = chart.knuckleY;
@@ -88,12 +93,13 @@ namespace VoidFlow.EditorTools
                 Color c = leather.At(x, y, 0.06f) * 1.15f;
                 float smooth = 0.75f - leatherR.At(x, y, 0.06f).r * 0.45f;
                 float h = 0f, g = 0f;
+                byte z = ZoneLeather;
                 Vector3 n = leatherN.Normal(x, y, 0.06f, 0.8f);
                 void Stitch(float d, float inset)
                 {
                     if (d > -inset - 0.0006f && d < -inset + 0.0006f && Mathf.Repeat((x + y) / 0.0036f, 1f) < 0.6f)
                     {
-                        c = new Color(0.42f, 0.42f, 0.44f); smooth = 0.3f; h += 0.00025f; g = 1f;
+                        c = new Color(0.42f, 0.42f, 0.44f); smooth = 0.3f; h += 0.00025f; g = 1f; z = ZoneStitch;
                     }
                 }
                 if (back)
@@ -106,16 +112,16 @@ namespace VoidFlow.EditorTools
                         var q = quilt.At(x, y, 0.05f);
                         float l = Lum(q);
                         c = new Color(0.07f, 0.07f, 0.08f) + new Color(l, l, l) * 0.45f;
-                        smooth = 0.55f;
+                        smooth = 0.55f; z = ZonePanel;
                         n = quiltN.Normal(x, y, 0.05f, 1.2f);
                         h += 0.0009f * Mathf.Clamp01(-panel / 0.0025f);
                         Stitch(panel, 0.0028f);
                     }
                     float accentY = yK - 0.019f;
-                    if (Mathf.Abs(y - accentY) < 0.0011f && Mathf.Abs(x - cx) < 0.031f) { c = new Color(0.035f, 0.035f, 0.04f); smooth = 0.7f; h += 0.0003f; g = 1f; }
+                    if (Mathf.Abs(y - accentY) < 0.0011f && Mathf.Abs(x - cx) < 0.031f) { c = new Color(0.035f, 0.035f, 0.04f); smooth = 0.7f; h += 0.0003f; g = 1f; z = ZoneAccent; }
                     // Rubber knuckle guard: a bar with a raised, grooved pad over each knuckle
                     float bar = Box(x, y, cx, yK - 0.008f, 0.035f, 0.004f, 0.003f);
-                    if (bar < 0f) { c = new Color(0.05f, 0.05f, 0.055f); smooth = 0.25f; h += 0.0006f * Mathf.Clamp01(-bar / 0.002f); n = Vector3.forward; }
+                    if (bar < 0f) { c = new Color(0.05f, 0.05f, 0.055f); smooth = 0.25f; h += 0.0006f * Mathf.Clamp01(-bar / 0.002f); n = Vector3.forward; z = ZoneGuard; }
                     foreach (float fx in chart.fingerX)
                     {
                         float pad = Box(x, y, fx, yK + 0.002f, 0.0085f, 0.008f, 0.004f);
@@ -123,7 +129,7 @@ namespace VoidFlow.EditorTools
                         if (pad < 0f)
                         {
                             c = new Color(0.055f, 0.055f, 0.06f) * (1f + 0.15f * Mathf.Clamp01(-pad / 0.004f));
-                            smooth = 0.3f; n = Vector3.forward;
+                            smooth = 0.3f; n = Vector3.forward; z = ZonePad;
                             h += 0.0012f * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(-pad / 0.003f));
                             foreach (float gy in new[] { -0.003f, 0.003f })
                                 if (Mathf.Abs(y - (yK + 0.002f + gy)) < 0.0005f) { h -= 0.0006f; glowHere = 0.8f; }
@@ -137,7 +143,7 @@ namespace VoidFlow.EditorTools
                             float l = Lum(p);
                             c = new Color(0.06f, 0.06f, 0.07f) + new Color(l, l, l) * 0.12f;
                             n = perfN.Normal(x, y, 0.04f, 1.3f);
-                            smooth = 0.4f;
+                            smooth = 0.4f; z = ZoneFingerPanel;
                             h += 0.0006f * Mathf.Clamp01(-fp / 0.002f);
                             Stitch(fp, 0.0018f);
                         }
@@ -156,7 +162,7 @@ namespace VoidFlow.EditorTools
                         float l = Lum(p);
                         c = new Color(0.08f, 0.08f, 0.09f) + new Color(l, l, l) * 0.1f;
                         n = perfN.Normal(x, y, 0.05f, 1.4f);
-                        smooth = 0.45f;
+                        smooth = 0.45f; z = ZonePalm;
                         h += 0.0007f * Mathf.Clamp01(-palm / 0.003f);
                         Stitch(palm, 0.0025f);
                     }
@@ -166,13 +172,14 @@ namespace VoidFlow.EditorTools
                         if (Mathf.Abs(x - fx) > 0.0075f || y < yK + 0.012f) continue;
                         float gx = Mathf.Repeat(x - fx, 0.0024f) - 0.0012f, gy = Mathf.Repeat(y, 0.0024f) - 0.0012f;
                         float d = Mathf.Sqrt(gx * gx + gy * gy);
-                        if (d < 0.0007f) { h += 0.0004f * (1f - d / 0.0007f); c *= 1.35f; smooth = 0.2f; }
+                        if (d < 0.0007f) { h += 0.0004f * (1f - d / 0.0007f); c *= 1.35f; smooth = 0.2f; z = ZoneGrip; }
                     }
                 }
                 c.a = Mathf.Clamp01(smooth);
                 col[j * W + i] = c;
                 height[j * W + i] = h;
                 glow[j * W + i] = g;
+                zone[j * W + i] = z;
                 detail[j * W + i] = n;
             }
 
@@ -227,8 +234,41 @@ namespace VoidFlow.EditorTools
                 glowPx[j * W + i] = new Color(v, v, v, 1f);
             }
             Write("GloveGlow", glowPx, W, H, false);
+
+            // The zones: grain (the colour's brightness, square-rooted to keep its subtlety), the
+            // zone, the glow mask and the smoothness, read exactly (no compression or filtering)
+            var zonePx = new Color32[W * H];
+            for (int k = 0; k < W * H; k++)
+                zonePx[k] = new Color32((byte)Mathf.RoundToInt(Mathf.Sqrt(Mathf.Clamp01(Lum(col[k]) / 0.6f)) * 255f), (byte)(zone[k] * 17),
+                    (byte)Mathf.RoundToInt(glowPx[k].r * 255f), (byte)Mathf.RoundToInt(col[k].a * 255f));
+            WriteZones(zonePx, W, H);
             return (Write("GloveAlbedo", col, W, H, false), Write("GloveNormal", nrm, W, H, true),
                 Write("JacketAlbedo", jac, J, J, false), Write("JacketNormal", jacN, J, J, true), Write("CuffNormal", rib, 256, 64, true));
+        }
+
+        // The glove's zones (as KarambitPaints reads them)
+        const byte ZoneLeather = 0, ZonePanel = 1, ZoneFingerPanel = 2, ZoneGuard = 3, ZonePad = 4, ZonePalm = 5, ZoneGrip = 6, ZoneStitch = 7, ZoneAccent = 8;
+
+        static void WriteZones(Color32[] px, int w, int h)
+        {
+            var t = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            t.SetPixels32(px);
+            t.Apply();
+            string path = $"{ArmsFolder}/GloveZones.png";
+            File.WriteAllBytes(path, t.EncodeToPNG());
+            Object.DestroyImmediate(t);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            var imp = (TextureImporter)AssetImporter.GetAtPath(path);
+            imp.textureType = TextureImporterType.Default;
+            imp.sRGBTexture = false;
+            imp.alphaSource = TextureImporterAlphaSource.FromInput;
+            imp.isReadable = true;
+            imp.mipmapEnabled = false;
+            imp.filterMode = FilterMode.Point;
+            imp.npotScale = TextureImporterNPOTScale.None;
+            imp.textureCompression = TextureImporterCompression.Uncompressed;
+            imp.maxTextureSize = 1024;
+            imp.SaveAndReimport();
         }
 
         static Texture2D Write(string name, Color[] px, int w, int h, bool normal)

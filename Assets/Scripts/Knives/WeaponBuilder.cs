@@ -473,7 +473,6 @@ namespace VoidFlow
                 }
             }
             Transform karambitTip = Skins.IsKarambit(skin.asset) ? TalonFit(parts, model) : null;
-            if (!Skins.IsRifle(skin.model)) Outline(parts, model, Skins.HueOf(skin));
             float top = 0f;
             foreach (var tr in model.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = layer;
             foreach (var r in model.GetComponentsInChildren<Renderer>(true))
@@ -546,45 +545,6 @@ namespace VoidFlow
             var tip = Tip(t, Vector2.zero);
             tip.localPosition = low;
             return tip;
-        }
-
-        // A thin shell of light round the weapon in its own colour (the inside of a copy pushed
-        // out along the surface): it outlines the weapon against any background, so its shape
-        // reads in the darkest zone and the brightest
-        void Outline(WeaponParts parts, GameObject model, Color hue)
-        {
-            var glow = Glow(hue, 1.8f, parts);
-            glow.SetFloat("_Cull", 1f); // (front faces culled: only the rim round the weapon shows)
-            materials?.Add(glow);
-            const float Thick = 0.0016f; // in the weapon's space
-            foreach (var mf in model.GetComponentsInChildren<MeshFilter>(true))
-            {
-                var src = mf.sharedMesh;
-                if (!src || !src.isReadable) continue;
-                var v = src.vertices; var nrm = src.normals;
-                if (nrm == null || nrm.Length != v.Length) continue;
-                // smooth normals (welded by position), so the shell doesn't crack at hard edges
-                var sum = new Dictionary<Vector3Int, Vector3>();
-                Vector3Int Key(Vector3 p) => new(Mathf.RoundToInt(p.x * 2000f), Mathf.RoundToInt(p.y * 2000f), Mathf.RoundToInt(p.z * 2000f));
-                for (int i = 0; i < v.Length; i++) { var key = Key(v[i]); sum[key] = (sum.TryGetValue(key, out var s0) ? s0 : Vector3.zero) + nrm[i]; }
-                float local = Thick / Mathf.Max(1e-6f, parts.root.InverseTransformVector(mf.transform.TransformVector(Vector3.one.normalized)).magnitude);
-                var moved = new Vector3[v.Length];
-                for (int i = 0; i < v.Length; i++) moved[i] = v[i] + sum[Key(v[i])].normalized * local;
-                var shell = new Mesh { name = "Outline", indexFormat = src.indexFormat };
-                shell.vertices = moved;
-                var tris = new List<int>();
-                for (int sm = 0; sm < src.subMeshCount; sm++) tris.AddRange(src.GetTriangles(sm));
-                shell.SetTriangles(tris, 0);
-                shell.RecalculateNormals();
-                shell.RecalculateBounds();
-                var go = new GameObject("Outline");
-                go.transform.SetParent(mf.transform, false);
-                go.AddComponent<MeshFilter>().sharedMesh = shell;
-                var r = go.AddComponent<MeshRenderer>();
-                r.sharedMaterial = glow;
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                r.receiveShadows = false;
-            }
         }
 
         // The models' metal only mirrors the zone's sky, so in a dark zone their colours sank
@@ -1099,6 +1059,21 @@ namespace VoidFlow
             parts.tip = Tip(t, new Vector2(0f, 0.256f));
         }
 
+        // Void gloves painted to match a karambit: the painted leather over the real glove's
+        // stitching, padding and grain (no glow), and its wrist strap in the design's colour
+        public Material PaintedGlove(string paint)
+        {
+            var rig = Resources.Load<ArmRig>("Arms/RightArm");
+            var m = Mat(Color.white, 1f, 0f);
+            if (!rig) return m;
+            rig.DressGlove(m, true);
+            var painted = KarambitPaints.GloveTexture(paint, rig);
+            if (painted) m.SetTexture("_BaseMap", painted);
+            return m;
+        }
+
+        public Material PaintedStrap(string paint) => Mat(KarambitPaints.GloveStrap(paint), 0.45f, 0f);
+
         // The skin's material on its own (for gloves). Void finishes are painted for blades
         // (a glowing edge down one side); on a glove they glow only in fine veins.
         public Material SkinMaterial(KnifeFinish finish) => GloveMaterial(finish, new WeaponParts());
@@ -1130,11 +1105,13 @@ namespace VoidFlow
         {
             var root = new GameObject(skin.name).transform;
             root.SetParent(parent, false);
-            var parts = new WeaponParts { root = root, model = skin.model, rarity = skin.rarity, hue = HueOf(skin.finish) };
-            Material body = skin.finish == KnifeFinish.Polished ? Mat(new Color(0.07f, 0.07f, 0.08f), 0.4f, 0f) : GloveMaterial(skin.finish, parts);
-            Material cuff = Mat(new Color(0.05f, 0.05f, 0.055f), 0.35f, 0f);
+            bool painted = skin.paint != null;
+            var parts = new WeaponParts { root = root, model = skin.model, rarity = skin.rarity, hue = painted ? Skins.HueOf(skin) : HueOf(skin.finish) };
+            Material body = painted ? PaintedGlove(skin.paint)
+                : skin.finish == KnifeFinish.Polished ? Mat(new Color(0.07f, 0.07f, 0.08f), 0.4f, 0f) : GloveMaterial(skin.finish, parts);
+            Material cuff = painted ? PaintedStrap(skin.paint) : Mat(new Color(0.05f, 0.05f, 0.055f), 0.35f, 0f);
             var rig = Resources.Load<ArmRig>("Arms/RightArm");
-            if (rig) rig.DressGlove(body, skin.finish == KnifeFinish.Polished);
+            if (rig && !painted) rig.DressGlove(body, skin.finish == KnifeFinish.Polished);
             var glove = new GameObject("Glove").transform;
             glove.SetParent(root, false);
             if (!rig) return parts;
@@ -1205,7 +1182,7 @@ namespace VoidFlow
         // hand, rings and wraps follow the wrist's and fingers' own outline.
         void BuildGloveKit(Skins.Skin skin, WeaponParts parts, Transform t, HandFit fit)
         {
-            if (skin.rarity != SkinRarity.Void || fit == null) return;
+            if (skin.rarity != SkinRarity.Void || skin.paint != null || fit == null) return; // (painted gloves are all in the paint)
             Material finish = FinishMaterial(skin.finish, parts);
             Material glow = Glow(parts.hue, 2.6f, parts);
             Material dark = Mat(new Color(0.08f, 0.08f, 0.09f), 0.9f, 0.95f);
