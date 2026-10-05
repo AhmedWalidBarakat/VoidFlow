@@ -1618,17 +1618,18 @@ namespace VoidFlow
         const float MinSideGap = 70f;   // nothing closer than this to the ramp's line, sideways (outside the buildings)
         const float MaxSideGap = 150f;
         const int PiecesPerRamp = 12;
+        const int IslandsPerRamp = 5; // (the sky palace: a few islands, spaced along the ramp, either side by turns)
 
         public static void Line(RampShapes.RampPath path, Biome biome, BiomeKit kit, Transform parent, System.Random rng, Mesh cube)
         {
             float Rand(float a, float b) => a + (float)rng.NextDouble() * (b - a);
             if (biome.style != SceneryStyle.Palace) return; // the other open zones build their own landscape
 
-            for (int p = 0; p < PiecesPerRamp; p++)
+            for (int p = 0; p < (biome.style == SceneryStyle.Palace ? IslandsPerRamp : PiecesPerRamp); p++)
             {
-                int i = rng.Next(path.ridge.Count);
-                float side = rng.Next(2) == 0 ? -1f : 1f;
-                Vector3 basePoint = path.ridge[i] + path.right[i] * (side * Rand(MinSideGap, MaxSideGap));
+                int i = biome.style == SceneryStyle.Palace ? Mathf.Clamp((int)((p + 0.5f) / IslandsPerRamp * path.ridge.Count), 0, path.ridge.Count - 1) : rng.Next(path.ridge.Count);
+                float side = biome.style == SceneryStyle.Palace ? (p % 2 == 0 ? -1f : 1f) : rng.Next(2) == 0 ? -1f : 1f;
+                Vector3 basePoint = path.ridge[i] + path.right[i] * (side * Rand(MinSideGap + 10f, MaxSideGap));
                 var piece = new GameObject("Scenery").transform;
                 piece.SetParent(parent, false);
                 piece.localPosition = basePoint;
@@ -1647,9 +1648,22 @@ namespace VoidFlow
                     }
                     case SceneryStyle.Palace:
                     {
-                        // Clouds drifting far below
-                        Part(piece, cube, kit.scenery, new Vector3(0f, Rand(-70f, -30f), 0f), new Vector3(Rand(40f, 90f), Rand(6f, 12f), Rand(30f, 70f)));
-
+                        // An island floating far below: a deck, a tiered underside, a rim of
+                        // light, and now and then a broken column still standing on it
+                        float w = Rand(26f, 48f), d = Rand(22f, 40f), y = Rand(-75f, -35f);
+                        Part(piece, cube, kit.scenery, new Vector3(0f, y, 0f), new Vector3(w, 2.4f, d));
+                        Part(piece, cube, kit.glow, new Vector3(0f, y + 1.1f, 0f), new Vector3(w + 0.5f, 0.3f, d + 0.5f));
+                        Part(piece, cube, kit.scenery, new Vector3(0f, y + 1.35f, 0f), new Vector3(w - 1.4f, 0.4f, d - 1.4f));
+                        Part(piece, cube, kit.scenery, new Vector3(0f, y - 3.4f, 0f), new Vector3(w * 0.7f, 4.4f, d * 0.7f));
+                        Part(piece, cube, kit.scenery, new Vector3(0f, y - 8.4f, 0f), new Vector3(w * 0.4f, 5.6f, d * 0.4f));
+                        Part(piece, cube, kit.scenery, new Vector3(0f, y - 13f, 0f), new Vector3(w * 0.16f, 4f, d * 0.16f));
+                        if (rng.Next(5) < 2)
+                        {
+                            float ch = Rand(8f, 18f), cx = Rand(-w * 0.25f, w * 0.25f), cz = Rand(-d * 0.25f, d * 0.25f);
+                            Part(piece, cube, kit.scenery, new Vector3(cx, y + 2.6f, cz), new Vector3(5.4f, 2f, 5.4f));
+                            Part(piece, cube, kit.scenery, new Vector3(cx, y + 3.6f + ch * 0.5f, cz), new Vector3(3.4f, ch, 3.4f));
+                            Part(piece, cube, kit.scenery, new Vector3(cx, y + 3.6f + ch * 0.5f, cz), new Vector3(3.4f, ch, 3.4f), Quaternion.Euler(0f, 45f, 0f));
+                        }
                         break;
                     }
                     case SceneryStyle.Rings:

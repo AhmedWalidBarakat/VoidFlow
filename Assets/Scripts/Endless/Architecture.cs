@@ -507,22 +507,42 @@ namespace VoidFlow
                     }
                     case SceneryStyle.Palace:
                     {
-                        foreach (var at in new[] { A, B })
+                        // A colonnade in the sky: heavy columns on stepped bases every other bay
+                        // (an octagonal shaft, a band of light, a capital), an entablature running
+                        // along both sides over them and across each pair (the islands floating
+                        // out to the sides are the zone's scenery: Scenery.Line)
+                        Quaternion turn = rot * Quaternion.Euler(0f, 45f, 0f);
+                        bool columns = ribs % 2 == 0 || ribs == frames.Count - 1;
+                        if (columns)
                         {
-                            b.Box(kit.scenery, at.WithY((top + bottom) * 0.5f), new Vector3(1.8f, h, 1.8f), rot);
-                            b.Box(kit.scenery, at.WithY(top - 0.5f), new Vector3(3f, 1f, 3f), rot);
+                            foreach (var at in new[] { A, B })
+                            {
+                                b.Box(kit.scenery, at.WithY(bottom + 1.2f), new Vector3(6.2f, 2.4f, 6.2f), rot);
+                                b.Box(kit.scenery, at.WithY(bottom + 3f), new Vector3(5f, 1.2f, 5f), rot);
+                                float shaft = Mathf.Max(1f, h - 6.2f), sy = bottom + 3.6f + shaft * 0.5f;
+                                b.Box(kit.scenery, at.WithY(sy), new Vector3(3.4f, shaft, 3.4f), rot);
+                                b.Box(kit.scenery, at.WithY(sy), new Vector3(3.4f, shaft, 3.4f), turn);
+                                b.Box(kit.glow, at.WithY(bottom + 3.6f + shaft * 0.3f), new Vector3(3.8f, 0.6f, 3.8f), rot);
+                                b.Box(kit.glow, at.WithY(bottom + 3.6f + shaft * 0.3f), new Vector3(3.8f, 0.6f, 3.8f), turn);
+                                b.Box(kit.scenery, at.WithY(top - 1.6f), new Vector3(4.6f, 1.2f, 4.6f), rot);
+                                b.Box(kit.scenery, at.WithY(top - 0.5f), new Vector3(5.6f, 1f, 5.6f), rot);
+                            }
+                            // across the pair: architrave, a frieze of light, cornice
+                            b.Box(kit.scenery, mid.WithY(top + 0.7f), new Vector3(span + 5f, 1.4f, 2.4f), rot);
+                            b.Box(kit.glow, mid.WithY(top + 1.55f), new Vector3(span + 5.2f, 0.3f, 2.5f), rot);
+                            b.Box(kit.scenery, mid.WithY(top + 2.15f), new Vector3(span + 6.4f, 0.9f, 3.2f), rot);
                         }
-                        b.Box(kit.scenery, mid.WithY(top + 0.8f), new Vector3(span + 3f, 1.6f, 1.6f), rot);
                         if (hasLast)
                         {
-                            Line(b, kit.glow, last.A.WithY(last.top + 1.8f), A.WithY(top + 1.8f), 0.35f);
-                            Line(b, kit.glow, last.B.WithY(last.top + 1.8f), B.WithY(top + 1.8f), 0.35f);
-                            Vector3 cc = (lastMid + mid) * 0.5f;
-                            b.Box(kit.scenery, cc.WithY((last.top + top) * 0.5f + 1.6f), new Vector3(span, 0.4f, 1.2f), rot);
-                            if (ribs % 2 == 0)
+                            // the entablature along each side, bay to bay
+                            foreach (var (p0, p1) in new[] { (last.A.WithY(last.top + 0.7f), A.WithY(top + 0.7f)), (last.B.WithY(last.top + 0.7f), B.WithY(top + 0.7f)) })
                             {
-                                Vector3 cloud = cc + right * Rand(-60f, 60f);
-                                b.Box(kit.scenery, cloud.WithY(bottom - Rand(20f, 45f)), new Vector3(Rand(30f, 70f), Rand(4f, 9f), Rand(25f, 50f)), Quaternion.Euler(0f, Rand(0f, 360f), 0f));
+                                Vector3 d = p1 - p0;
+                                if (d.sqrMagnitude < 0.01f) continue;
+                                var along = Quaternion.LookRotation(d);
+                                b.Box(kit.scenery, (p0 + p1) * 0.5f, new Vector3(2.4f, 1.4f, d.magnitude + 2.4f), along);
+                                b.Box(kit.glow, (p0 + p1) * 0.5f + Vector3.up * 0.85f, new Vector3(2.5f, 0.3f, d.magnitude + 2.5f), along);
+                                b.Box(kit.scenery, (p0 + p1) * 0.5f + Vector3.up * 1.45f, new Vector3(3.2f, 0.9f, d.magnitude + 3.2f), along);
                             }
                         }
                         break;

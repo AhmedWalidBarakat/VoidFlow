@@ -564,7 +564,7 @@ namespace VoidFlow
             SetLeftAlpha(1f);
             if (PoseSwordDraw())
             {
-                SetArmAlpha(0.35f);
+                SetArmAlpha(1f);
                 knife.Animate(time, -1f);
                 return;
             }
@@ -769,16 +769,11 @@ namespace VoidFlow
                 knife.blade.localRotation = Quaternion.Euler(0f, 0f, flips * 180f);
             }
 
-            // Arms turn see-through wherever the knife passes behind them
-            var points = new List<Vector3> { pivotAt, knifePose.p };
-            if (knife.tip) points.Add(rig.InverseTransformPoint(knife.tip.position));
-            // A sheathed sword is meant to sit under the hands: keep them solid then
-            bool seated = a.hold == Hold.Sheath && b.hold == Hold.Sheath && Mathf.Lerp(a.slide, b.slide, s) < 0.06f;
-            // Both arms go see-through while the hand is on the hilt, so the sheathed sword shows
-            // through them
+            // The arms stay solid through every inspect (they used to turn see-through wherever
+            // the weapon passed behind them)
+            SetArmAlpha(1f);
+            SetLeftAlpha(1f);
             float onHilt = (a.rightOnHilt ? 1f - s : 0f) + (b.rightOnHilt ? s : 0f);
-            SetArmAlpha(Mathf.Lerp(seated ? 1f : OverlapAlpha(right, points), 0.35f, onHilt));
-            SetLeftAlpha(Mathf.Lerp(seated ? 1f : OverlapAlpha(left, points), 0.35f, onHilt));
 
             // Dark flames wreathe the hilt while it's held at the sheath
             UpdateFlames(knifePose.p + knifePose.q * new Vector3(0f, -0.055f, 0f), knifePose.q, onHilt, time);
@@ -817,32 +812,6 @@ namespace VoidFlow
 
         // Heights above the resting line are more than halved
         static Vector3 Low(Vector3 p) => new(p.x, p.y < -0.1f ? p.y : -0.1f + (p.y + 0.1f) * 0.45f, p.z);
-
-        // How solid an arm can stay: see-through where any of the knife's points sit behind it
-        // on screen
-        static float OverlapAlpha(Pose arm, List<Vector3> points)
-        {
-            Vector3 a = arm.p + arm.q * new Vector3(0f, GloveSize.y * 0.5f, 0f);
-            Vector3 b = arm.p + arm.q * new Vector3(0f, -0.07f - ArmLength, 0f);
-            float alpha = 1f;
-            foreach (var p in points)
-            {
-                if (p.z <= 0.01f) continue;
-                Vector2 P = new(p.x / p.z, p.y / p.z);
-                // Closest point on the arm, on screen
-                float best = float.MaxValue, depth = 0f;
-                for (int k = 0; k <= 8; k++)
-                {
-                    Vector3 q = Vector3.Lerp(a, b, k / 8f);
-                    if (q.z <= 0.01f) continue;
-                    float d = Vector2.Distance(P, new Vector2(q.x / q.z, q.y / q.z));
-                    if (d < best) { best = d; depth = q.z; }
-                }
-                if (p.z < depth + 0.05f) continue; // in front of the arm, or in the hand: only fade for a knife well behind it
-                alpha = Mathf.Min(alpha, Mathf.Lerp(0.3f, 1f, Ease(best, 0.12f, 0.3f)));
-            }
-            return alpha;
-        }
 
         // Shows a moment of the knife inspect in edit mode, for photos (negative: at rest)
         public void PreviewKnifeInspect(float time)

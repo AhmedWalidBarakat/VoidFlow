@@ -145,7 +145,25 @@ namespace VoidFlow
             public BiomeKit kit;
             public List<Vector3> course;    // a sample of the stage's riding lines and flights (set dressing keeps clear of it)
             public Design design;           // how its walls and roof are shaped and lit
-            public List<(Vector3 at, Vector3 dir)> doors; // cave mouths: where the flights between ramps cross the hall, and which way
+            public List<Vector3> lines;     // the riding lines alone (a ramp crossing a dividing wall needs a wider opening than a flight)
+            public List<Divider> dividers;  // walls across the hall, each between one ramp's chamber and the next
+
+            // The floor in terraces: each panel of the floor at its own height, stepping down to
+            // sit a little under the course above it (as a map's floor follows its ramps down),
+            // instead of one floor far below everything. Panels left out (where a neighbouring
+            // hall needs the room) aren't present.
+            public float gridX, gridZ;
+            public Dictionary<Vector2Int, float> terrace;
+            public HashSet<Vector2Int> present;
+            public Vector2Int Cell(float x, float z) => new(Mathf.FloorToInt((x - gridX) / Panel), Mathf.FloorToInt((z - gridZ) / Panel));
+            public float Terrace(float x, float z) => terrace != null && terrace.TryGetValue(Cell(x, z), out float h) ? h : floor;
+            // The floor's height under a point, if this hall has floor there
+            public float? FloorAt(float x, float z)
+            {
+                var c = Cell(x, z);
+                if (present != null && !present.Contains(c)) return null;
+                return terrace != null && terrace.TryGetValue(c, out float h) ? h : floor;
+            }
 
             public bool Contains(Vector3 p, float inset)
             {
@@ -159,6 +177,27 @@ namespace VoidFlow
                 }
                 return true;
             }
+        }
+
+        // A wall across a hall at a flight: a window (the hole planned for that jump, framed and
+        // just big enough) or a mouth (an opening round wherever the course crosses it)
+        public class Divider
+        {
+            public Vector3 at, dir;      // a point on the flight, and its way across
+            public bool window;          // its flight's opening is planned (a window, or a doorway: mouth)
+            public bool mouth;           // a doorway out of a chamber, wider than a window
+            public Vector3 center;       // the opening's centre
+            public float hw, hh;         // the opening's half width and height
+            public int ramp;             // the ramp the flight lands on
+        }
+
+        // Where a built dividing wall stands (course-local), for the sweep that checks the course
+        // gets through it
+        public class DividerPlane : MonoBehaviour
+        {
+            public Vector3 point, normal;
+            public bool window, mouth;
+            public float holeY, holeW, holeH; // its planned opening (centred on `point`), for the bots' reports
         }
 
         static readonly string[] Heart = { ".##.##.", "#######", "#######", ".#####.", "..###..", "...#..." };
@@ -182,8 +221,14 @@ namespace VoidFlow
         // their riding lines)
         const float FloorClearance = 70f, FloorHeadroom = 80f;
 
-        // A stage's hall round its course points (riding lines and flights)
-        public static Volume Plan(int stage, List<Vector3> points, float depth, bool openTop, BiomeKit kit)
+        // The floor's terraces sit this far under the lowest of the course within reach (ramp
+        // bodies, flights, platforms), in steps of this much
+        const float TerraceGap = 18f, TerraceStep = 36f, TerraceReach = 60f;
+
+        // A stage's hall round its course points (riding lines and flights). `lows` are the
+        // lowest the course reaches (the bottoms of ramp bodies, flights less a rider's
+        // clearance): the floor's terraces keep under them; `lines` the riding lines alone.
+        public static Volume Plan(int stage, List<Vector3> points, float depth, bool openTop, BiomeKit kit, List<Vector3> lows = null, List<Vector3> lines = null, bool flat = false)
         {
             float lo = float.MaxValue, hi = float.MinValue;
             var ring = new List<Vector2>();
@@ -200,7 +245,58 @@ namespace VoidFlow
             }
             var course = new List<Vector3>();
             for (int i = 0; i < points.Count; i += 4) course.Add(points[i]);
-            return new Volume { stage = stage, outline = Hull(ring), floor = lo - depth, ceiling = hi + Headroom, openTop = openTop, kit = kit, course = course };
+            var v = new Volume { stage = stage, outline = Hull(ring), floor = lo - depth, ceiling = hi + Headroom, openTop = openTop, kit = kit, course = course, lines = lines ?? new List<Vector3>() };
+            if (lows != null && lows.Count > 0 && !flat) PlanTerraces(v, lows);
+            return v;
+        }
+
+        // Each panel of the floor at the height it can rise to: TerraceGap under the lowest of
+        // the course within TerraceReach across (the nearest bit of course, for panels out by the
+        // walls), in steps, so the floor reads as level terraces dropping in cliffs. A panel
+        // jutting out above three or four of its neighbours comes down to the highest of those
+        // (a few times over), so the terraces have clean edges rather than a jagged maze (only
+        // ever lowered: the course keeps its clearance).
+        static void PlanTerraces(Volume v, List<Vector3> lows)
+        {
+            float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
+            foreach (var q in v.outline) { minX = Mathf.Min(minX, q.x); maxX = Mathf.Max(maxX, q.x); minZ = Mathf.Min(minZ, q.y); maxZ = Mathf.Max(maxZ, q.y); }
+            v.gridX = minX; v.gridZ = minZ;
+            var raw = new Dictionary<Vector2Int, float>();
+            float lowest = v.floor;
+            int nx = Mathf.CeilToInt((maxX - minX) / Panel), nz = Mathf.CeilToInt((maxZ - minZ) / Panel);
+            for (int gx = 0; gx < nx; gx++)
+                for (int gz = 0; gz < nz; gz++)
+                {
+                    float cx = minX + (gx + 0.5f) * Panel, cz = minZ + (gz + 0.5f) * Panel;
+                    float best = float.MaxValue, nearest = float.MaxValue, nearestY = 0f;
+                    foreach (var q in lows)
+                    {
+                        float d2 = (q.x - cx) * (q.x - cx) + (q.z - cz) * (q.z - cz);
+                        if (d2 < TerraceReach * TerraceReach) best = Mathf.Min(best, q.y);
+                        if (d2 < nearest) { nearest = d2; nearestY = q.y; }
+                    }
+                    float h = (best < float.MaxValue ? best : nearestY) - TerraceGap;
+                    raw[new Vector2Int(gx, gz)] = h;
+                    lowest = Mathf.Min(lowest, h);
+                }
+            // (the hall's lowest floor goes under every terrace: the walls start there)
+            v.floor = Mathf.Min(v.floor, lowest);
+            var t = new Dictionary<Vector2Int, float>();
+            foreach (var (c, h) in raw) t[c] = v.floor + Mathf.Floor((h - v.floor) / TerraceStep) * TerraceStep;
+            for (int pass = 0; pass < 3; pass++)
+            {
+                var smooth = new Dictionary<Vector2Int, float>();
+                foreach (var (c, h) in t)
+                {
+                    int lower = 0;
+                    float under = float.MinValue;
+                    foreach (var d in new[] { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down })
+                        if (t.TryGetValue(c + d, out float hn) && hn < h - 0.5f) { lower++; under = Mathf.Max(under, hn); }
+                    smooth[c] = lower >= 3 ? under : h;
+                }
+                t = smooth;
+            }
+            v.terrace = t;
         }
 
         // Builds a hall's panels, leaving out any that stand inside a neighbouring hall
@@ -208,6 +304,10 @@ namespace VoidFlow
         {
             var kit = v.kit;
             var faces = new Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)>();
+            var main = faces; // (faces go to the hall itself, its floor or one of its dividing walls)
+            var floorFaces = new Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)>();
+            var dividerFaces = new List<Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)>>();
+            var dividerPlanes = new List<(Vector3 point, Vector3 normal, bool window, bool mouth, float y, float w, float h)>();
             bool Outside(Vector3 c)
             {
                 foreach (var o in neighbours) if (o.Contains(c, 0.5f)) return false;
@@ -551,26 +651,29 @@ namespace VoidFlow
                 }
             }
 
-            // Cave mouths, after the cave maps (boreas, aquaflow): a wall right across the hall
-            // between one ramp and the next, the flight through it the only way on, so each ramp
-            // waits in a chamber of its own round the turn and the next one only shows as you
-            // come through the mouth. The wall gives way wherever the course passes (the flight
-            // through the mouth, and anywhere else a ramp crosses it), and it stands as a whole
-            // with its hall (not left out where a neighbouring hall overlaps, or the chambers
-            // would see into each other there)
-            if (v.doors != null)
-                foreach (var (at, dirIn) in v.doors)
+            // Dividing walls, after the maps that pass from room to room (boreas, the white rooms,
+            // 666): a wall right across the hall between one ramp's chamber and the next, the
+            // flight through it the only way on, so each ramp waits round its own corner and the
+            // next only shows as you come through. A window is the opening planned for that jump:
+            // just big enough for every line off the ramp, solid all round, a real window to aim
+            // for. Elsewhere the wall opens round wherever the course crosses it. Every opening is
+            // a clean rounded hole in a deep frame with a glowing rim. A wall the course would
+            // have to cross in more than a couple of other places isn't built (more holes than
+            // wall). Each wall is a piece of its own: solid, and taken down again if a player-sized
+            // sweep along the course can't get through it (see EndlessCourse.BuildHall).
+            if (v.dividers != null)
+                foreach (var dv in v.dividers)
                 {
-                    Vector3 n = new Vector3(dirIn.x, 0f, dirIn.z);
+                    Vector3 n = new Vector3(dv.dir.x, 0f, dv.dir.z);
                     if (n.sqrMagnitude < 1e-4f) continue;
                     n.Normalize();
-                    Vector3 t = new(-n.z, 0f, n.x), basePoint = new(at.x, 0f, at.z);
+                    Vector3 t = new(-n.z, 0f, n.x), P = dv.window ? dv.center : dv.at, basePoint = new(P.x, 0f, P.z);
                     // where the wall's line crosses the outline (it's convex: one span)
                     float s0 = float.MaxValue, s1 = float.MinValue;
-                    Vector2 P = new(at.x, at.z), T = new(t.x, t.z);
+                    Vector2 P2 = new(P.x, P.z), T = new(t.x, t.z);
                     for (int k = 0; k < o.Count; k++)
                     {
-                        Vector2 a = o[k], e = o[(k + 1) % o.Count] - a, d = a - P;
+                        Vector2 a = o[k], e = o[(k + 1) % o.Count] - a, d = a - P2;
                         float den = T.x * e.y - T.y * e.x;
                         if (Mathf.Abs(den) < 1e-5f) continue;
                         float u = (d.x * T.y - d.y * T.x) / den;
@@ -578,42 +681,116 @@ namespace VoidFlow
                         float sAt = (d.x * e.y - d.y * e.x) / den;
                         s0 = Mathf.Min(s0, sAt); s1 = Mathf.Max(s1, sAt);
                     }
-                    if (s1 - s0 < 20f) continue;
-                    bool Near(Vector3 q, float r) { foreach (var c in v.course) if ((c - q).sqrMagnitude < r * r) return true; return false; }
-                    Vector3 W(float sw, float y) => basePoint + t * sw + Vector3.up * y;
-                    void Tile(float sa, float sb, float ya, float yb)
+                    if (s1 - s0 < 40f) continue;
+                    var holes = new List<(float s, float y, float hw, float hh)>();
+                    if (dv.window) holes.Add((0f, dv.center.y, dv.hw, dv.hh));
+                    // where the course crosses the wall: a box round each crossing
+                    var boxes = new List<(float s0, float s1, float y0, float y1, bool line)>();
+                    void Crossing(Vector3 c, bool line)
                     {
-                        Vector3 a = W(sa, ya), b = W(sb, ya), c = W(sb, yb), d = W(sa, yb);
-                        if (rock) { a += n * Bulge(a); b += n * Bulge(b); c += n * Bulge(c); d += n * Bulge(d); }
-                        Quad(wall, a, b, c, d);
+                        if (Mathf.Abs(Vector3.Dot(c - basePoint, n)) > 12f) return;
+                        float sc = Vector3.Dot(c - basePoint, t), yc = c.y;
+                        if (sc < s0 - 20f || sc > s1 + 20f || yc < v.floor || yc > v.ceiling) return;
+                        foreach (var hole in holes) if (Super(sc - hole.s, yc - hole.y, hole.hw, hole.hh) < 3f) return; // (through the window, or its flight just either side of it)
+                        for (int k = 0; k < boxes.Count; k++)
+                        {
+                            var bx = boxes[k];
+                            if (sc > bx.s0 - 30f && sc < bx.s1 + 30f && yc > bx.y0 - 30f && yc < bx.y1 + 30f)
+                            {
+                                boxes[k] = (Mathf.Min(bx.s0, sc), Mathf.Max(bx.s1, sc), Mathf.Min(bx.y0, yc), Mathf.Max(bx.y1, yc), bx.line || line);
+                                return;
+                            }
+                        }
+                        boxes.Add((sc, sc, yc, yc, line));
                     }
-                    whole = 1;
-                    const float Big = 60f, Small = 30f;
+                    foreach (var c in v.lines) Crossing(c, true);
+                    foreach (var c in v.course) Crossing(c, false);
+                    foreach (var nb in neighbours)
+                    {
+                        if (nb.lines != null) foreach (var c in nb.lines) Crossing(c, true);
+                        if (nb.course != null) foreach (var c in nb.course) Crossing(c, false);
+                    }
+                    if (boxes.Count > (dv.window ? 2 : 3)) continue; // more holes than wall
+                    // (a ramp crossing needs room for its body under the line, a flight for every line through it)
+                    foreach (var bx in boxes)
+                        holes.Add(((bx.s0 + bx.s1) * 0.5f, (bx.y0 + bx.y1) * 0.5f, (bx.s1 - bx.s0) * 0.5f + (bx.line ? 24f : 30f), (bx.y1 - bx.y0) * 0.5f + (bx.line ? 28f : 30f)));
+
+                    faces = new Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)>();
+                    dividerFaces.Add(faces);
+                    dividerPlanes.Add((basePoint, n, dv.window && !dv.mouth, dv.mouth, dv.center.y, dv.hw, dv.hh));
+                    force = true;
+                    Vector3 W(float sw, float y) => basePoint + t * sw + Vector3.up * y;
+                    // the wall in panels, finer round the holes: a panel clear of every hole is
+                    // laid whole, one wholly in a hole left out, one on a hole's edge split in four
+                    // down to small ones (those on the edge itself are left to the frame)
+                    int Classify(float sa, float sb, float ya, float yb)
+                    {
+                        int result = 0;
+                        foreach (var hole in holes)
+                        {
+                            float nx = Mathf.Clamp(hole.s, sa, sb) - hole.s, ny = Mathf.Clamp(hole.y, ya, yb) - hole.y;
+                            if (Super(nx, ny, hole.hw, hole.hh) >= 1f) continue;
+                            float fx = Mathf.Max(Mathf.Abs(sa - hole.s), Mathf.Abs(sb - hole.s)), fy = Mathf.Max(Mathf.Abs(ya - hole.y), Mathf.Abs(yb - hole.y));
+                            if (Super(fx, fy, hole.hw, hole.hh) < 1f) return 1;
+                            result = 2;
+                        }
+                        return result;
+                    }
+                    void Fill(float sa, float sb, float ya, float yb)
+                    {
+                        int c = Classify(sa, sb, ya, yb);
+                        if (c == 1) return;
+                        if (c == 0) { Quad(wall, W(sa, ya), W(sb, ya), W(sb, yb), W(sa, yb)); return; }
+                        if (sb - sa < 2.6f) return;
+                        float sm = (sa + sb) * 0.5f, ym = (ya + yb) * 0.5f;
+                        Fill(sa, sm, ya, ym); Fill(sm, sb, ya, ym); Fill(sa, sm, ym, yb); Fill(sm, sb, ym, yb);
+                    }
+                    const float Big = 60f;
                     for (float sa = s0; sa < s1 - 0.5f; sa += Big)
                         for (float ya = v.floor; ya < v.ceiling - 0.5f; ya += Big)
+                            Fill(sa, Mathf.Min(sa + Big, s1), ya, Mathf.Min(ya + Big, v.ceiling));
+                    // each hole's frame: a deep moulding round it on both faces, a glowing rim on
+                    // its inner edge, and the reveal through the wall
+                    foreach (var hole in holes)
+                    {
+                        const int sides = 40;
+                        const float FrameW = 3.2f, Deep = 1.4f, RimW = 0.8f;
+                        Vector2 H(int i, float grow)
                         {
-                            float sb = Mathf.Min(sa + Big, s1), yb = Mathf.Min(ya + Big, v.ceiling);
-                            if (!Near(W((sa + sb) * 0.5f, (ya + yb) * 0.5f), 75f)) { Tile(sa, sb, ya, yb); continue; }
-                            // near the course: finer, and open wherever it passes
-                            for (float sc = sa; sc < sb - 0.5f; sc += Small)
-                                for (float yc = ya; yc < yb - 0.5f; yc += Small)
-                                {
-                                    float sd = Mathf.Min(sc + Small, sb), yd = Mathf.Min(yc + Small, yb);
-                                    if (Near(W((sc + sd) * 0.5f, (yc + yd) * 0.5f), 24f)) continue;
-                                    Tile(sc, sd, yc, yd);
-                                }
+                            float ang = i * Mathf.PI * 2f / sides, c = Mathf.Cos(ang), sn = Mathf.Sin(ang);
+                            return new Vector2((hole.hw + grow) * Mathf.Sign(c) * Mathf.Sqrt(Mathf.Abs(c)), (hole.hh + grow) * Mathf.Sign(sn) * Mathf.Sqrt(Mathf.Abs(sn)));
                         }
-                    whole = 0;
+                        Vector3 F(Vector2 q, float z) => W(hole.s + q.x, hole.y + q.y) + n * z;
+                        for (int i = 0; i < sides; i++)
+                        {
+                            Vector2 a0 = H(i, 0f), a1 = H(i + 1, 0f), b0 = H(i, FrameW), b1 = H(i + 1, FrameW), g0 = H(i, RimW), g1 = H(i + 1, RimW);
+                            foreach (float z in new[] { -Deep, Deep })
+                            {
+                                Quad(trimA, F(a0, z), F(b0, z), F(b1, z), F(a1, z));
+                                float zg = z + Mathf.Sign(z) * 0.08f;
+                                Quad(kit.glow, F(a0, zg), F(g0, zg), F(g1, zg), F(a1, zg));
+                            }
+                            Quad(trimA, F(a0, -Deep), F(a1, -Deep), F(a1, Deep), F(a0, Deep));
+                            Quad(trimA, F(b0, -Deep), F(b1, -Deep), F(b1, Deep), F(b0, Deep));
+                        }
+                    }
+                    force = false;
+                    faces = main;
                 }
 
-            // Floor and ceiling: a grid of panels over the outline. Where the next hall runs into
-            // this one its floor lies far below this one's: this floor carries on over it
-            // wherever that hall's course passes well above (instead of opening a hole down into
-            // the dark), and where its course does need the room, the floor ends in a cliff
-            // dropping to the floor below, like a terrace
+            // Floor and ceiling: panels over the outline, cut to it exactly where the walls stand
+            // (a panel the outline crosses is clipped to it, so the floor meets the walls all the
+            // way round). The floor stands in terraces (PlanTerraces): each panel at its own height
+            // a little under the course above it, as a map's floor follows its ramps down. Where
+            // the next hall runs into this one, a panel carries on over that hall's room wherever
+            // its course passes well above, and is left out where its course needs the room. Every
+            // drop, from one terrace to the next or down into the next hall, is a cliff with a
+            // trimmed, glowing lip; skirting runs round the foot of the walls.
             float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
             foreach (var p in o) { minX = Mathf.Min(minX, p.x); maxX = Mathf.Max(maxX, p.x); minZ = Mathf.Min(minZ, p.y); maxZ = Mathf.Max(maxZ, p.y); }
-            var keptFloor = new Dictionary<Vector2Int, Rect>();
+            bool lava = v.design is Design.Furnace or Design.Spikes; // (a sea of lava lies flat at the bottom)
+            bool neon = v.design is Design.NeonGrid or Design.DevGrid or Design.Retro or Design.Streaks or Design.Shapes or Design.Pixel;
+            float Level(Vector2Int c) => lava || v.terrace == null ? v.floor : v.terrace.TryGetValue(c, out float h) ? h : v.floor;
             bool FloorStays(Vector3 at)
             {
                 foreach (var n in neighbours)
@@ -625,25 +802,55 @@ namespace VoidFlow
                 }
                 return true;
             }
-            for (float x = minX; x < maxX; x += Panel)
-                for (float z = minZ; z < maxZ; z += Panel)
+            v.gridX = minX; v.gridZ = minZ;
+            v.present = new HashSet<Vector2Int>();
+            var cells = new Dictionary<Vector2Int, (List<Vector2> poly, Rect r)>();
+            void Poly(Material m, List<Vector2> pts, float y)
+            {
+                for (int i = 1; i + 1 < pts.Count; i++)
                 {
+                    Vector3 a = new(pts[0].x, y, pts[0].y), b = new(pts[i].x, y, pts[i].y), c = new(pts[i + 1].x, y, pts[i + 1].y);
+                    Quad(m, a, b, c, c);
+                }
+            }
+            int panelsX = Mathf.CeilToInt((maxX - minX) / Panel - 0.001f), panelsZ = Mathf.CeilToInt((maxZ - minZ) / Panel - 0.001f);
+            for (int gx = 0; gx < panelsX; gx++)
+                for (int gz = 0; gz < panelsZ; gz++)
+                {
+                    float x = minX + gx * Panel, z = minZ + gz * Panel;
                     float x1 = Mathf.Min(x + Panel, maxX), z1 = Mathf.Min(z + Panel, maxZ);
-                    if (!Inside(o, new Vector2((x + x1) * 0.5f, (z + z1) * 0.5f))) continue;
-                    var cell = new Vector2Int(Mathf.RoundToInt((x - minX) / Panel), Mathf.RoundToInt((z - minZ) / Panel));
-                    bool stays = FloorStays(new Vector3((x + x1) * 0.5f, v.floor, (z + z1) * 0.5f));
-                    if (stays) keptFloor[cell] = Rect.MinMaxRect(x, z, x1, z1);
-                    force = stays;
-                    Quad(floor, new Vector3(x, v.floor, z), new Vector3(x1, v.floor, z), new Vector3(x1, v.floor, z1), new Vector3(x, v.floor, z1));
-                    force = false;
+                    var poly = Clip(o, x, z, x1, z1);
+                    if (poly.Count < 3) continue;
+                    var cell = new Vector2Int(gx, gz);
+                    bool full = Inside(o, new Vector2(x, z)) && Inside(o, new Vector2(x1, z)) && Inside(o, new Vector2(x1, z1)) && Inside(o, new Vector2(x, z1));
+                    float level = Level(cell);
+                    Vector2 cen = Vector2.zero;
+                    foreach (var q in poly) cen += q;
+                    cen /= poly.Count;
+                    if (FloorStays(new Vector3(cen.x, level, cen.y)))
+                    {
+                        v.present.Add(cell);
+                        cells[cell] = (poly, Rect.MinMaxRect(x, z, x1, z1));
+                        faces = floorFaces; force = true;
+                        Poly(floor, poly, level);
+                        // neon zones: a fine grid of light ruled over the floor
+                        if (neon && full)
+                        {
+                            Strip(kit.glow, new Vector3(x, level, z), new Vector3(x, level, z1), Vector3.up, 0.35f);
+                            Strip(kit.glow, new Vector3(x, level, z), new Vector3(x1, level, z), Vector3.up, 0.35f);
+                        }
+                        force = false; faces = main;
+                    }
                     if (!v.openTop)
                     {
-                        int gx = Mathf.RoundToInt((x - minX) / Panel), gz = Mathf.RoundToInt((z - minZ) / Panel);
                         // skylights (stripes), a grid of light panels (tech), or a plain roof
                         bool sky = (design == Design.Stripes && gz % 3 == 1) || (design == Design.Panels && (gx + gz) % 2 == 0)
                                 || (design == Design.Zen && (gx + gz) % 3 == 0) || (design == Design.Gallery && gz % 2 == 0)
                                 || (design == Design.Hex && (gx + gz) % 3 == 0) || (design == Design.Warehouse && gz % 3 == 1);
-                        Quad(ceiling, new Vector3(x, v.ceiling, z), new Vector3(x, v.ceiling, z1), new Vector3(x1, v.ceiling, z1), new Vector3(x1, v.ceiling, z));
+                        var roof = new List<Vector2>(poly);
+                        roof.Reverse(); // (facing down)
+                        Poly(ceiling, roof, v.ceiling);
+                        if (!full) continue; // (the lights and beams only on whole panels: on cut ones they'd poke through the walls)
                         if (sky)
                         {
                             float ix = (x1 - x) * 0.18f, iz = (z1 - z) * 0.18f, y = v.ceiling - 1f;
@@ -700,33 +907,65 @@ namespace VoidFlow
                             || ((design is Design.Castle or Design.Warehouse or Design.Bunker or Design.Arches or Design.Library or Design.Mine or Design.Furnace) && gx % 2 == 0))
                             Box(trimA, new Vector3(x, v.ceiling - 2.75f, (z + z1) * 0.5f), new Vector3(3f, 5f, z1 - z), 0f); // (just under the roof, not in it)
                     }
-                    // glowing grid lines on the floor every other panel
-                    force = keptFloor.ContainsKey(cell);
-                    if (Mathf.RoundToInt((x - minX) / Panel) % 2 == 0)
-                        Strip(kit.glow, new Vector3(x, v.floor, z), new Vector3(x, v.floor, z1), Vector3.up, 0.6f);
-                    force = false;
                 }
 
-            // The floor's edges over the room of a lower hall: a cliff down to that hall's floor,
-            // with a glowing lip, so a drop reads as a terrace and never as a hole into nothing
-            force = true;
-            foreach (var (cell, r) in keptFloor)
+            // The floor's drops: from each terrace down to a lower one beside it, or down into
+            // the room of the next hall (to that hall's floor below), a cliff in the hall's wall,
+            // a band of trim along its top and a glowing lip, so every drop reads as a terrace's
+            // edge. Round the walls, skirting where the floor meets them.
+            faces = floorFaces; force = true;
+            foreach (var (cell, (poly, r)) in cells)
+            {
+                float top = Level(cell);
                 foreach (var d in new[] { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down })
                 {
-                    if (keptFloor.ContainsKey(cell + d)) continue;
+                    // the panel's edge on this side: its corners lying on that side of its square
+                    float side = d.x > 0 ? r.xMax : d.x < 0 ? r.xMin : d.y > 0 ? r.yMax : r.yMin;
+                    float lo = float.MaxValue, hi = float.MinValue;
+                    foreach (var q in poly)
+                    {
+                        float on = d.x != 0 ? q.x : q.y, along = d.x != 0 ? q.y : q.x;
+                        if (Mathf.Abs(on - side) > 0.05f) continue;
+                        lo = Mathf.Min(lo, along); hi = Mathf.Max(hi, along);
+                    }
+                    if (hi - lo < 0.5f) continue;
+                    Vector3 a = d.x != 0 ? new Vector3(side, top, lo) : new Vector3(lo, top, side), b = d.x != 0 ? new Vector3(side, top, hi) : new Vector3(hi, top, side);
                     Vector3 dir = new(d.x, 0f, d.y);
-                    Vector3 mid = new(d.x > 0 ? r.xMax : d.x < 0 ? r.xMin : r.center.x, v.floor, d.y > 0 ? r.yMax : d.y < 0 ? r.yMin : r.center.y);
-                    Vector3 probe = mid + dir * 3f + Vector3.down * 4f;
-                    float bottom = float.MaxValue;
-                    foreach (var n in neighbours) if (n.Contains(probe, 0.5f)) bottom = Mathf.Min(bottom, n.floor);
-                    if (bottom == float.MaxValue) continue; // (this hall's own wall stands there)
-                    Vector3 side = new(d.y, 0f, d.x); // along the edge
-                    float half = d.x != 0 ? r.height * 0.5f : r.width * 0.5f;
-                    Vector3 a = mid - side * half, b = mid + side * half;
+                    float bottom;
+                    if (cells.ContainsKey(cell + d))
+                    {
+                        float hn = Level(cell + d);
+                        if (hn >= top - 0.5f) continue;
+                        bottom = hn;
+                    }
+                    else
+                    {
+                        Vector3 probe = (a + b) * 0.5f + dir * 3f + Vector3.down * 4f;
+                        bottom = float.MaxValue;
+                        foreach (var nb in neighbours)
+                            if (nb.Contains(probe, 0.5f)) bottom = Mathf.Min(bottom, nb.Terrace(probe.x, probe.z));
+                        if (bottom == float.MaxValue) continue; // (this hall's own wall stands there)
+                        bottom = Mathf.Min(bottom, top - 4f);
+                    }
                     Quad(wall, a, b, b.WithY(bottom), a.WithY(bottom));
-                    Strip(kit.glow, a + Vector3.down * 0.8f, b + Vector3.down * 0.8f, dir, 1.2f);
+                    Vector3 off = dir * 0.25f;
+                    Quad(trimA, a + off, b + off, b + off + Vector3.down * 2.4f, a + off + Vector3.down * 2.4f);
+                    Strip(kit.glow, a + Vector3.down * 0.45f, b + Vector3.down * 0.45f, dir, 0.7f);
                 }
-            force = false;
+                // skirting: the panel's edges along the outline (not on its square's sides)
+                for (int i = 0; i < poly.Count; i++)
+                {
+                    Vector2 qa = poly[i], qb = poly[(i + 1) % poly.Count];
+                    bool onSquare = (Mathf.Abs(qa.x - qb.x) < 0.05f && (Mathf.Abs(qa.x - r.xMin) < 0.05f || Mathf.Abs(qa.x - r.xMax) < 0.05f))
+                                 || (Mathf.Abs(qa.y - qb.y) < 0.05f && (Mathf.Abs(qa.y - r.yMin) < 0.05f || Mathf.Abs(qa.y - r.yMax) < 0.05f));
+                    if (onSquare || (qa - qb).sqrMagnitude < 0.25f) continue;
+                    Vector2 e = (qb - qa).normalized;
+                    Vector3 inward = new(-e.y, 0f, e.x); // (the outline runs counter-clockwise: in is to the left)
+                    Vector3 pa = new Vector3(qa.x, top, qa.y) + inward * 0.5f, pb = new Vector3(qb.x, top, qb.y) + inward * 0.5f;
+                    Quad(trimA, pa, pb, pb + Vector3.up * 2.4f, pa + Vector3.up * 2.4f);
+                }
+            }
+            force = false; faces = main;
 
             // Set dressing, a different mix in every hall, like a map's: pillars standing floor to
             // ceiling with bands of light, floating platforms and stacked blocks at all heights.
@@ -1272,9 +1511,9 @@ namespace VoidFlow
                     {
                         var at = new Vector3(x + R(-10f, 10f), 0f, z + R(-10f, 10f));
                         if (!Inside(o, new Vector2(at.x, at.z)) || !ClearAcross(at, 45f) || rng.NextDouble() < 0.3) continue;
-                        float w = R(6f, 10f);
-                        Box(wall, at.WithY(v.floor + h * 0.5f), new Vector3(w, h, w), 0f);
-                        for (float y = v.floor + 30f; y < v.ceiling - 10f; y += 45f)
+                        float w = R(6f, 10f), foot = v.Terrace(at.x, at.z);
+                        Box(wall, at.WithY((foot + v.ceiling) * 0.5f), new Vector3(w, v.ceiling - foot, w), 0f);
+                        for (float y = foot + 30f; y < v.ceiling - 10f; y += 45f)
                             Box(glowA, at.WithY(y), new Vector3(w + 0.6f, 1.2f, w + 0.6f), 0f);
                         made++;
                     }
@@ -1299,7 +1538,7 @@ namespace VoidFlow
                 {
                     var at = new Vector3(R(minX, maxX), v.floor, R(minZ, maxZ));
                     if (!Inside(o, new Vector2(at.x, at.z)) || !ClearAcross(at, 40f)) continue;
-                    float y = v.floor, size = R(14f, 26f), yaw = R(0f, 90f);
+                    float y = v.Terrace(at.x, at.z), size = R(14f, 26f), yaw = R(0f, 90f);
                     int blocks = rng.Next(3, 8);
                     for (int k = 0; k < blocks && y < v.ceiling - 20f; k++)
                     {
@@ -1316,7 +1555,23 @@ namespace VoidFlow
 
             var go = new GameObject($"Hall {v.stage}");
             go.transform.SetParent(parent, false);
-            foreach (var (m, f) in faces)
+            Emit(main, go.transform);
+            var floorGo = new GameObject("Floor");
+            floorGo.transform.SetParent(go.transform, false);
+            Emit(floorFaces, floorGo.transform);
+            for (int k = 0; k < dividerFaces.Count; k++)
+            {
+                var dg = new GameObject($"Divider {k}");
+                dg.transform.SetParent(go.transform, false);
+                Emit(dividerFaces[k], dg.transform);
+                var plane = dg.AddComponent<DividerPlane>();
+                (plane.point, plane.normal, plane.window, plane.mouth, plane.holeY, plane.holeW, plane.holeH) = dividerPlanes[k];
+            }
+            return go;
+
+            void Emit(Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)> group, Transform into)
+            {
+            foreach (var (m, f) in group)
             {
                 var mesh = new Mesh { name = "Architecture", indexFormat = IndexFormat.UInt32 };
                 mesh.SetVertices(f.v);
@@ -1336,14 +1591,44 @@ namespace VoidFlow
                 mesh.RecalculateBounds();
                 meshes.Add(mesh);
                 var part = new GameObject("Architecture");
-                part.transform.SetParent(go.transform, false);
+                part.transform.SetParent(into, false);
                 part.AddComponent<MeshFilter>().sharedMesh = mesh;
                 var r = part.AddComponent<MeshRenderer>();
                 r.sharedMaterial = m;
                 r.shadowCastingMode = ShadowCastingMode.Off;
                 r.receiveShadows = m != kit.glow && m != kit.glowAlt; // the walls catch the ramps' shadows
             }
-            return go;
+            }
+        }
+
+        // A superellipse's measure (below 1 inside a rounded-square hole of half size hw x hh)
+        static float Super(float dx, float dy, float hw, float hh)
+        {
+            float x = dx / hw, y = dy / hh;
+            x *= x; y *= y;
+            return x * x + y * y;
+        }
+
+        // A square of the floor cut to the outline (convex, counter-clockwise): its corners,
+        // counter-clockwise, empty if it lies outside
+        static List<Vector2> Clip(List<Vector2> o, float x0, float z0, float x1, float z1)
+        {
+            var poly = new List<Vector2> { new(x0, z0), new(x1, z0), new(x1, z1), new(x0, z1) };
+            for (int i = 0; i < o.Count && poly.Count > 0; i++)
+            {
+                Vector2 a = o[i], b = o[(i + 1) % o.Count];
+                float Side(Vector2 q) => (b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x);
+                var next = new List<Vector2>();
+                for (int k = 0; k < poly.Count; k++)
+                {
+                    Vector2 p = poly[k], q = poly[(k + 1) % poly.Count];
+                    float sp = Side(p), sq = Side(q);
+                    if (sp >= 0f) next.Add(p);
+                    if ((sp >= 0f) != (sq >= 0f)) next.Add(Vector2.Lerp(p, q, sp / (sp - sq)));
+                }
+                poly = next;
+            }
+            return poly;
         }
 
         // A tube round a flight path, for clearing the panels it passes through (a doorway

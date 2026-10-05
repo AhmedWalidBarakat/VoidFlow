@@ -316,6 +316,19 @@ namespace VoidFlow.EditorTools
                 m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
                 return m;
             }
+            // A hall floor glows faintly with its own colours: most halls are roofed, no sun
+            // reaches their floors, and in a dark zone the floor sank into black (bright floors
+            // a little less, or they'd bloom)
+            Material FloorGlow(Material m, Surface s, Color c)
+            {
+                if (m.IsKeywordEnabled("_EMISSION")) return m;
+                Color tint = Baked(s) ? Color.white : c;
+                m.EnableKeyword("_EMISSION");
+                m.SetTexture("_EmissionMap", m.GetTexture("_BaseMap"));
+                m.SetColor("_EmissionColor", tint * (0.3f * (1f - tint.grayscale * 0.65f)));
+                m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+                return m;
+            }
             Vector2 RampTile(Surface s) => IsDesign(s) ? Vector2.one * 0.25f : Vector2.one;
             Vector2 WallTile(Surface s) => IsDesign(s) ? Vector2.one * 0.5f : Vector2.one;
             Material Paint(Color c, Surface s, Vector2 tile) => BiomeKit.Surface(template, Baked(s) ? Color.white : c, Tex(s), tile);
@@ -340,7 +353,8 @@ namespace VoidFlow.EditorTools
                     scenery = Save(Lit(Paint(b.scenery, b.scenerySurface, WallTile(b.scenerySurface)), b.scenerySurface, b.glow * 0.9f), "Scenery"),
                     glow = Save(BiomeKit.Glow(template, b.glow), "Glow"),
                     glowAlt = Save(BiomeKit.Glow(template, b.glowAlt), "GlowAlt"),
-                    floor = Save(b.floor.a > 0f ? Lit(Paint(b.floor, b.floorSurface, WallTile(b.floorSurface)), b.floorSurface, b.glow * 0.5f) : Paint(b.slab, b.slabSurface, WallTile(b.slabSurface)), "Floor"),
+                    floor = Save(b.floor.a > 0f ? FloorGlow(Lit(Paint(b.floor, b.floorSurface, WallTile(b.floorSurface)), b.floorSurface, b.glow * 0.5f), b.floorSurface, b.floor)
+                                                : FloorGlow(Paint(b.slab, b.slabSurface, WallTile(b.slabSurface)), b.slabSurface, b.slab), "Floor"),
                     ceiling = b.ceiling.a > 0f ? Save(Lit(Paint(b.ceiling, b.ceilingSurface, WallTile(b.ceilingSurface)), b.ceilingSurface, b.glow * 0.5f), "Ceiling") : null,
                     accent = Save(b.accent.a > 0f ? Lit(Paint(b.accent, b.accentSurface, WallTile(b.accentSurface)), b.accentSurface, b.glow * 0.8f) : Paint(b.slab, b.scenerySurface, WallTile(b.scenerySurface)), "Accent"),
                     shaft = Save(LightMaterial(b.shaft.a > 0f ? b.shaft : b.glowAlt, shaftTex, 0.22f, 0.9f), "Shaft"),
