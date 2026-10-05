@@ -81,7 +81,7 @@ namespace VoidFlow
             Vector2 mouse = e.mousePosition;
 
             UiArt.Rounded(new Rect(0f, 0f, w, h), new Color(0.01f, 0f, 0.03f, 0.55f * a), 0f);
-            float cw = 560f * px, ch = 610f * px;
+            float cw = 560f * px, ch = 658f * px;
             card = new Rect((w - cw) * 0.5f, (h - ch) * 0.5f, cw, ch);
             PointerOverCard = card.Contains(mouse);
             UiArt.Rounded(card, new Color(0.05f, 0.04f, 0.09f, 0.94f * a), 18f * px);
@@ -116,6 +116,9 @@ namespace VoidFlow
             y += th + 10f * px;
             if (Toggle(new Rect(x, y, tw, th), "SPEED LINES", GameSettings.SpeedLines, e, a)) GameSettings.SpeedLines = !GameSettings.SpeedLines;
             if (Toggle(new Rect(x + tw + 12f * px, y, tw, th), "SHOW FPS", GameSettings.ShowFps, e, a)) GameSettings.ShowFps = !GameSettings.ShowFps;
+            y += th + 10f * px;
+            if (Toggle(new Rect(x, y, tw, th), "SHADOWS", GameSettings.Shadows, e, a)) GameSettings.Shadows = !GameSettings.Shadows;
+            if (Toggle(new Rect(x + tw + 12f * px, y, tw, th), "AMBIENT OCCLUSION", GameSettings.AmbientOcclusion, e, a)) GameSettings.AmbientOcclusion = !GameSettings.AmbientOcclusion;
             y += th + 10f * px;
             var xr = new Rect(x, y, iw, th);
             bool overX = xr.Contains(mouse);

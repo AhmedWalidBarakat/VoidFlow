@@ -2387,6 +2387,8 @@ namespace VoidFlow
             return true;
         }
 
+        const float FillShare = 0.62f, SunBoost = 1.6f;
+
         void ApplyEnvironment(Biome a, Biome b, float t)
         {
             Color sky = Color.Lerp(a.sky, b.sky, t);
@@ -2409,14 +2411,17 @@ namespace VoidFlow
                 // way out: depth precision far off, and no walls and trims flickering through each other
                 view.nearClipPlane = 0.3f;
             }
+            // Light with depth, as a map's: a strong sun and a dimmer fill, so what the sun reaches
+            // stands out bright and what's in shadow (under a ramp, behind a wall, in a corner)
+            // falls away dark, rather than everything lit evenly and flat
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = Color.Lerp(a.ambientSky, b.ambientSky, t);
-            RenderSettings.ambientEquatorColor = Color.Lerp(a.ambientEquator, b.ambientEquator, t);
-            RenderSettings.ambientGroundColor = Color.Lerp(a.ambientGround, b.ambientGround, t);
+            RenderSettings.ambientSkyColor = Color.Lerp(a.ambientSky, b.ambientSky, t) * FillShare;
+            RenderSettings.ambientEquatorColor = Color.Lerp(a.ambientEquator, b.ambientEquator, t) * FillShare;
+            RenderSettings.ambientGroundColor = Color.Lerp(a.ambientGround, b.ambientGround, t) * FillShare;
             if (sun)
             {
                 sun.color = Color.Lerp(a.sunColor, b.sunColor, t);
-                sun.intensity = Mathf.Lerp(a.sunIntensity, b.sunIntensity, t);
+                sun.intensity = Mathf.Max(Mathf.Lerp(a.sunIntensity, b.sunIntensity, t) * SunBoost, 0.9f);
             }
             if (view) view.backgroundColor = sky;
 

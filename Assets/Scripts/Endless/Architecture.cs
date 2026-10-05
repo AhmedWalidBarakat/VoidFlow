@@ -249,8 +249,10 @@ namespace VoidFlow
                     go.AddComponent<MeshFilter>().sharedMesh = mesh;
                     var r = go.AddComponent<MeshRenderer>();
                     r.sharedMaterial = m;
-                    r.shadowCastingMode = ShadowCastingMode.Off;
-                    r.receiveShadows = false;
+                    // (solid stone and steel cast shadows and catch them; lights and glass don't)
+                    bool lit = m.name.Contains("Glow") || m.name.Contains("Shaft") || m.name.Contains("Pool") || m.renderQueue >= 3000;
+                    r.shadowCastingMode = lit ? ShadowCastingMode.Off : ShadowCastingMode.TwoSided;
+                    r.receiveShadows = !lit;
                 }
             }
 

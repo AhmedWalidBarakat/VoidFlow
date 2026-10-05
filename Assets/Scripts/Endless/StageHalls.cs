@@ -313,6 +313,7 @@ namespace VoidFlow
             var faces = new Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)>();
             var main = faces; // (faces go to the hall itself, its floor or one of its dividing walls)
             var floorFaces = new Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)>();
+            var roofFaces = new Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)>();
             var dividerFaces = new List<Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)>>();
             var dividerPlanes = new List<(Vector3 point, Vector3 normal, bool window, bool mouth, float y, float w, float h)>();
             bool Outside(Vector3 c)
@@ -860,7 +861,9 @@ namespace VoidFlow
                                 || (design == Design.Hex && (gx + gz) % 3 == 0) || (design == Design.Warehouse && gz % 3 == 1);
                         var roof = new List<Vector2>(poly);
                         roof.Reverse(); // (facing down)
+                        faces = roofFaces;
                         Poly(ceiling, roof, v.ceiling);
+                        faces = main;
                         if (!full) continue; // (the lights and beams only on whole panels: on cut ones they'd poke through the walls)
                         if (sky)
                         {
@@ -1570,6 +1573,7 @@ namespace VoidFlow
             var floorGo = new GameObject("Floor");
             floorGo.transform.SetParent(go.transform, false);
             Emit(floorFaces, floorGo.transform);
+            Emit(roofFaces, go.transform, false);
             for (int k = 0; k < dividerFaces.Count; k++)
             {
                 var dg = new GameObject($"Divider {k}");
@@ -1580,7 +1584,9 @@ namespace VoidFlow
             }
             return go;
 
-            void Emit(Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)> group, Transform into)
+            // (the hall casts shadows like a map's walls do, so the light falls into its rooms in
+            // shafts and patches; its roof doesn't, or no sun would reach in at all)
+            void Emit(Dictionary<Material, (List<Vector3> v, List<Vector3> n, List<int> t)> group, Transform into, bool casts = true)
             {
             foreach (var (m, f) in group)
             {
@@ -1606,8 +1612,9 @@ namespace VoidFlow
                 part.AddComponent<MeshFilter>().sharedMesh = mesh;
                 var r = part.AddComponent<MeshRenderer>();
                 r.sharedMaterial = m;
-                r.shadowCastingMode = ShadowCastingMode.Off;
-                r.receiveShadows = m != kit.glow && m != kit.glowAlt; // the walls catch the ramps' shadows
+                bool lit = m == kit.glow || m == kit.glowAlt;
+                r.shadowCastingMode = casts && !lit ? ShadowCastingMode.On : ShadowCastingMode.Off; // (its faces are built both ways round already)
+                r.receiveShadows = !lit; // the walls catch the ramps' shadows
             }
             }
         }

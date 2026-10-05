@@ -361,6 +361,12 @@ namespace VoidFlow.EditorTools
                     pool = Save(LightMaterial(b.glow, poolTex, 0.5f, 1.4f), "Pool"),
                     skyPool = Save(LightMaterial(b.shaft.a > 0f ? b.shaft : b.glowAlt, poolTex, 0.45f, 1.2f), "SkyPool"),
                 };
+                // relief on everything but the ramps (they stay smooth, so their surface reads)
+                Relief(kits[i].scenery, 1f);
+                Relief(kits[i].floor, 0.85f);
+                Relief(kits[i].slab, 0.8f);
+                Relief(kits[i].accent, 1f);
+                Relief(kits[i].ceiling, 0.6f);
                 if (b.hues != null)
                 {
                     // Spectrum: a ramp and a glow for every hue
@@ -565,6 +571,82 @@ namespace VoidFlow.EditorTools
                 tex.SetPixel(x, y, new Color(v, v, v, 1f));
             }
             return SaveTexture(tex, Root + "/Bricks.png");
+        }
+
+        // Surface relief: a normal map made from a texture's own light and dark (dark grout,
+        // seams and cracks sink, light faces stand proud), so walls and floors catch the sun and
+        // the shadows like real brick, stone and plate instead of reading as flat colour. One per
+        // texture, made again only when the texture changes.
+        static readonly Dictionary<Texture, Texture2D> reliefs = new();
+        static void Relief(Material m, float strength)
+        {
+            if (!m || !m.HasProperty("_BaseMap") || m.GetTexture("_BumpMap")) return;
+            var n = ReliefOf(m.GetTexture("_BaseMap"));
+            if (!n) return;
+            m.SetTexture("_BumpMap", n);
+            m.SetFloat("_BumpScale", strength);
+            m.EnableKeyword("_NORMALMAP");
+            EditorUtility.SetDirty(m);
+        }
+
+        static Texture2D ReliefOf(Texture tex)
+        {
+            if (!tex) return null;
+            if (reliefs.TryGetValue(tex, out var done) && done) return done;
+            string src = AssetDatabase.GetAssetPath(tex);
+            if (string.IsNullOrEmpty(src) || !File.Exists(src)) return null;
+            Directory.CreateDirectory(Root + "/Relief");
+            string path = $"{Root}/Relief/{Path.GetFileNameWithoutExtension(src)}_N.png";
+            if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) < File.GetLastWriteTimeUtc(src))
+            {
+                var img = new Texture2D(2, 2);
+                img.LoadImage(File.ReadAllBytes(src));
+                const int N = 256, Sub = 4;
+                var h = new float[N * N];
+                for (int y = 0; y < N; y++)
+                    for (int x = 0; x < N; x++)
+                    {
+                        float sum = 0f;
+                        for (int sy = 0; sy < Sub; sy++)
+                            for (int sx = 0; sx < Sub; sx++)
+                            {
+                                var c = img.GetPixelBilinear((x + (sx + 0.5f) / Sub) / N, (y + (sy + 0.5f) / Sub) / N);
+                                sum += c.r * 0.3f + c.g * 0.59f + c.b * 0.11f;
+                            }
+                        h[y * N + x] = sum / (Sub * Sub);
+                    }
+                Object.DestroyImmediate(img);
+                float H(int x, int y) => h[((y % N + N) % N) * N + ((x % N + N) % N)];
+                // (softened a touch: photo noise shouldn't read as gravel)
+                var soft = new float[N * N];
+                for (int y = 0; y < N; y++)
+                    for (int x = 0; x < N; x++)
+                        soft[y * N + x] = (H(x, y) * 4f + H(x + 1, y) + H(x - 1, y) + H(x, y + 1) + H(x, y - 1)) / 8f;
+                float S(int x, int y) => soft[((y % N + N) % N) * N + ((x % N + N) % N)];
+                const float Steep = 3.2f;
+                var px = new Color[N * N];
+                for (int y = 0; y < N; y++)
+                    for (int x = 0; x < N; x++)
+                    {
+                        float dx = (S(x + 1, y) - S(x - 1, y)) * Steep, dy = (S(x, y + 1) - S(x, y - 1)) * Steep;
+                        var n = new Vector3(-dx, -dy, 1f).normalized;
+                        px[y * N + x] = new Color(n.x * 0.5f + 0.5f, n.y * 0.5f + 0.5f, n.z * 0.5f + 0.5f, 1f);
+                    }
+                var t = new Texture2D(N, N, TextureFormat.RGBA32, false);
+                t.SetPixels(px);
+                t.Apply();
+                File.WriteAllBytes(path, t.EncodeToPNG());
+                Object.DestroyImmediate(t);
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                var imp = (TextureImporter)AssetImporter.GetAtPath(path);
+                imp.textureType = TextureImporterType.NormalMap;
+                imp.wrapMode = TextureWrapMode.Repeat;
+                imp.mipmapEnabled = true;
+                imp.anisoLevel = 4;
+                imp.maxTextureSize = 256;
+                imp.SaveAndReimport();
+            }
+            return reliefs[tex] = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
         static Texture2D SaveTexture(Texture2D tex, string path)
