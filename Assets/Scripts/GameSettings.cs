@@ -28,10 +28,8 @@ namespace VoidFlow
         public static bool Grading { get => GetBool("grade", true); set => SetBool("grade", value); }
         public static bool SpeedLines { get => GetBool("speedlines", true); set => SetBool("speedlines", value); }
         public static bool ShowFps { get => GetBool("fps", false); set => SetBool("fps", value); }
-        // Lighting with depth: the sun's shadows, and the soft shade where surfaces meet
-        // (ambient occlusion). Both on; off for a slower machine
+        // Lighting with depth: the sun's shadows. On; off for a slower machine
         public static bool Shadows { get => GetBool("shadows", true); set => SetBool("shadows", value); }
-        public static bool AmbientOcclusion { get => GetBool("ao", true); set => SetBool("ao", value); }
 
         // The 3D view's resolution as a share of the screen's (the HUD always stays sharp): 1 is
         // full sharpness, lower runs on slower machines. Only ever changed by the player.

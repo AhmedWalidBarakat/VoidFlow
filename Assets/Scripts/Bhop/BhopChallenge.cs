@@ -4,11 +4,13 @@ using UnityEngine.InputSystem;
 namespace VoidFlow
 {
     // The 10 stage bhop challenge behind the start hall (laid out by BhopLayout, built by
-    // GrayboxBuilder.Bhop): its checkpoints, falls, clocks, HUD and prize. Each stage's pad is
-    // a checkpoint: fall and you're back on the pad of the stage you're on (T does the same, R
-    // goes back to stage 1). The run's clock starts as you leave stage 1's pad. Finish stage 10
-    // and the Karambit | Velocity and its matching Void Gloves are yours (not with noclip: it's
-    // locked out here anyway, so a double tap of jump can't switch it on mid-hop).
+    // GrayboxBuilder.Bhop): its checkpoints, falls, clocks, HUD and prize. Every stage is a room;
+    // its start pad is a checkpoint: miss (touch the room's floor, or drop well below the blocks
+    // round you) and you're back on it (T does the same, R goes back to stage 1). Land on a
+    // room's exit pad and its portal takes you to the next room's start pad. The run's clock
+    // starts as you leave stage 1's pad. Finish stage 10 and the Karambit | Velocity and its
+    // matching Void Gloves are yours (not with noclip: it's locked out here anyway, so a double
+    // tap of jump can't switch it on mid-hop).
     public class BhopChallenge : MonoBehaviour
     {
         public static BhopChallenge Instance { get; private set; }
@@ -22,11 +24,12 @@ namespace VoidFlow
 
         public BhopPiece[] pieces;
         public float[] headings;   // each stage's way off its pad
+        public BhopRoom[] rooms;   // each stage's room
         public Bounds area;        // the challenge's room, in its own (the hall's) space
         public Vector3 portal;     // on the finish pad: back to the plaza
         public PlayerMovement player;
 
-        int[] pads;                // pieces index of stage s's pad (1..10), 11 the finish
+        int[] starts, exits;       // pieces index of stage s's start pad and its exit pad (stage 10's: the finish)
         int stage;                 // 0 the trail and plaza, 1..10 on a stage, 11 finished
         bool inside, timing, practice, fullRun;
         float runStart, stageStart, finishedAt = -99f, bannerAt = -99f, noteAt = -99f;
@@ -37,13 +40,7 @@ namespace VoidFlow
         void Awake()
         {
             Instance = this;
-            pads = new int[StageCount + 2];
-            int s = 1;
-            for (int i = 0; i < pieces.Length; i++)
-            {
-                if (pieces[i].kind != BhopKind.Pad) continue;
-                if (s <= StageCount + 1) pads[s++] = i;
-            }
+            BhopLayout.Pads(pieces, out starts, out exits);
         }
 
         void Start()
@@ -55,7 +52,7 @@ namespace VoidFlow
 
         Vector3 World(Vector3 local) => transform.TransformPoint(local);
         Vector3 Local(Vector3 world) => transform.InverseTransformPoint(world);
-        public Vector3 PadOf(int s) => pieces[pads[Mathf.Clamp(s, 1, StageCount + 1)]].center;
+        public Vector3 PadOf(int s) => s > StageCount ? pieces[exits[StageCount]].center : pieces[starts[Mathf.Max(s, 1)]].center;
         public static int Reached => PlayerPrefs.GetInt(ReachedKey, 0);
         public static float Best => PlayerPrefs.GetFloat(BestKey, 0f);
         public static bool Won => PlayerPrefs.GetInt(WonKey, 0) == 1;
@@ -68,10 +65,12 @@ namespace VoidFlow
         }
 
         bool StandingOn(int index, Vector3 q) => player.Grounded && Over(pieces[index], q) && Mathf.Abs(q.y - pieces[index].center.y) < 0.6f;
+        // (a portal: anywhere over its pad, landing or just above it)
+        bool Through(int index, Vector3 q) => Over(pieces[index], q, 0.1f) && q.y > pieces[index].center.y - 0.4f && q.y < pieces[index].center.y + 2.4f;
 
         void Update()
         {
-            if (!player || pads == null) return;
+            if (!player || starts == null) return;
             Vector3 q = Local(player.Position);
             bool was = inside;
             inside = area.Contains(q);
@@ -100,28 +99,27 @@ namespace VoidFlow
 
             if (player.Flying) return;
 
-            // Checkpoints: onto the next stage's pad
-            if (stage <= StageCount && StandingOn(pads[stage + 1], q))
+            // Onto stage 1's pad from the plaza; through a room's exit portal to the next room
+            if (stage == 0 && StandingOn(starts[1], q))
             {
-                if (stage == 0)
-                {
-                    stage = 1;
-                    timing = false;
-                    practice = false;
-                    fullRun = true;
-                    Banner();
-                }
-                else if (stage == StageCount) Finish();
-                else
-                {
-                    stage++;
-                    stageStart = Time.time;
-                    if (!practice && stage > Reached) { PlayerPrefs.SetInt(ReachedKey, stage); PlayerPrefs.Save(); }
-                    Banner();
-                }
+                stage = 1;
+                timing = false;
+                practice = false;
+                fullRun = true;
+                Banner();
+            }
+            else if (stage == StageCount && StandingOn(exits[StageCount], q)) Finish();
+            else if (stage >= 1 && stage < StageCount && Through(exits[stage], q))
+            {
+                stage++;
+                stageStart = Time.time;
+                if (!practice && stage > Reached) { PlayerPrefs.SetInt(ReachedKey, stage); PlayerPrefs.Save(); }
+                player.Teleport(World(PadOf(stage) + Vector3.up * 0.05f), headings[stage - 1] + transform.eulerAngles.y);
+                Banner();
+                return;
             }
             // Leaving stage 1's pad starts the clock
-            if (stage == 1 && !timing && !Over(pieces[pads[1]], q, 0.2f) && !OverPlaza(q))
+            if (stage == 1 && !timing && !Over(pieces[starts[1]], q, 0.2f) && !OverPlaza(q))
             {
                 timing = true;
                 runStart = stageStart = Time.time;
@@ -143,18 +141,19 @@ namespace VoidFlow
             return false;
         }
 
-        // Below the pieces round you by more than a body's height: a miss
+        // Down on the room's floor, or below the pieces round you by more than a body's height: a miss
         bool Fallen(Vector3 q)
         {
-            if (q.y < -220f) return true;
+            if (q.y < -260f) return true;
             int s = Mathf.Clamp(stage, 0, StageCount + 1);
+            if (s >= 1 && s <= StageCount && rooms != null && q.y < BhopLayout.FloorOf(rooms, s) + 0.8f) return true;
             float low = float.MaxValue, near = float.MaxValue;
             for (int i = 0; i < pieces.Length; i++)
             {
                 var p = pieces[i];
-                bool mine = s == 0 ? p.stage == 0 || i == pads[1]
-                    : s > StageCount ? i == pads[StageCount + 1]
-                    : p.stage == s || i == pads[s];
+                bool mine = s == 0 ? p.stage == 0 || i == starts[1]
+                    : s > StageCount ? i == exits[StageCount]
+                    : p.stage == s;
                 if (!mine || p.kind == BhopKind.Again) continue;
                 float top = p.kind == BhopKind.Ramp ? p.line[p.line.Length - 1].y - 3f : p.center.y;
                 low = Mathf.Min(low, top);
@@ -255,7 +254,7 @@ namespace VoidFlow
                 UiArt.Text(new Rect(0f, y + 6f * px, w, 36f * px), "10 STAGE BHOP CHALLENGE", fs(24), Color.white, TextAnchor.MiddleCenter);
                 UiArt.Text(new Rect(0f, y + 42f * px, w, 22f * px), Won ? "won  ·  the Karambit | Velocity and its gloves are yours" + (Best > 0f ? "   ·   best " + Clock(Best) : "")
                     : "finish all 10 for the Karambit | Velocity and its matching gloves", fs(14), Won ? Gold : Cyan, TextAnchor.MiddleCenter);
-                UiArt.Text(new Rect(0f, y + 62f * px, w, 20f * px), stage == 1 ? "hop off the pad to start the clock" : "the stage 1 pad is at the end of the plaza", fs(12), Soft, TextAnchor.MiddleCenter);
+                UiArt.Text(new Rect(0f, y + 62f * px, w, 20f * px), stage == 1 ? "hop off the pad to start the clock" : "stage 1's pad is in the doorway at the end of the plaza", fs(12), Soft, TextAnchor.MiddleCenter);
                 if (carry) UiArt.Text(new Rect(0f, y + 82f * px, w, 22f * px), $"or press  C  to carry on from stage {Mathf.Min(Reached, StageCount)}", fs(14), Gold, TextAnchor.MiddleCenter);
             }
 

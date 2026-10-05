@@ -117,8 +117,7 @@ namespace VoidFlow
             if (Toggle(new Rect(x, y, tw, th), "SPEED LINES", GameSettings.SpeedLines, e, a)) GameSettings.SpeedLines = !GameSettings.SpeedLines;
             if (Toggle(new Rect(x + tw + 12f * px, y, tw, th), "SHOW FPS", GameSettings.ShowFps, e, a)) GameSettings.ShowFps = !GameSettings.ShowFps;
             y += th + 10f * px;
-            if (Toggle(new Rect(x, y, tw, th), "SHADOWS", GameSettings.Shadows, e, a)) GameSettings.Shadows = !GameSettings.Shadows;
-            if (Toggle(new Rect(x + tw + 12f * px, y, tw, th), "AMBIENT OCCLUSION", GameSettings.AmbientOcclusion, e, a)) GameSettings.AmbientOcclusion = !GameSettings.AmbientOcclusion;
+            if (Toggle(new Rect(x, y, iw, th), "SHADOWS", GameSettings.Shadows, e, a)) GameSettings.Shadows = !GameSettings.Shadows;
             y += th + 10f * px;
             var xr = new Rect(x, y, iw, th);
             bool overX = xr.Contains(mouse);
