@@ -213,7 +213,7 @@ namespace VoidFlow
             foreach (var k in kits)
             {
                 if (k == null) continue;
-                Add(k.ramp); Add(k.slab); Add(k.scenery); Add(k.glow); Add(k.glowAlt); Add(k.floor); Add(k.accent); Add(k.shaft); Add(k.pool); Add(k.skyPool);
+                Add(k.ramp); Add(k.slab); Add(k.scenery); Add(k.glow); Add(k.glowAlt); Add(k.floor); Add(k.ceiling); Add(k.accent); Add(k.shaft); Add(k.pool); Add(k.skyPool);
                 if (k.rampHues != null) foreach (var m in k.rampHues) Add(m);
                 if (k.glowHues != null) foreach (var m in k.glowHues) Add(m);
             }

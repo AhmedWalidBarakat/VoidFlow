@@ -341,6 +341,7 @@ namespace VoidFlow.EditorTools
                     glow = Save(BiomeKit.Glow(template, b.glow), "Glow"),
                     glowAlt = Save(BiomeKit.Glow(template, b.glowAlt), "GlowAlt"),
                     floor = Save(b.floor.a > 0f ? Lit(Paint(b.floor, b.floorSurface, WallTile(b.floorSurface)), b.floorSurface, b.glow * 0.5f) : Paint(b.slab, b.slabSurface, WallTile(b.slabSurface)), "Floor"),
+                    ceiling = b.ceiling.a > 0f ? Save(Lit(Paint(b.ceiling, b.ceilingSurface, WallTile(b.ceilingSurface)), b.ceilingSurface, b.glow * 0.5f), "Ceiling") : null,
                     accent = Save(b.accent.a > 0f ? Lit(Paint(b.accent, b.accentSurface, WallTile(b.accentSurface)), b.accentSurface, b.glow * 0.8f) : Paint(b.slab, b.scenerySurface, WallTile(b.scenerySurface)), "Accent"),
                     shaft = Save(LightMaterial(b.shaft.a > 0f ? b.shaft : b.glowAlt, shaftTex, 0.22f, 0.9f), "Shaft"),
                     pool = Save(LightMaterial(b.glow, poolTex, 0.5f, 1.4f), "Pool"),

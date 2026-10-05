@@ -427,7 +427,7 @@ namespace VoidFlow
         {
             var t = new GameObject(skin.name).transform;
             t.SetParent(parent, false);
-            var parts = new WeaponParts { root = t, model = skin.model, rarity = skin.rarity, hue = Skins.VoidHue(skin.asset) };
+            var parts = new WeaponParts { root = t, model = skin.model, rarity = skin.rarity, hue = Skins.HueOf(skin) };
             var prefab = Resources.Load<GameObject>($"VoidModels/{skin.asset}/fitted");
             if (!prefab) { Debug.LogWarning($"VoidFlow: model missing for {skin.name}"); return parts; }
             var model = Object.Instantiate(prefab, t, false);
@@ -441,6 +441,7 @@ namespace VoidFlow
                 twin.transform.SetLocalPositionAndRotation(new Vector3(0.03f, 0f, 0f), Quaternion.Euler(0f, 180f, -22f));
             }
             Vivid(model, skin.asset != null && skin.asset.Length >= 2 ? skin.asset.Substring(0, 2) : "");
+            if (skin.paint != null) KarambitPaints.Apply(model, skin.paint, m => { keep.Add(m); materials?.Add(m); });
             // Long swords shrunk to a knife's length go thin as needles: those are filled out
             // across the blade (and a little in thickness) toward a sword's proportions
             if (skin.model == KnifeModel.ModelBlade)
@@ -472,7 +473,7 @@ namespace VoidFlow
                 }
             }
             Transform karambitTip = Skins.IsKarambit(skin.asset) ? TalonFit(parts, model) : null;
-            if (!Skins.IsRifle(skin.model)) Outline(parts, model, Skins.VoidHue(skin.asset));
+            if (!Skins.IsRifle(skin.model)) Outline(parts, model, Skins.HueOf(skin));
             float top = 0f;
             foreach (var tr in model.GetComponentsInChildren<Transform>(true)) tr.gameObject.layer = layer;
             foreach (var r in model.GetComponentsInChildren<Renderer>(true))

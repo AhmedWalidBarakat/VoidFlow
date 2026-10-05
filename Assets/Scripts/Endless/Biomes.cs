@@ -47,6 +47,8 @@ namespace VoidFlow
         public Surface scenerySurface;
         public Color floor;               // the building's floor (clear: the slab color)
         public Surface floorSurface;
+        public Color ceiling;             // the halls' roofs (clear: the slab color)
+        public Surface ceilingSurface;
         public Color accent;              // raised wall panels (clear: the slab color)
         public Surface accentSurface;
         public Color shaft;               // light falling in through windows (clear: glowAlt)
@@ -159,6 +161,8 @@ namespace VoidFlow
                 scenery = new Color(0.78f, 0.7f, 0.95f), scenerySurface = Surface.WallBlocks, style = SceneryStyle.Candy,
                 accent = new Color(0.62f, 0.55f, 0.85f),
                 accentSurface = Surface.Plaster,
+                floor = new Color(0.46f, 0.38f, 0.66f), floorSurface = Surface.Tiles,
+                ceiling = new Color(0.86f, 0.8f, 0.98f), ceilingSurface = Surface.Plaster,
                 shaft = new Color(0.45f, 1f, 0.95f),
                 slabSurface = Surface.Plaster,
             },
@@ -821,6 +825,8 @@ namespace VoidFlow
                 ramp = new Color(1f, 1f, 1f), rampSurface = Surface.RampFruit, slab = new Color(0.35f, 0.55f, 0.15f), slabSurface = Surface.Plaster,
                 glow = new Color(0.8f, 0.3f, 1f), glowAlt = new Color(0.6f, 1f, 0.2f),
                 scenery = new Color(0.55f, 0.25f, 0.7f), scenerySurface = Surface.Tiles, style = SceneryStyle.Candy,
+                floor = new Color(0.32f, 0.15f, 0.4f), floorSurface = Surface.Tiles,
+                ceiling = new Color(0.72f, 0.55f, 0.82f), ceilingSurface = Surface.Plaster,
             },
             new Biome
             {
@@ -1566,7 +1572,7 @@ namespace VoidFlow
     [Serializable]
     public class BiomeKit
     {
-        public Material ramp, slab, scenery, glow, glowAlt, floor, accent, shaft, pool, skyPool;
+        public Material ramp, slab, scenery, glow, glowAlt, floor, ceiling, accent, shaft, pool, skyPool;
         public Material trim => glow;
         public Material[] rampHues, glowHues; // Spectrum: a ramp and a glow per hue
 

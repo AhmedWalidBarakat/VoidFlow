@@ -49,7 +49,7 @@ namespace VoidFlow
                 chainMetal = Make(new Color(0.16f, 0.16f, 0.18f), 0.8f, 0.9f);
                 Material glow = Make(Color.black, 0.2f, 0f);
                 glow.EnableKeyword("_EMISSION");
-                glow.SetColor("_EmissionColor", Skins.VoidHue(Skins.Knives[knifeSkin].asset) * 2f);
+                glow.SetColor("_EmissionColor", Skins.HueOf(Skins.Knives[knifeSkin]) * 2f);
                 materials.Add(glow);
                 for (int i = 0; i < ChainLinks; i++)
                 {

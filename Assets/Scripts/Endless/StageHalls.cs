@@ -177,6 +177,10 @@ namespace VoidFlow
         }
 
         public const float Margin = 95f, Headroom = 95f, Panel = 30f; // room for every line and speed, not just the designed one
+        // A floor carries on over a neighbouring hall's room only where none of that hall's
+        // course comes within this far across, and this far above it (ramps reach well below
+        // their riding lines)
+        const float FloorClearance = 70f, FloorHeadroom = 80f;
 
         // A stage's hall round its course points (riding lines and flights)
         public static Volume Plan(int stage, List<Vector3> points, float depth, bool openTop, BiomeKit kit)
@@ -213,9 +217,10 @@ namespace VoidFlow
             // by one would leave it in broken dashes where it meets a neighbouring hall
             int whole = 0; // 0 each face on its own, 1 keep, -1 leave out
             void Motif(Vector3 at) => whole = Outside(at) ? 1 : -1;
+            bool force = false; // (the floor carried on over a neighbour's room, and its cliffs: kept regardless)
             void Quad(Material m, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
             {
-                if (!m || whole < 0 || (whole == 0 && !Outside((a + b + c + d) * 0.25f))) return;
+                if (!m || whole < 0 || (whole == 0 && !force && !Outside((a + b + c + d) * 0.25f))) return;
                 if (!faces.TryGetValue(m, out var f)) faces[m] = f = (new List<Vector3>(), new List<Vector3>(), new List<int>());
                 Vector3 normal = Vector3.Cross(b - a, d - a).normalized;
                 foreach (float s in new[] { 1f, -1f })
@@ -235,7 +240,7 @@ namespace VoidFlow
                 Quad(m, p - up + off, q - up + off, q + up + off, p + up + off);
             }
 
-            Material wall = kit.scenery ? kit.scenery : kit.slab, floor = kit.floor ? kit.floor : kit.slab, ceiling = kit.slab ? kit.slab : wall;
+            Material wall = kit.scenery ? kit.scenery : kit.slab, floor = kit.floor ? kit.floor : kit.slab, ceiling = kit.ceiling ? kit.ceiling : kit.slab ? kit.slab : wall;
             // The hot zones' floors are a sea of lava, after cannonball's (falling in is a fall,
             // as any floor is)
             if (v.design is Design.Furnace or Design.Spikes && (kit.glowAlt || kit.glow)) floor = kit.glowAlt ? kit.glowAlt : kit.glow;
@@ -601,15 +606,36 @@ namespace VoidFlow
                     whole = 0;
                 }
 
-            // Floor and ceiling: a grid of panels over the outline
+            // Floor and ceiling: a grid of panels over the outline. Where the next hall runs into
+            // this one its floor lies far below this one's: this floor carries on over it
+            // wherever that hall's course passes well above (instead of opening a hole down into
+            // the dark), and where its course does need the room, the floor ends in a cliff
+            // dropping to the floor below, like a terrace
             float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
             foreach (var p in o) { minX = Mathf.Min(minX, p.x); maxX = Mathf.Max(maxX, p.x); minZ = Mathf.Min(minZ, p.y); maxZ = Mathf.Max(maxZ, p.y); }
+            var keptFloor = new Dictionary<Vector2Int, Rect>();
+            bool FloorStays(Vector3 at)
+            {
+                foreach (var n in neighbours)
+                {
+                    if (!n.Contains(at, 0.5f)) continue;
+                    if (n.course == null) return false;
+                    foreach (var q in n.course)
+                        if ((q.x - at.x) * (q.x - at.x) + (q.z - at.z) * (q.z - at.z) < FloorClearance * FloorClearance && q.y < at.y + FloorHeadroom) return false;
+                }
+                return true;
+            }
             for (float x = minX; x < maxX; x += Panel)
                 for (float z = minZ; z < maxZ; z += Panel)
                 {
                     float x1 = Mathf.Min(x + Panel, maxX), z1 = Mathf.Min(z + Panel, maxZ);
                     if (!Inside(o, new Vector2((x + x1) * 0.5f, (z + z1) * 0.5f))) continue;
+                    var cell = new Vector2Int(Mathf.RoundToInt((x - minX) / Panel), Mathf.RoundToInt((z - minZ) / Panel));
+                    bool stays = FloorStays(new Vector3((x + x1) * 0.5f, v.floor, (z + z1) * 0.5f));
+                    if (stays) keptFloor[cell] = Rect.MinMaxRect(x, z, x1, z1);
+                    force = stays;
                     Quad(floor, new Vector3(x, v.floor, z), new Vector3(x1, v.floor, z), new Vector3(x1, v.floor, z1), new Vector3(x, v.floor, z1));
+                    force = false;
                     if (!v.openTop)
                     {
                         int gx = Mathf.RoundToInt((x - minX) / Panel), gz = Mathf.RoundToInt((z - minZ) / Panel);
@@ -675,9 +701,32 @@ namespace VoidFlow
                             Box(trimA, new Vector3(x, v.ceiling - 2.75f, (z + z1) * 0.5f), new Vector3(3f, 5f, z1 - z), 0f); // (just under the roof, not in it)
                     }
                     // glowing grid lines on the floor every other panel
+                    force = keptFloor.ContainsKey(cell);
                     if (Mathf.RoundToInt((x - minX) / Panel) % 2 == 0)
                         Strip(kit.glow, new Vector3(x, v.floor, z), new Vector3(x, v.floor, z1), Vector3.up, 0.6f);
+                    force = false;
                 }
+
+            // The floor's edges over the room of a lower hall: a cliff down to that hall's floor,
+            // with a glowing lip, so a drop reads as a terrace and never as a hole into nothing
+            force = true;
+            foreach (var (cell, r) in keptFloor)
+                foreach (var d in new[] { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down })
+                {
+                    if (keptFloor.ContainsKey(cell + d)) continue;
+                    Vector3 dir = new(d.x, 0f, d.y);
+                    Vector3 mid = new(d.x > 0 ? r.xMax : d.x < 0 ? r.xMin : r.center.x, v.floor, d.y > 0 ? r.yMax : d.y < 0 ? r.yMin : r.center.y);
+                    Vector3 probe = mid + dir * 3f + Vector3.down * 4f;
+                    float bottom = float.MaxValue;
+                    foreach (var n in neighbours) if (n.Contains(probe, 0.5f)) bottom = Mathf.Min(bottom, n.floor);
+                    if (bottom == float.MaxValue) continue; // (this hall's own wall stands there)
+                    Vector3 side = new(d.y, 0f, d.x); // along the edge
+                    float half = d.x != 0 ? r.height * 0.5f : r.width * 0.5f;
+                    Vector3 a = mid - side * half, b = mid + side * half;
+                    Quad(wall, a, b, b.WithY(bottom), a.WithY(bottom));
+                    Strip(kit.glow, a + Vector3.down * 0.8f, b + Vector3.down * 0.8f, dir, 1.2f);
+                }
+            force = false;
 
             // Set dressing, a different mix in every hall, like a map's: pillars standing floor to
             // ceiling with bands of light, floating platforms and stacked blocks at all heights.

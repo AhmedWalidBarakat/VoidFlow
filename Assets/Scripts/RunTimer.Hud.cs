@@ -139,7 +139,7 @@ namespace VoidFlow
         {
             string[] lines =
             {
-                "WASD move   ·   SPACE jump (hold to bhop)   ·   T restart the stage   ·   R restart the run   ·   double tap SPACE noclip   ·   ESC settings",
+                "WASD move   ·   SPACE jump (hold to bhop)   ·   T restart the stage   ·   R restart the run   ·   double tap SPACE noclip   ·   TAB settings",
                 "1 sniper   ·   2 knife   ·   Q last weapon   ·   CLICK fire / slash   ·   RIGHT CLICK scope   ·   F inspect (hold to show off)   ·   E use   ·   I inventory   ·   M stages",
                 "On ramps: let go of W, hold A or D toward the ramp, and steer with the mouse",
             };
@@ -155,7 +155,7 @@ namespace VoidFlow
             "On a ramp, let go of W and hold A or D toward the ramp: steer with the mouse",
             "In the air, hold A or D and turn the mouse the same way to gain speed",
             "Hold SPACE to bhop: every jump on landing keeps your speed",
-            "Press ESC for settings: set your CS2 sensitivity and field of view",
+            "Press TAB for settings: set your CS2 sensitivity and field of view",
             "Beat your best time on a stage and its ghost will race you next time",
             "Hold F to show off a Void weapon, tap F for its inspect",
             "Collect Void Shards on the course to earn Void Cases (I to open your inventory)",

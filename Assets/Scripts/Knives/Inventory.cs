@@ -90,6 +90,15 @@ namespace VoidFlow
                     if (Skins.IsVoidKnife(Skins.Knives[i].asset) && !items.Exists(x => x.slot == ItemSlot.Secondary && x.index == i)) Add(ItemSlot.Secondary, i);
                 Save();
             }
+            // ...and of the karambit colourways, when they came out
+            const string KarambitGiftKey = "VoidFlow.gift.karambits";
+            if (!PlayerPrefs.HasKey(KarambitGiftKey))
+            {
+                PlayerPrefs.SetInt(KarambitGiftKey, 1);
+                for (int i = 0; i < Skins.Knives.Length; i++)
+                    if (Skins.Knives[i].paint != null && !items.Exists(x => x.slot == ItemSlot.Secondary && x.index == i)) Add(ItemSlot.Secondary, i);
+                Save();
+            }
         }
 
         static void Save()
@@ -151,6 +160,8 @@ namespace VoidFlow
         readonly List<int> hoverKeys = new();
         int tab, hovered = -1, hoveredSlot = -1, lastHovered = -1, equipId = -1, equipSlot = -1;
         float openTime, closeTime = -99f, scroll, scrollTarget, equipTime = -99f, lastToast = -99f, toastTime = -99f;
+        bool barDrag;   // the scrollbar's thumb is held
+        float barGrab;  // where on the thumb it was taken hold of
         string toast = "";
         Color toastColor = Color.white;
         CaseStation voidCaseOpener;
@@ -469,6 +480,27 @@ namespace VoidFlow
             }
             scrollTarget = Mathf.Clamp(scrollTarget, 0f, maxScroll);
 
+            // The scrollbar: drag its thumb, or click the track to jump there (a grab zone wider
+            // than the slim line it's drawn as)
+            float barH = Mathf.Max(30f, area.height * area.height / Mathf.Max(content, 1f));
+            float barY = area.y + (area.height - barH) * (maxScroll > 0f ? scroll / maxScroll : 0f);
+            var barZone = new Rect(area.xMax + 2f, area.y, 22f, area.height);
+            bool overBar = IsOpen && maxScroll > 1f && barZone.Contains(e.mousePosition);
+            if (e.rawType == EventType.MouseUp) barDrag = false;
+            if (e.type == EventType.MouseDown && e.button == 0 && overBar)
+            {
+                barDrag = true;
+                barGrab = e.mousePosition.y >= barY && e.mousePosition.y <= barY + barH ? e.mousePosition.y - barY : barH * 0.5f;
+                e.Use();
+            }
+            if (barDrag && maxScroll > 1f && (e.type == EventType.MouseDrag || e.type == EventType.Used))
+            {
+                float k = Mathf.Clamp01((e.mousePosition.y - barGrab - area.y) / Mathf.Max(1f, area.height - barH));
+                scroll = scrollTarget = k * maxScroll;
+                barY = area.y + (area.height - barH) * k;
+                if (e.type == EventType.MouseDrag) e.Use();
+            }
+
             int over = -1;
             GUI.BeginGroup(area);
             Vector2 mouse = e.mousePosition;
@@ -537,10 +569,9 @@ namespace VoidFlow
             if (scroll > 1f) GUI.DrawTextureWithTexCoords(new Rect(area.x, area.y, area.width, 20f), UiArt.Fade, new Rect(0f, 1f, 1f, -1f));
             if (maxScroll > 1f)
             {
-                float barH = Mathf.Max(30f, area.height * area.height / content);
-                float y = area.y + (area.height - barH) * (scroll / maxScroll);
-                UiArt.Rounded(new Rect(area.xMax + 10f, area.y, 4f, area.height), new Color(1f, 1f, 1f, 0.06f * fade), 2f);
-                UiArt.Rounded(new Rect(area.xMax + 10f, y, 4f, barH), new Color(0.7f, 0.4f, 1f, 0.9f * fade), 2f);
+                float bw = barDrag || overBar ? 8f : 4f; // (fuller under the mouse, so it reads as something to grab)
+                UiArt.Rounded(new Rect(area.xMax + 12f - bw * 0.5f, area.y, bw, area.height), new Color(1f, 1f, 1f, (barDrag || overBar ? 0.1f : 0.06f) * fade), bw * 0.5f);
+                UiArt.Rounded(new Rect(area.xMax + 12f - bw * 0.5f, barY, bw, barH), new Color(0.7f, 0.4f, 1f, (barDrag ? 1f : 0.9f) * fade), bw * 0.5f);
             }
             return over;
         }

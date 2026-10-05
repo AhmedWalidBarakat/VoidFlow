@@ -48,7 +48,6 @@ namespace VoidFlow.EditorTools
             new("10_shattered_crystal", Kind.Blade, 0.58f),
             new("11_demon_sword", Kind.Blade, 0.68f),
             new("12_soulsucker", Kind.Blade, 0.58f) { drop = new[] { "vfx" } },
-            new("13_primordial_lance", Kind.Blade, 0.6f) { drop = new[] { "gear" } },
             new("14_gradient_sword", Kind.Blade, 0.62f),
             new("15_cyber_blade", Kind.Blade, 0.58f),
             new("16_divine_reaper", Kind.Scythe, 0.85f) { grip = 0.3f },

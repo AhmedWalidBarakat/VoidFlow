@@ -67,22 +67,12 @@ namespace VoidFlow
             (0.22f, new Vector3(-0.06f, -0.05f, 0.03f), new Vector3(24f, -18f, 40f)),
             (0.4f, Vector3.zero, Vector3.zero),
         };
-        // A lance's long thrust: drawn back, driven far out, held, recovered
-        static readonly (float t, Vector3 pos, Vector3 rot)[] ThrustCut =
-        {
-            (0f, Vector3.zero, Vector3.zero),
-            (0.1f, new Vector3(0.02f, 0f, -0.07f), new Vector3(4f, 4f, 0f)),
-            (0.2f, new Vector3(-0.03f, 0.01f, 0.24f), new Vector3(-6f, -6f, 0f)),
-            (0.3f, new Vector3(-0.03f, 0.01f, 0.23f), new Vector3(-6f, -6f, 0f)),
-            (0.52f, Vector3.zero, Vector3.zero),
-        };
 
         static (float t, Vector3 pos, Vector3 rot)[][] SwordCombo => new[] { SweepCut, OverheadCut, RisingCut };
         static (float t, Vector3 pos, Vector3 rot)[][] ScytheCombo => new[] { ReapCut, OverheadCut };
         static (float t, Vector3 pos, Vector3 rot)[][] DaggerCombo => new[] { SlashKeys, StabCut, SlashKeys };
         static (float t, Vector3 pos, Vector3 rot)[][] KarambitCombo => new[] { HookCut, HookCut, StabCut };
         static (float t, Vector3 pos, Vector3 rot)[][] KunaiCombo => new[] { StabCut, SlashKeys, StabCut };
-        static (float t, Vector3 pos, Vector3 rot)[][] LanceCombo => new[] { ThrustCut, SweepCut };
         static (float t, Vector3 pos, Vector3 rot)[][] PlainCombo => new[] { SlashKeys };
 
         int comboStep;
@@ -100,7 +90,6 @@ namespace VoidFlow
                 KnifeModel.ModelDual => PlainCombo, // (one hand after the other, see PoseKnife)
                 _ => id switch
                 {
-                    "13" => LanceCombo,
                     "30" or "35" => KarambitCombo,
                     "32" => KunaiCombo,
                     "17" => DaggerCombo,

@@ -18,7 +18,6 @@ namespace VoidFlow
     //  - Shattered Crystal Sword: held up to the light, glinting, passed across to the left
     //  - Demon Sword: raised upright, the point lowered at you, one slow cut
     //  - Soulsucker: held close and still, breathing, the green light turned to you, let hang
-    //  - Lance of the Primordials: levelled and pushed out, raised against the sky, laid across
     //  - Gradient Fantasy Sword: flicked up into three cartwheels and caught, shown off
     //  - Cyber Blade: slid level across the eye so the light runs down the edge, one flick
     //  - Divine Reaper: raised so the crescent frames the view, turned, one slow sweep
@@ -70,7 +69,6 @@ namespace VoidFlow
                 "10" => CrystalPassRoutine(),
                 "11" => MenaceRoutine(),
                 "12" => SoulRoutine(),
-                "13" => SpearRoutine(),
                 "14" => CartwheelRoutine(),
                 "15" => EdgeRoutine(),
                 "16" => HaloRoutine(),
@@ -323,24 +321,6 @@ namespace VoidFlow
             return Done(ks, 1.55f, 0, 0f, (0.55f, WeaponSounds.Tick, 0.25f), (2.05f, WeaponSounds.Unsheathe, 0.2f), (2.9f, WeaponSounds.Tick, 0.45f));
         }
 
-        // Lance of the Primordials: levelled like a spear and pushed slowly out, then raised so the
-        // head stands against the sky, and laid across the view so its whole length shows
-        static Routine SpearRoutine()
-        {
-            Quaternion levelled = FB(-0.15f, 0.35f, 1f, 0.6f, 0.6f, -0.45f);
-            var ks = new List<Key>();
-            var k = IdleKey(false); ks.Add(k);
-            k = k.At(0.45f); k.rp = new(0.075f, -0.095f, 0.33f); k.rq = levelled; ks.Add(k);
-            k = k.At(1.05f); k.rp = new(0.065f, -0.09f, 0.42f); ks.Add(k);                                      // pushed out
-            k = k.At(1.35f); k.rp = new(0.075f, -0.095f, 0.33f); ks.Add(k);
-            k = Show(k, 1.95f, RaiseQ, RaiseAt); ks.Add(k);                                                     // the head against the sky
-            k = k.At(2.35f); k.rq = TurnQ(RaiseQ, 20f); ks.Add(k);
-            k = k.At(2.9f); k.rp = RaiseAt + new Vector3(0.02f, -0.02f, 0f); k.spin = LevelSpin; ks.Add(k);   // laid across
-            k = k.At(3.25f); ks.Add(k);
-            k = Home(k, 3.75f); k.spin = Vector3.zero; ks.Add(k);
-            return Done(ks, 1.05f, 0, 0f, (0.95f, WeaponSounds.Slash, 0.35f), (1.95f, WeaponSounds.Tick, 0.3f), (2.9f, WeaponSounds.Tick, 0.3f));
-        }
-
         // Cyber Blade: drawn level across the eye and slid slowly through the view so the light
         // runs down the edge, one sharp flick to clear it, and home
         static Routine EdgeRoutine()
@@ -549,7 +529,6 @@ namespace VoidFlow
                 case "10": return Unsheathe(-110f, -0.1f);
                 case "11": return Unsheathe(-150f, -0.14f);
                 case "12": return (new Vector3(0f, -0.07f, 0f) * rest, Quaternion.AngleAxis(Mathf.Sin(a * 14f) * 12f * rest, Vector3.forward) * Turn(Vector3.up, 270f), Mathf.SmoothStep(0.02f, 1f, a), burn); // rising out of the flames
-                case "13": return (new Vector3(0.02f, -0.02f, -0.16f) * rest, Turn(Vector3.forward, -30f), pop, burn * 0.3f);    // thrust in
                 case "14": return Unsheathe(-120f, -0.11f);
                 case "15":                                                                                                          // snapped out like a katana
                 {

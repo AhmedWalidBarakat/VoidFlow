@@ -45,6 +45,7 @@ namespace VoidFlow
             public readonly KnifeFinish finish;
             public readonly SkinRarity rarity;
             public readonly string asset, credit; // real-model Void weapons only
+            public readonly string paint;         // a colourway of the model (KarambitPaints), or null
 
             public Skin(string name, KnifeModel model, KnifeFinish finish, SkinRarity rarity)
             {
@@ -52,7 +53,7 @@ namespace VoidFlow
                 this.model = model;
                 this.finish = finish;
                 this.rarity = rarity;
-                asset = credit = null;
+                asset = credit = paint = null;
             }
 
             // A Void weapon made from a real model: Resources/VoidModels/<asset>/fitted, by <credit>
@@ -64,7 +65,11 @@ namespace VoidFlow
                 rarity = SkinRarity.Void;
                 this.asset = asset;
                 this.credit = credit;
+                paint = null;
             }
+
+            // A colourway of a real-model Void weapon: the same model, repainted
+            public Skin(string name, KnifeModel model, string asset, string credit, string paint) : this(name, model, asset, credit) => this.paint = paint;
         }
 
         public static bool IsRifle(KnifeModel m) => m is KnifeModel.ModelRifle or KnifeModel.Rifle or KnifeModel.Railgun or KnifeModel.Hellfire
@@ -78,7 +83,7 @@ namespace VoidFlow
             "01" => new Color(1f, 0.78f, 0.3f), "02" => new Color(1f, 0.15f, 0.2f), "03" => new Color(1f, 0.2f, 0.35f),
             "05" => new Color(0.95f, 0.12f, 0.18f), "06" => new Color(0.7f, 0.3f, 1f), "07" => new Color(1f, 0.6f, 0.2f),
             "08" => new Color(1f, 0.72f, 0.38f), "09" => new Color(0.3f, 1f, 0.6f), "10" => new Color(1f, 0.38f, 0.65f),
-            "11" => new Color(1f, 0.45f, 0.15f), "12" => new Color(0.3f, 1f, 0.7f), "13" => new Color(1f, 0.5f, 0.2f),
+            "11" => new Color(1f, 0.45f, 0.15f), "12" => new Color(0.3f, 1f, 0.7f),
             "14" => new Color(0.45f, 0.5f, 1f), "15" => new Color(0.3f, 0.9f, 1f), "16" => new Color(1f, 0.85f, 0.5f),
             "17" => new Color(0.3f, 0.6f, 1f), "18" => new Color(1f, 0.55f, 0.15f), "19" => new Color(0.6f, 0.8f, 1f),
             "21" => new Color(1f, 0.5f, 0.2f), "24" => new Color(0.3f, 0.8f, 1f), "26" => new Color(1f, 0.25f, 0.2f),
@@ -87,6 +92,9 @@ namespace VoidFlow
             "34" => new Color(0.3f, 1f, 0.7f), "35" => new Color(1f, 0.15f, 0.15f),
             _ => new Color(0.75f, 0.4f, 1f),
         };
+        // A skin's own colour: its colourway's, or its model's
+        public static Color HueOf(Skin skin) => KarambitPaints.Has(skin.paint) ? KarambitPaints.Hue(skin.paint) : VoidHue(skin.asset);
+
         // The Void karambits are held and spun like the talon knife (reverse grip, the finger ring
         // above the index finger)
         public static bool IsKarambit(string asset) => asset != null && (asset.StartsWith("30") || asset.StartsWith("35"));
@@ -279,7 +287,6 @@ namespace VoidFlow
             new("Shattered Crystal Sword", KnifeModel.ModelBlade, "10_shattered_crystal", "WizOfFab"),
             new("Demon Sword", KnifeModel.ModelBlade, "11_demon_sword", "kyrylyushkov"),
             new("Soulsucker", KnifeModel.ModelBlade, "12_soulsucker", "tuomaspaul"),
-            new("Lance of the Primordials", KnifeModel.ModelBlade, "13_primordial_lance", "vervoortward"),
             new("Gradient Fantasy Sword", KnifeModel.ModelBlade, "14_gradient_sword", "Mikolaj Michalak"),
             new("Cyber Blade", KnifeModel.ModelBlade, "15_cyber_blade", "jordanger88"),
             new("Divine Reaper", KnifeModel.ModelScythe, "16_divine_reaper", "amunozs"),
@@ -294,6 +301,13 @@ namespace VoidFlow
             new("Fel Whisper", KnifeModel.ModelBlade, "33_fel_whisper", "KodaWowo"),
             new("Tidal Crystal Dagger", KnifeModel.ModelBlade, "34_crystal_dagger", "Dekkaebi"),
             new("Crimson Karambit", KnifeModel.ModelBlade, "35_karambit_red", "AvnisT"),
+            // Karambit colourways (the Karambit Rubi repainted, see KarambitPaints)
+            new("Karambit | Blackout", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente", "blackout"),
+            new("Karambit | Whiteout", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente", "whiteout"),
+            new("Karambit | Sunset Fade", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente", "sunset"),
+            new("Karambit | Abyss Sapphire", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente", "sapphire"),
+            new("Karambit | Emerald Venom", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente", "emerald"),
+            new("Karambit | Fire & Ice", KnifeModel.ModelBlade, "30_karambit_rubi", "Diego Clemente", "fireice"),
         };
 
         public static readonly Skin[] Snipers =

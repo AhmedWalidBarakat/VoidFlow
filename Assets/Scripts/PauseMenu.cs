@@ -1,10 +1,13 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace VoidFlow
 {
-    // The settings, whenever the mouse is free (Esc, or before you first click in): a card over
-    // the dimmed game with CS2-style sensitivity, field of view, volume and the HUD's options,
-    // all kept in the browser. Click anywhere outside the card (or RESUME) to play.
+    // The settings, on TAB (and before you first click in): a card over the dimmed game with
+    // CS2-style sensitivity, field of view, 3D resolution, volume and the HUD's options, all kept
+    // in the browser. TAB again, RESUME or a click outside the card goes back to the game. Esc
+    // is left to the browser, which always lets go of the mouse with it: that only shows a small
+    // note to click back in.
     public class PauseMenu : MonoBehaviour
     {
         public static bool Showing { get; private set; }
@@ -15,6 +18,9 @@ namespace VoidFlow
         int dragging = -1;
         float shownAt;
         bool everLocked;
+        bool open;        // TAB brought the settings up
+        int openedFrame;
+        bool paused;      // the mouse was let go mid-game (Esc): just the note
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Begin()
@@ -28,18 +34,48 @@ namespace VoidFlow
         void Update()
         {
             bool locked = Cursor.lockState == CursorLockMode.Locked;
+            bool free = course && course.Ready && !Inventory.IsOpen && !StageMenu.IsOpen && !ViewModel.InputBlocked;
+            var kb = Keyboard.current;
+            if (free && kb != null && kb.tabKey.wasPressedThisFrame)
+            {
+                if (open) { open = false; Lock(); }
+                else
+                {
+                    open = true;
+                    openedFrame = Time.frameCount;
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                    locked = false;
+                }
+            }
+            // (clicked back into the game outside the card: the settings close)
+            if (open && locked && Time.frameCount > openedFrame + 1) open = false;
             if (locked) everLocked = true;
-            bool show = !locked && course && course.Ready && !Inventory.IsOpen && !StageMenu.IsOpen && !ViewModel.InputBlocked;
+            bool show = free && (open || (!locked && !everLocked));
             if (show && !Showing) shownAt = Time.unscaledTime;
             Showing = show;
+            paused = free && !show && !locked && everLocked;
             if (!show) { PointerOverCard = false; dragging = -1; }
         }
 
         void OnGUI()
         {
+            float w = Screen.width, h = Screen.height, px = Mathf.Clamp(h / 1080f, 0.6f, 2f);
+            if (paused)
+            {
+                // Esc let the mouse go: a note to click back in (the settings are on TAB)
+                GUI.depth = -20;
+                const string note = "PAUSED   ·   click to play   ·   TAB settings";
+                var style = UiArt.Style(Mathf.RoundToInt(16 * px), true, TextAnchor.MiddleCenter);
+                float nw = style.CalcSize(new GUIContent(note)).x + 48f * px;
+                var r = new Rect((w - nw) * 0.5f, h * 0.5f + 60f * px, nw, 40f * px);
+                UiArt.Rounded(r, new Color(0.05f, 0.04f, 0.09f, 0.85f), 20f * px);
+                UiArt.Rounded(new Rect(r.x, r.y, r.width, r.height), new Color(0.72f, 0.42f, 1f, 0.9f), 20f * px, 1.5f * px);
+                UiArt.Text(r, note, Mathf.RoundToInt(16 * px), Color.white, TextAnchor.MiddleCenter);
+                return;
+            }
             if (!Showing) return;
             GUI.depth = -20;
-            float w = Screen.width, h = Screen.height, px = Mathf.Clamp(h / 1080f, 0.6f, 2f);
             float a = Mathf.Clamp01((Time.unscaledTime - shownAt) * 6f);
             var e = Event.current;
             Vector2 mouse = e.mousePosition;
@@ -54,7 +90,7 @@ namespace VoidFlow
             float x = card.x + 32f * px, iw = card.width - 64f * px, y = card.y + 24f * px;
             UiArt.Text(new Rect(x, y, iw, 54f * px), "VOIDFLOW", Mathf.RoundToInt(44 * px), new Color(1f, 1f, 1f, a), TextAnchor.MiddleCenter);
             y += 52f * px;
-            UiArt.Text(new Rect(x, y, iw, 22f * px), everLocked ? "PAUSED" : "CLICK ANYWHERE TO PLAY", Mathf.RoundToInt(13 * px), new Color(0.78f, 0.62f, 1f, a), TextAnchor.MiddleCenter);
+            UiArt.Text(new Rect(x, y, iw, 22f * px), everLocked ? "SETTINGS" : "CLICK ANYWHERE TO PLAY", Mathf.RoundToInt(13 * px), new Color(0.78f, 0.62f, 1f, a), TextAnchor.MiddleCenter);
             y += 40f * px;
 
             float row = 44f * px;
@@ -93,8 +129,8 @@ namespace VoidFlow
             bool overR = resume.Contains(mouse);
             UiArt.Rounded(resume, new Color(0.72f, 0.42f, 1f, (overR ? 1f : 0.85f) * a), 23f * px);
             UiArt.Text(resume, everLocked ? "RESUME" : "PLAY", Mathf.RoundToInt(17 * px), new Color(1f, 1f, 1f, a), TextAnchor.MiddleCenter);
-            if (overR && e.type == EventType.MouseDown && e.button == 0) { PointerOverCard = false; Lock(); e.Use(); }
-            UiArt.Text(new Rect(card.x, card.yMax - 34f * px, card.width, 22f * px), "click outside this card to play   ·   ESC to come back here", Mathf.RoundToInt(11 * px), new Color(1f, 1f, 1f, 0.5f * a), TextAnchor.MiddleCenter);
+            if (overR && e.type == EventType.MouseDown && e.button == 0) { PointerOverCard = false; open = false; Lock(); e.Use(); }
+            UiArt.Text(new Rect(card.x, card.yMax - 34f * px, card.width, 22f * px), "click outside this card to play   ·   TAB opens and closes the settings", Mathf.RoundToInt(11 * px), new Color(1f, 1f, 1f, 0.5f * a), TextAnchor.MiddleCenter);
         }
 
         static void Lock()
